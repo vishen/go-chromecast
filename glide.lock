@@ -1,0 +1,31 @@
+hash: ffaafa2ca70bcc1bdebaff5fa24a7eba5389e85ceb7d735b04bc4b62168c40bf
+updated: 2017-10-31T10:50:34.177433088Z
+imports:
+- name: github.com/barnybug/go-cast
+  version: 3896d2c05eb1917a4d0356a014b8823ea0244d8b
+  subpackages:
+  - api
+- name: github.com/buger/jsonparser
+  version: 42b84a5caf12249d724445a0be7df0272f30b9a9
+- name: github.com/gogo/protobuf
+  version: 117892bf1866fbaa2318c03e50e40564c8845457
+  subpackages:
+  - proto
+- name: github.com/micro/mdns
+  version: cdf30746f9f70dc7a366d3d885792a092fd83102
+- name: github.com/miekg/dns
+  version: 946bd9fbed05568b0f3cd188353d8aa28f38b688
+  subpackages:
+  - internal/socket
+- name: github.com/urfave/cli
+  version: 7f4b273a05858e05b96b6adf0a7907b7b695c352
+- name: golang.org/x/net
+  version: 5f8847ae0d0e90b6a9dc8148e7ad616874625171
+  subpackages:
+  - bpf
+  - context
+  - internal/iana
+  - internal/socket
+  - ipv4
+  - ipv6
+testImports: []

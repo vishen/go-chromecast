@@ -1,0 +1,11 @@
+package: github.com/vishen/go-chromecast
+import:
+- package: github.com/barnybug/go-cast
+  subpackages:
+  - api
+- package: github.com/buger/jsonparser
+- package: github.com/gogo/protobuf
+  subpackages:
+  - proto
+- package: github.com/micro/mdns
+- package: github.com/urfave/cli
