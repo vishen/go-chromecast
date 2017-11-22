@@ -56,14 +56,12 @@ $ ./chromecast repl                 # Starts an interactive session
 
 ## TODO
 ```
-- Cache the dns result of the chromecast
-- Store any loaded media that have been played
-- Allow only the known media types that the chromecast default media type supports
-- Allow mp4 urls to be loaded
-- See if the queue next track works?
-- Is it possible to convert avi and / or mkv files on the fly to mp4 (or one of the supported formats)?
+- add sorting to playlist order
 - Fix logging / debug information
 - Add exploratory repl commands to try different things on the media and default connections
+- Cache the dns result of the chromecast
+- Store any loaded media that have been played
+- Is it possible to convert avi and / or mkv files on the fly to mp4 (or one of the supported formats)?
 ```
 
 ## Resources
@@ -72,4 +70,6 @@ $ ./chromecast repl                 # Starts an interactive session
 - https://github.com/dhowden/tag
 - https://github.com/balloob/pychromecast
 - https://developers.google.com/cast/docs/reference/receiver/cast.receiver.media
+- https://creativcoders.wordpress.com/2014/12/12/stream-live-mp4-video-with-ffmpeg-while-encoding/
+- https://rigor.com/blog/2016/01/optimizing-mp4-video-for-fast-streaming
 ```
