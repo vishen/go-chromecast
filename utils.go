@@ -3,7 +3,22 @@ package main
 import (
 	"fmt"
 	"net"
+	"path"
 )
+
+func getLikelyContentType(filename string) (string, error) {
+	// TODO(vishen): Inspect the file for known headers?
+	// Currently we just check the file extension
+
+	switch ext := path.Ext(filename); ext {
+	case ".mp4", ".m4a", ".m4p", ".MP4":
+		return "video/mp4", nil
+	case ".webm":
+		return "video/webm", nil
+	default:
+		return "", fmt.Errorf("Unknown file extension '%s'", ext)
+	}
+}
 
 func getLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()

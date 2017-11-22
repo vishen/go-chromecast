@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -182,11 +183,57 @@ func main() {
 			After:  shutdown,
 		},
 		{
+			Name:  "playlist",
+			Usage: "loads a playlist and plays the media",
+			Action: func(c *cli.Context) error {
+				folder := c.Args().Get(0)
+				files, err := ioutil.ReadDir(folder)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				playlist := make([]string, 0, len(files))
+
+				for _, file := range files {
+					if _, err := getLikelyContentType(file.Name()); err == nil {
+						playlist = append(playlist, file.Name())
+					}
+				}
+
+				fmt.Printf("Found '%d' valid media files and will play in the following order\n", len(playlist))
+				for i, filename := range playlist {
+					fmt.Printf("%d) %s\n", i, filename)
+				}
+
+				// TODO(vishen): Should ask if this is playlist order is alright
+				// TODO(vishen): Allow for different ordering?
+				for _, filename := range playlist {
+					contentType, _ := getLikelyContentType(filename)
+					fmt.Printf("Playing '%s'\n", filename)
+					err := castApplication.PlayMedia(folder+filename, contentType)
+					fmt.Printf("error: %v\n", err)
+				}
+				return nil
+
+			},
+			Before: initialise,
+			After:  shutdown,
+		},
+		{
 			Name:  "load",
 			Usage: "load a mp4 media to play",
 			Action: func(c *cli.Context) error {
-				castApplication.PlayMedia(c.Args().First())
-				return nil
+				filenameOrUrl := c.Args().Get(0)
+				contentType := c.Args().Get(1)
+				if contentType == "" {
+					var err error
+					contentType, err = getLikelyContentType(filenameOrUrl)
+					if err != nil {
+						log.Printf("Unable to find content type: %s", err)
+						return err
+					}
+				}
+				return castApplication.PlayMedia(filenameOrUrl, contentType)
 			},
 			Before: initialise,
 			After:  shutdown,

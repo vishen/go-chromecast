@@ -1,12 +1,11 @@
 # Chromecast
-This implements a basic number of the google chromecast commands. Can play / load a local mp4 media file on your chromecast. Currently the chromecast default media receiver only supports the following formats:
+This implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them, if it is a known media type, on at a time
+
+Can play / load a local mp4 media file on your chromecast. Currently the chromecast default media receiver only supports the following formats:
 
 ```
 Supported Media formats:
-    - AAC
-    - MP3
     - MP4
-    - WAV
     - WebM
 ```
 
@@ -22,15 +21,16 @@ VERSION:
    0.0.1
 
 COMMANDS:
-     status   current status of the chromecast
-     pause    pause current media
-     unpause  unpause current media
-     reset    reset the current playing media
-     end      go to end of current playing media
-     seek     seek to a delta in the current playing media
-     load     load a mp4 media to play
-     repl     repl for running commands
-     help, h  Shows a list of commands or help for one command
+     status    current status of the chromecast
+     pause     pause current media
+     unpause   unpause current media
+     reset     reset the current playing media
+     end       go to end of current playing media
+     seek      seek to a delta in the current playing media
+     playlist  loads a playlist and plays the media
+     load      load a mp4 media to play
+     repl      repl for running commands
+     help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --debug, -d    log debug information
@@ -48,6 +48,9 @@ $ ./chromecast reset                # Resets the current chromecast application 
 $ ./chromecast end                  # Ends the current chromecast application
 $ ./chromecast seek <int>           # Seeks to a playing time in the current chromecast application
 $ ./chromecast load <filename.mp4>  # Loads an mp4 media file to play on the chromecast application (only mp4 supported)
+$ ./chromecast load <filename> mp4  # Loads an mp4 media file with content type 'mp4' to play on the chromecast application
+$ ./chromecast load <url> mp4       # The chromecast will play this media file from the url
+$ ./chromecast playlist <folder>    # This will loop through all the files in a folder and play them one-by-one
 $ ./chromecast repl                 # Starts an interactive session
 ```
 
