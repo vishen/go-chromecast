@@ -334,7 +334,7 @@ func (ca *CastApplication) PlayMedia(filenameOrUrl, contentType string) error {
 	// Send the command to the chromecast
 	ca.mediaRecv.Send(&LoadMediaCommand{
 		PayloadHeader: loadHeader,
-		CurrentTime:   1240,
+		CurrentTime:   0,
 		Autoplay:      true,
 		Media: MediaItem{
 			ContentId:   contentUrl,
