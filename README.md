@@ -5,6 +5,7 @@ Can play / load a local mp4 media file on your chromecast. Currently the chromec
 
 ```
 Supported Media formats:
+    - MKV
     - MP4
     - WebM
 ```
@@ -41,31 +42,37 @@ GLOBAL OPTIONS:
 ### Examples
 ```
 $ make build
-$ ./chromecast status               # Shows the status of the chromecast
-$ ./chromecast pause                # Pauses the current chromecast application
-$ ./chromecast unpause              # Unpauses the current chromecast application
-$ ./chromecast reset                # Resets the current chromecast application to the beginning
-$ ./chromecast end                  # Ends the current chromecast application
-$ ./chromecast seek <int>           # Seeks to a playing time in the current chromecast application
-$ ./chromecast load <filename.mp4>  # Loads an mp4 media file to play on the chromecast application (only mp4 supported)
-$ ./chromecast load <filename> mp4  # Loads an mp4 media file with content type 'mp4' to play on the chromecast application
-$ ./chromecast load <url> mp4       # The chromecast will play this media file from the url
-$ ./chromecast playlist <folder>    # This will loop through all the files in a folder and play them one-by-one
-$ ./chromecast repl                 # Starts an interactive session
+$ ./chromecast status                       # Shows the status of the chromecast
+$ ./chromecast pause                        # Pauses the current chromecast application
+$ ./chromecast unpause                      # Unpauses the current chromecast application
+$ ./chromecast reset                        # Resets the current chromecast application to the beginning
+$ ./chromecast end                          # Ends the current chromecast application
+$ ./chromecast seek <int>                   # Seeks to a playing time in the current chromecast application
+$ ./chromecast load <filename.mp4>          # Loads a media file to play on the chromecast application
+$ ./chromecast load <filename> video/mp4    # Loads a media file with content type 'mp4' to play on the chromecast application
+$ ./chromecast load <url> video/mp4         # The chromecast will play this media file from the url
+$ ./chromecast playlist <folder>            # This will loop through all the files in a folder and play them one-by-one
+$ ./chromecast repl                         # Starts an interactive session
 ```
 
 ## TODO
 ```
+- Try: video/avi and video/msvideo for avi files - https://github.com/xat/castnow/blob/master/plugins/transcode.js
+- Add bindings to convert a folders media files to mp4 via ffmpeg, and when first one is done start playing?
+- Add flag to go into interactive mode after running command
+- Add metadata to loaded media
 - add sorting to playlist order
 - Fix logging / debug information
 - Add exploratory repl commands to try different things on the media and default connections
 - Cache the dns result of the chromecast
 - Store any loaded media that have been played
-- Is it possible to convert avi and / or mkv files on the fly to mp4 (or one of the supported formats)?
+- Is it possible to convert avi files on the fly to mp4 or mkv (or one of the supported formats)?
 ```
 
 ## Resources
 ```
+- https://github.com/xat/castnow
+- https://github.com/trenskow/stream-transcoder.js/blob/master/lib/transcoder.js
 - https://github.com/heartszhang/mp4box
 - https://github.com/dhowden/tag
 - https://github.com/balloob/pychromecast

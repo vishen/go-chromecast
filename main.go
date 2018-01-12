@@ -21,9 +21,12 @@ var (
 )
 
 func initialise(ctx *cli.Context) error {
+	log.Println("Initalising")
 	castConn := NewCastConnection()
+	log.Println("Got cast connection")
 	castConn.debug = ctx.GlobalBool("debug")
 	castConn.connect()
+	log.Println("Finished connecting")
 	go castConn.receiveLoop()
 
 	castApplication = NewCastApplication(castConn)
@@ -104,6 +107,7 @@ func repl(c *cli.Context) error {
 }
 
 func main() {
+	log.Println("Starting new app")
 	app := cli.NewApp()
 	app.Version = version
 	app.Name = "Chromecast"
@@ -207,6 +211,8 @@ func main() {
 
 				// TODO(vishen): Should ask if this is playlist order is alright
 				// TODO(vishen): Allow for different ordering?
+				// TODO(vishen): When we have finished the playlist, we should
+				//		check to see if there is any new media added
 				for _, filename := range playlist {
 					contentType, _ := getLikelyContentType(filename)
 					fmt.Printf("Playing '%s'\n", filename)
@@ -221,19 +227,67 @@ func main() {
 		},
 		{
 			Name:  "load",
-			Usage: "load a mp4 media to play",
+			Usage: "load media to play",
 			Action: func(c *cli.Context) error {
 				filenameOrUrl := c.Args().Get(0)
 				contentType := c.Args().Get(1)
+				fmt.Println(filenameOrUrl, contentType)
 				if contentType == "" {
 					var err error
 					contentType, err = getLikelyContentType(filenameOrUrl)
 					if err != nil {
 						log.Printf("Unable to find content type: %s", err)
-						return err
+						return nil
+						/*
+							// https://github.com/pkg4go/httprange
+							// https://stackoverflow.com/questions/3303029/http-range-header
+
+
+							// From the stdout of the below command
+							//	Duration: 00:21:32.76
+							//
+
+							// Start transcoding ffmpeg to a file, and attempt to get the server to
+							// serve the file as it is transcoding
+
+							tmpDir, err := ioutil.TempDir("", "chromecast")
+							if err != nil {
+								log.Fatal(err)
+							}
+							defer os.RemoveAll(tmpDir) // ??
+							writeFilepath := filepath.Join(tmpDir, fmt.Sprintf("test-%d.mp4", time.Now().Unix()))
+
+							cmd := exec.Command(
+								"ffmpeg",
+								"-i", filenameOrUrl,
+								"-vcodec", "h264",
+								"-f", "mp4",
+								"-movflags", "frag_keyframe+faststart",
+								"-strict", "-experimental",
+								writeFilepath,
+								// "pipe:1", // This will pipe it to stdout
+							)
+
+							fmt.Printf("Starting transcoding\n")
+							if err := cmd.Run(); err != nil {
+								log.Fatal(err)
+							}
+							fmt.Println("finished transcoding")
+
+							filenameOrUrl = writeFilepath
+							contentType = "video/mp4"
+
+							time.Sleep(time.Second * 10)
+						*/
+
+						//return err
 					}
 				}
-				return castApplication.PlayMedia(filenameOrUrl, contentType)
+				fmt.Println(filenameOrUrl, contentType)
+				if err := castApplication.PlayMedia(filenameOrUrl, contentType); err != nil {
+					fmt.Printf("Error: %s\n", err)
+				}
+				return nil
 			},
 			Before: initialise,
 			After:  shutdown,

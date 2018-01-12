@@ -42,8 +42,10 @@ type CastConnection struct {
 
 func NewCastConnection() *CastConnection {
 
+	log.Println("Getting dns entry")
 	// Find the dns entry for the chromecast
 	entry := getCastEntry()
+	log.Println("Got dns entry")
 
 	infoFields := make(map[string]string, len(entry.InfoFields))
 	for _, infoField := range entry.InfoFields {

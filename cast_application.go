@@ -209,6 +209,22 @@ func (ca *CastApplication) CanUseContentType(contentType string) bool {
 	return false
 }
 
+func (ca *CastApplication) writeRangeRequest() {
+	/*
+				method=GET, headers=map[Connection:[keep-alive] Accept-Encoding:[identity;q=1, *;q=0] Chrome-Proxy:[frfr] Accept-Language:[en-GB,en-US;q=0.9,en;q=0.8] Cast-Device-Capabilities:[{"bluetooth_supported":true,"display_supported":true,"hi_res_audio_supported":false}] User-Agent:[Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.17 Safari/537.36 CrKey/1.28.100555] Range:[bytes=0-]], reponse_headers=map[Last-Modified:[Wed, 22 Nov 2017 21:07:07 GMT] Content-Type:[video/mp4] Content-Range:[bytes 0-101896823/101896824] Accept-Ranges:[bytes] Content-Length:[101896824]]
+
+
+		method=GET, headers=map[Range:[bytes=101023744-]  Cast-Device-Capabilities:[{"bluetooth_supported":true,"display_supported":true,"hi_res_audio_supported":false}] Connection:[keep-alive] User-Agent:[Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.17 Safari/537.36 CrKey/1.28.100555] Accept-Encoding:[identity;q=1, *;q=0] Accept-Language:[en-GB,en-US;q=0.9,en;q=0.8]], reponse_headers=map[Last-Modified:[Wed, 22 Nov 2017 21:07:07 GMT] Content-Type:[video/mp4] Content-Range:[bytes 101023744-101896823/101896824] Accept-Ranges:[bytes] Content-Length:[873080]]
+
+
+
+		method=GET, headers=map[Connection:[keep-alive] Accept-Encoding:[identity;q=1, *;q=0] Range:[bytes=131072-] Accept-Language:[en-GB,en-US;q=0.9,en;q=0.8] Cast-Device-Capabilities:[{"bluetooth_supported":true,"display_supported":true,"hi_res_audio_supported":false}] User-Agent:[Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.17 Safari/537.36 CrKey/1.28.100555]], reponse_headers=map[Last-Modified:[Wed, 22 Nov 2017 21:07:07 GMT] Content-Type:[video/mp4] Content-Range:[bytes 131072-101896823/101896824] Accept-Ranges:[bytes] Content-Length:[101765752]]
+
+		// https://github.com/pkg4go/httprange
+		// https://stackoverflow.com/questions/3303029/http-range-header
+	*/
+}
+
 func (ca *CastApplication) startServer() {
 	if ca.httpServer != nil {
 		return
@@ -218,7 +234,6 @@ func (ca *CastApplication) startServer() {
 	ca.httpServer = &http.Server{Addr: "0.0.0.0" + port}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("Handling http request\n")
 		filename := r.URL.Query().Get("media_file")
 
 		canServe := false
@@ -228,11 +243,18 @@ func (ca *CastApplication) startServer() {
 			}
 		}
 
+		// mime.TypeByExtension(filepath.Ext(name))
+		// ctype = DetectContentType(buf[:n])
+		// w.Header().Set("Content-Type", ctype)
+		// http.ServeContent(w, r, "video.mp4", time.Now(), pipedSeekerø)
+
 		if canServe {
 			http.ServeFile(w, r, filename)
 		} else {
 			http.Error(w, "Invalid file", 400)
 		}
+
+		fmt.Printf("method=%s, headers=%v, reponse_headers=%v\n", r.Method, r.Header, w.Header())
 
 	})
 
@@ -242,6 +264,14 @@ func (ca *CastApplication) startServer() {
 			log.Fatal(err)
 		}
 	}()
+
+	/*
+
+		TODO(vishen): 	if the media application id changes, the media should act as finished
+
+		receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":505942120,"status":{"applications":[{"appId":"233637DE","displayName":"YouTube","isIdleScreen":false,"launchedFromCloud":false,"namespaces":[{"name":"urn:x-cast:com.google.cast.debugoverlay"},{"name":"urn:x-cast:com.google.cast.cac"},{"name":"urn:x-cast:com.google.cast.media"},{"name":"urn:x-cast:com.google.youtube.mdx"}],"sessionId":"89efac28-6d0c-420f-9c78-39175dbcae84","statusText":"YouTube","transportId":"89efac28-6d0c-420f-9c78-39175dbcae84"}],"volume":{"controlType":"attenuation","level":1.0,"muted":false,"stepInterval":0.05000000074505806}},"type":"RECEIVER_STATUS"}
+
+	*/
 
 	// Add a message handler to listen for any messages received that would indicate that
 	// the media has finished
