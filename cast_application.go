@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/buger/jsonparser"
 	"github.com/vishen/go-chromecast/api"
@@ -239,6 +240,7 @@ func (ca *CastApplication) startServer() {
 			liveStreaming = true
 		}
 
+		fmt.Printf("canServe=%t, liveStreaming=%t, filename=%s\n", canServe, liveStreaming, filename)
 		if canServe {
 			if !liveStreaming {
 				http.ServeFile(w, r, filename)
@@ -248,7 +250,6 @@ func (ca *CastApplication) startServer() {
 		} else {
 			http.Error(w, "Invalid file", 400)
 		}
-
 		fmt.Printf("method=%s, headers=%v, reponse_headers=%v\n", r.Method, r.Header, w.Header())
 
 	})
@@ -310,12 +311,14 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 
 func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
 
+	fmt.Println("Serving live streaming media...")
 	// TODO(vishen): Copied from net/http/fs.go:serveFile; Probably doesn't need to
 	// be this reslient?
 	f, err := os.Open(filename)
 	if err != nil {
 		msg, code := toHTTPError(err)
 		http.Error(w, msg, code)
+		fmt.Printf("[error] cannot open file: %s\n", err)
 		return
 	}
 	defer f.Close()
@@ -324,6 +327,7 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		msg, code := toHTTPError(err)
 		http.Error(w, msg, code)
+		fmt.Printf("[error] cannot stat file: %s\n", err)
 		return
 	}
 
@@ -332,11 +336,9 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 
 	fmt.Printf("filename=%s, currentSize=%d, modTime=%s\n", filename, currentSize, modTime)
 
-	var sendContent io.Reader = f
-
 	// Set the response header content type if we can determine it
 	var contentType string
-	contentTypes, haveType := w.Header()["Content-Type"]
+	contentTypes, haveType := r.Header["Content-Type"]
 	if !haveType {
 		contentType = mime.TypeByExtension(filepath.Ext(filename))
 	} else {
@@ -360,22 +362,36 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentFileSize, finalFileSize))
 
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.WriteHeader(http.StatusPartialContent)
+	w.Header().Set("Last-Modified", modTime.UTC().Format(http.TimeFormat))
 
-	rangesString := w.Header()["Range"]
+	rangesString := r.Header["Range"]
+	// TODO(vishen): This panics when no ranges
 	startRange, _, err := parseRange(rangesString[0])
 	if err != nil {
-		fmt.Printf("[error] Parse ranges error: %s", err)
+		fmt.Printf("[error] Parse ranges error for '%s': %s", rangesString[0], err)
 		toHTTPError(err)
 		return
 	}
 
 	// TODO(vishen): This doesn't handle when a file has finished transcoding!!!!
 
-	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize))
+	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize))
+	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentSize, currentSize))
+	w.Header().Set("Content-Length", strconv.FormatInt(currentSize-startRange, 10))
 
 	if r.Method != "HEAD" {
-		io.CopyN(w, sendContent, currentSize)
+		if _, err := f.Seek(startRange, io.SeekStart); err != nil {
+			http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
+			fmt.Printf("[errpr] Unable to seek in file: %s\n", err)
+			return
+		}
+		w.WriteHeader(http.StatusPartialContent)
+		var sendContent io.Reader = f
+		if n, err := io.Copy(w, sendContent, currentSize); err != nil {
+			fmt.Printf("[error] could not copy %d bytes to 'w' (%d copied): %s\n", currentSize, n, err)
+			return
+		}
+		fmt.Println("Copied media content")
 	}
 }
 
@@ -453,6 +469,8 @@ func (ca *CastApplication) PlayMedia(filenameOrUrl, contentType string, liveStre
 
 	// Wait until we have been notified that the media has finished playing
 	<-ca.playMediaFinished
+
+	fmt.Println("Finished media")
 
 	return nil
 

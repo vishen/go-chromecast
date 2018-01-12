@@ -38,9 +38,11 @@ func parseRange(s string) (int64, int64, error) {
 				return 0, 0, errors.New("invalid range")
 			}
 
-			rangeEnd, err = strconv.ParseInt(end, 10, 64)
-			if err != nil || rangeStart > rangeEnd {
-				return 0, 0, errors.New("invalid range")
+			if end != "" {
+				rangeEnd, err = strconv.ParseInt(end, 10, 64)
+				if err != nil || rangeStart > rangeEnd {
+					return 0, 0, errors.New("invalid range")
+				}
 			}
 		}
 	}

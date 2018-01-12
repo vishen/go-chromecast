@@ -235,7 +235,7 @@ func main() {
 			Action: func(c *cli.Context) error {
 				filenameOrUrl := c.Args().Get(0)
 				contentType := c.Args().Get(1)
-				trancodingVideo := false
+				transcodingVideo := false
 				fmt.Println(filenameOrUrl, contentType)
 
 				if contentType == "" {
@@ -245,7 +245,7 @@ func main() {
 						log.Printf("Unable to find content type: %s", err)
 
 						// For now only allow .avi files to be transcoded to .mp4
-						if ext := path.Ext(filename); ext != ".avi" {
+						if ext := path.Ext(filenameOrUrl); ext != ".avi" {
 							log.Printf("Not able to transcode '%s' files to mp4\n", ext)
 							return nil
 						}
@@ -258,7 +258,7 @@ func main() {
 						}
 						defer os.RemoveAll(tmpDir)
 
-						writeFilepath := filepath.Join(tmpDir, fmt.Sprintf("%d-%d.mp4", filenameOrUrl, time.Now().Unix()))
+						writeFilepath := filepath.Join(tmpDir, fmt.Sprintf("%s-%d.mp4", "holder", time.Now().Unix()))
 						cmd := exec.Command(
 							"ffmpeg",
 							"-i", filenameOrUrl,
@@ -270,6 +270,9 @@ func main() {
 						)
 
 						fmt.Printf("Starting transcoding\n")
+						// TODO(vishen): Need some way for stopping this when program quits; current
+						// it will just keep running in the background
+						// https://stackoverflow.com/questions/11886531/terminating-a-process-started-with-os-exec-in-golang
 						if err := cmd.Start(); err != nil {
 							log.Fatal(err)
 						}
@@ -285,6 +288,7 @@ func main() {
 					}
 				}
 				fmt.Println(filenameOrUrl, contentType)
+				transcodingVideo = true
 				if err := castApplication.PlayMedia(filenameOrUrl, contentType, transcodingVideo); err != nil {
 					fmt.Printf("Error: %s\n", err)
 				}
