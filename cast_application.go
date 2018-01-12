@@ -314,7 +314,9 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 	fmt.Println("Serving live streaming media...")
 	// TODO(vishen): Copied from net/http/fs.go:serveFile; Probably doesn't need to
 	// be this reslient?
-	f, err := os.Open(filename)
+	dir, file := filepath.Split(filename)
+	fs := http.Dir(dir)
+	f, err := fs.Open(file)
 	if err != nil {
 		msg, code := toHTTPError(err)
 		http.Error(w, msg, code)
@@ -377,7 +379,9 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 
 	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize))
 	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentSize, currentSize))
-	w.Header().Set("Content-Length", strconv.FormatInt(currentSize-startRange, 10))
+
+	toWrite := currentSize - startRange
+	w.Header().Set("Content-Length", strconv.FormatInt(toWrite, 10))
 
 	if r.Method != "HEAD" {
 		if _, err := f.Seek(startRange, io.SeekStart); err != nil {
@@ -387,7 +391,7 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 		}
 		// w.WriteHeader(http.StatusPartialContent)
 		var sendContent io.Reader = f
-		if n, err := io.CopyN(w, sendContent, currentSize); err != nil {
+		if n, err := io.CopyN(w, sendContent, toWrite); err != nil {
 			fmt.Printf("[error] could not copy %d bytes to 'w' (%d copied): %s\n", currentSize, n, err)
 			return
 		}
