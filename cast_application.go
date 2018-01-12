@@ -385,9 +385,9 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 			fmt.Printf("[errpr] Unable to seek in file: %s\n", err)
 			return
 		}
-		w.WriteHeader(http.StatusPartialContent)
+		// w.WriteHeader(http.StatusPartialContent)
 		var sendContent io.Reader = f
-		if n, err := io.Copy(w, sendContent, currentSize); err != nil {
+		if n, err := io.CopyN(w, sendContent, currentSize); err != nil {
 			fmt.Printf("[error] could not copy %d bytes to 'w' (%d copied): %s\n", currentSize, n, err)
 			return
 		}
