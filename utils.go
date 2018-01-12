@@ -10,6 +10,10 @@ func getLikelyContentType(filename string) (string, error) {
 	// TODO(vishen): Inspect the file for known headers?
 	// Currently we just check the file extension
 
+	// Can use the following from the Go std library
+	// mime.TypesByExtenstion(filepath.Ext(filename))
+	// fs.DetectContentType(data []byte) // needs opened(ish) file
+
 	switch ext := path.Ext(filename); ext {
 	case ".mkv", ".mp4", ".m4a", ".m4p", ".MP4":
 		return "video/mp4", nil

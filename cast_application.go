@@ -3,10 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/buger/jsonparser"
 	"github.com/vishen/go-chromecast/api"
@@ -209,22 +212,6 @@ func (ca *CastApplication) CanUseContentType(contentType string) bool {
 	return false
 }
 
-func (ca *CastApplication) writeRangeRequest() {
-	/*
-				method=GET, headers=map[Connection:[keep-alive] Accept-Encoding:[identity;q=1, *;q=0] Chrome-Proxy:[frfr] Accept-Language:[en-GB,en-US;q=0.9,en;q=0.8] Cast-Device-Capabilities:[{"bluetooth_supported":true,"display_supported":true,"hi_res_audio_supported":false}] User-Agent:[Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.17 Safari/537.36 CrKey/1.28.100555] Range:[bytes=0-]], reponse_headers=map[Last-Modified:[Wed, 22 Nov 2017 21:07:07 GMT] Content-Type:[video/mp4] Content-Range:[bytes 0-101896823/101896824] Accept-Ranges:[bytes] Content-Length:[101896824]]
-
-
-		method=GET, headers=map[Range:[bytes=101023744-]  Cast-Device-Capabilities:[{"bluetooth_supported":true,"display_supported":true,"hi_res_audio_supported":false}] Connection:[keep-alive] User-Agent:[Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.17 Safari/537.36 CrKey/1.28.100555] Accept-Encoding:[identity;q=1, *;q=0] Accept-Language:[en-GB,en-US;q=0.9,en;q=0.8]], reponse_headers=map[Last-Modified:[Wed, 22 Nov 2017 21:07:07 GMT] Content-Type:[video/mp4] Content-Range:[bytes 101023744-101896823/101896824] Accept-Ranges:[bytes] Content-Length:[873080]]
-
-
-
-		method=GET, headers=map[Connection:[keep-alive] Accept-Encoding:[identity;q=1, *;q=0] Range:[bytes=131072-] Accept-Language:[en-GB,en-US;q=0.9,en;q=0.8] Cast-Device-Capabilities:[{"bluetooth_supported":true,"display_supported":true,"hi_res_audio_supported":false}] User-Agent:[Mozilla/5.0 (X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.17 Safari/537.36 CrKey/1.28.100555]], reponse_headers=map[Last-Modified:[Wed, 22 Nov 2017 21:07:07 GMT] Content-Type:[video/mp4] Content-Range:[bytes 131072-101896823/101896824] Accept-Ranges:[bytes] Content-Length:[101765752]]
-
-		// https://github.com/pkg4go/httprange
-		// https://stackoverflow.com/questions/3303029/http-range-header
-	*/
-}
-
 func (ca *CastApplication) startServer() {
 	if ca.httpServer != nil {
 		return
@@ -234,8 +221,9 @@ func (ca *CastApplication) startServer() {
 	ca.httpServer = &http.Server{Addr: "0.0.0.0" + port}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Check to see if we have a 'filename' and if it is one of the ones that have
+		// already been validated and is useable.
 		filename := r.URL.Query().Get("media_file")
-
 		canServe := false
 		for _, fn := range ca.playMediaFilenames {
 			if fn == filename {
@@ -243,13 +231,20 @@ func (ca *CastApplication) startServer() {
 			}
 		}
 
-		// mime.TypeByExtension(filepath.Ext(name))
-		// ctype = DetectContentType(buf[:n])
-		// w.Header().Set("Content-Type", ctype)
-		// http.ServeContent(w, r, "video.mp4", time.Now(), pipedSeekerø)
+		// Check to see if this is a live streaming video and we need to use an
+		// infinite range request / response. This comes from media that is either
+		// live or currently being transcoded to a different media format.
+		liveStreaming := false
+		if ls := r.URL.Query().Get("live_streaming"); ls == "true" {
+			liveStreaming = true
+		}
 
 		if canServe {
-			http.ServeFile(w, r, filename)
+			if !liveStreaming {
+				http.ServeFile(w, r, filename)
+			} else {
+				ca.serveLiveStreaming(w, r, filename)
+			}
 		} else {
 			http.Error(w, "Invalid file", 400)
 		}
@@ -301,6 +296,89 @@ func (ca *CastApplication) startServer() {
 
 }
 
+// Taken from net/http/fs.go
+func toHTTPError(err error) (msg string, httpStatus int) {
+	if os.IsNotExist(err) {
+		return "404 page not found", http.StatusNotFound
+	}
+	if os.IsPermission(err) {
+		return "403 Forbidden", http.StatusForbidden
+	}
+	// Default:
+	return "500 Internal Server Error", http.StatusInternalServerError
+}
+
+func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
+
+	// TODO(vishen): Copied from net/http/fs.go:serveFile; Probably doesn't need to
+	// be this reslient?
+	f, err := os.Open(filename)
+	if err != nil {
+		msg, code := toHTTPError(err)
+		http.Error(w, msg, code)
+		return
+	}
+	defer f.Close()
+
+	d, err := f.Stat()
+	if err != nil {
+		msg, code := toHTTPError(err)
+		http.Error(w, msg, code)
+		return
+	}
+
+	currentSize := d.Size()
+	modTime := d.ModTime()
+
+	fmt.Printf("filename=%s, currentSize=%d, modTime=%s\n", filename, currentSize, modTime)
+
+	var sendContent io.Reader = f
+
+	// Set the response header content type if we can determine it
+	var contentType string
+	contentTypes, haveType := w.Header()["Content-Type"]
+	if !haveType {
+		contentType = mime.TypeByExtension(filepath.Ext(filename))
+	} else {
+		contentType = contentTypes[0]
+	}
+
+	if contentType == "" {
+		fmt.Printf("Cannot determine valid content type for '%s'\n", filename)
+	}
+	w.Header().Set("Content-Type", contentType)
+
+	// https://stackoverflow.com/questions/3303029/http-range-header
+	// 1: Range:[bytes=0-]] -> Content-Range:[bytes 0-101896823/101896824]
+	//						-> Content-Range:[bytes 0-101896823/*]
+	// 2: Range:[bytes=101023744-] 	-> Content-Range:[bytes 101023744-101896823/101896824]
+	//  							-> Content-Range:[bytes 101023744-101896823/*]
+	// 3: Range:[bytes=131072-] -> Content-Range:[bytes 131072-101896823/101896824]
+	// 							-> Content-Range:[bytes 131072-101896823/*]
+
+	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentFileSize))
+	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentFileSize, finalFileSize))
+
+	w.Header().Set("Accept-Ranges", "bytes")
+	w.WriteHeader(http.StatusPartialContent)
+
+	rangesString := w.Header()["Range"]
+	startRange, _, err := parseRange(rangesString[0])
+	if err != nil {
+		fmt.Printf("[error] Parse ranges error: %s", err)
+		toHTTPError(err)
+		return
+	}
+
+	// TODO(vishen): This doesn't handle when a file has finished transcoding!!!!
+
+	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize))
+
+	if r.Method != "HEAD" {
+		io.CopyN(w, sendContent, currentSize)
+	}
+}
+
 func (ca *CastApplication) closeServer() {
 	if ca.httpServer == nil {
 		return
@@ -309,7 +387,7 @@ func (ca *CastApplication) closeServer() {
 	ca.httpServer.Shutdown(nil)
 }
 
-func (ca *CastApplication) PlayMedia(filenameOrUrl, contentType string) error {
+func (ca *CastApplication) PlayMedia(filenameOrUrl, contentType string, liveStreaming bool) error {
 
 	// Check that we have a valid content type as the chromecast default media reciever
 	// only handles a limited number of content types.
@@ -336,7 +414,7 @@ func (ca *CastApplication) PlayMedia(filenameOrUrl, contentType string) error {
 		}
 
 		// Set the content url
-		contentUrl = fmt.Sprintf("http://%s%s?media_file=%s", localIP, port, filenameOrUrl)
+		contentUrl = fmt.Sprintf("http://%s%s?media_file=%s&live_streaming=%t", localIP, port, filenameOrUrl, liveStreaming)
 		ca.playMediaFilenames = append(ca.playMediaFilenames, filenameOrUrl)
 
 	} else if _, err := url.ParseRequestURI(filenameOrUrl); err == nil {
