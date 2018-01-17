@@ -311,9 +311,6 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 
 func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
 
-	fmt.Println("Serving live streaming media...")
-	// TODO(vishen): Copied from net/http/fs.go:serveFile; Probably doesn't need to
-	// be this reslient?
 	dir, file := filepath.Split(filename)
 	fs := http.Dir(dir)
 	f, err := fs.Open(file)
@@ -333,16 +330,19 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	var sendContent io.Reader = f
+
 	currentSize := d.Size()
 	modTime := d.ModTime()
 
-	fmt.Printf("filename=%s, currentSize=%d, modTime=%s\n", filename, currentSize, modTime)
+	w.Header().Set("Last-Modified", modTime.UTC().Format(http.TimeFormat))
 
 	// Set the response header content type if we can determine it
 	var contentType string
+	//contentTypes, haveType := w.Header()["Content-Type"]
 	contentTypes, haveType := r.Header["Content-Type"]
 	if !haveType {
-		contentType = mime.TypeByExtension(filepath.Ext(filename))
+		contentType = mime.TypeByExtension(filepath.Ext(file))
 	} else {
 		contentType = contentTypes[0]
 	}
@@ -352,50 +352,33 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 	}
 	w.Header().Set("Content-Type", contentType)
 
-	// https://stackoverflow.com/questions/3303029/http-range-header
-	// 1: Range:[bytes=0-]] -> Content-Range:[bytes 0-101896823/101896824]
-	//						-> Content-Range:[bytes 0-101896823/*]
-	// 2: Range:[bytes=101023744-] 	-> Content-Range:[bytes 101023744-101896823/101896824]
-	//  							-> Content-Range:[bytes 101023744-101896823/*]
-	// 3: Range:[bytes=131072-] -> Content-Range:[bytes 131072-101896823/101896824]
-	// 							-> Content-Range:[bytes 131072-101896823/*]
-
-	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentFileSize))
-	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentFileSize, finalFileSize))
-
-	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Last-Modified", modTime.UTC().Format(http.TimeFormat))
-
-	rangesString := r.Header["Range"]
-	// TODO(vishen): This panics when no ranges
-	startRange, _, err := parseRange(rangesString[0])
+	ranges := r.Header["Range"]
+	if len(ranges) < 1 {
+		fmt.Printf("[error] unable to parse ranges for '%v'\n", ranges)
+		toHTTPError(fmt.Errorf("Unable to parse ranges for '%v'", ranges))
+	}
+	startRange, _, err := parseRange(ranges[0])
 	if err != nil {
-		fmt.Printf("[error] Parse ranges error for '%s': %s", rangesString[0], err)
+		fmt.Printf("[error] Parse ranges error for '%s': %s", ranges[0], err)
 		toHTTPError(err)
 		return
 	}
 
-	// TODO(vishen): This doesn't handle when a file has finished transcoding!!!!
-
-	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize))
-	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentSize, currentSize))
+	if _, err := f.Seek(startRange, io.SeekStart); err != nil {
+		http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
+		fmt.Printf("[errpr] Unable to seek in file: %s\n", err)
+		return
+	}
+	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize-1))
+	// w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentSize-1, currentSize))
+	w.Header().Set("Accept-Ranges", "bytes")
 
 	toWrite := currentSize - startRange
 	w.Header().Set("Content-Length", strconv.FormatInt(toWrite, 10))
 
 	if r.Method != "HEAD" {
-		if _, err := f.Seek(startRange, io.SeekStart); err != nil {
-			http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
-			fmt.Printf("[errpr] Unable to seek in file: %s\n", err)
-			return
-		}
-		// w.WriteHeader(http.StatusPartialContent)
-		var sendContent io.Reader = f
-		if n, err := io.CopyN(w, sendContent, toWrite); err != nil {
-			fmt.Printf("[error] could not copy %d bytes to 'w' (%d copied): %s\n", currentSize, n, err)
-			return
-		}
-		fmt.Println("Copied media content")
+		w.WriteHeader(http.StatusPartialContent)
+		io.CopyN(w, sendContent, toWrite)
 	}
 }
 

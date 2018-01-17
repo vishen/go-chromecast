@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -220,7 +221,7 @@ func main() {
 				for _, filename := range playlist {
 					contentType, _ := getLikelyContentType(filename)
 					fmt.Printf("Playing '%s'\n", filename)
-					err := castApplication.PlayMedia(folder+filename, contentType, false)
+					err := castApplication.PlayMedia(folder+filename, contentType, true)
 					fmt.Printf("error: %v\n", err)
 				}
 				return nil
@@ -235,7 +236,6 @@ func main() {
 			Action: func(c *cli.Context) error {
 				filenameOrUrl := c.Args().Get(0)
 				contentType := c.Args().Get(1)
-				transcodingVideo := false
 				fmt.Println(filenameOrUrl, contentType)
 
 				if contentType == "" {
@@ -270,26 +270,32 @@ func main() {
 						)
 
 						fmt.Printf("Starting transcoding\n")
-						// TODO(vishen): Need some way for stopping this when program quits; current
-						// it will just keep running in the background
-						// https://stackoverflow.com/questions/11886531/terminating-a-process-started-with-os-exec-in-golang
 						if err := cmd.Start(); err != nil {
 							log.Fatal(err)
 						}
-						fmt.Println("finished transcoding")
+
+						go func() {
+							sigc := make(chan os.Signal, 1)
+							signal.Notify(sigc, os.Interrupt, os.Kill)
+							defer signal.Stop(sigc)
+							<-sigc
+
+							fmt.Println("Killing running ffmpeg...")
+							if err := cmd.Process.Kill(); err != nil {
+								fmt.Printf("Unable to kill ffmpeg process: %s\n", err)
+							}
+
+						}()
 
 						filenameOrUrl = writeFilepath
 						contentType = "video/mp4"
-						transcodingVideo = true
 
 						// Give it some time to start transcoding the media
 						time.Sleep(time.Second * 10)
 
 					}
 				}
-				fmt.Println(filenameOrUrl, contentType)
-				transcodingVideo = true
-				if err := castApplication.PlayMedia(filenameOrUrl, contentType, transcodingVideo); err != nil {
+				if err := castApplication.PlayMedia(filenameOrUrl, contentType, true); err != nil {
 					fmt.Printf("Error: %s\n", err)
 				}
 				return nil
