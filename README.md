@@ -1,7 +1,7 @@
 # Chromecast
 This implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them, if it is a known media type, on at a time
 
-Can play / load a local mp4 media file on your chromecast. Currently the chromecast default media receiver only supports the following formats:
+Can play / load a local media file on your chromecast. Currently the chromecast default media receiver only supports the following formats:
 
 ```
 Supported Media formats:
@@ -9,6 +9,8 @@ Supported Media formats:
     - MP4
     - WebM
 ```
+
+If an AVI file is found it will use `ffmpeg` to transcode it to MP4 (in a temp file) and use cast the transcoded mp4 file.
 
 ## Commands
 ```
@@ -22,16 +24,16 @@ VERSION:
    0.0.1
 
 COMMANDS:
-     status    current status of the chromecast
-     pause     pause current media
-     unpause   unpause current media
-     reset     reset the current playing media
-     end       go to end of current playing media
-     seek      seek to a delta in the current playing media
-     playlist  loads a playlist and plays the media
-     load      load a mp4 media to play
-     repl      repl for running commands
-     help, h   Shows a list of commands or help for one command
+    status    current status of the chromecast
+    pause     pause current media
+    unpause   unpause current media
+    reset     reset the current playing media
+    end       go to end of current playing media
+    seek      seek to a delta in the current playing media
+    playlist  loads a playlist and plays the media
+    load      load a mp4 media to play
+    repl      repl for running commands
+    help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --debug, -d    log debug information
@@ -57,16 +59,12 @@ $ ./chromecast repl                         # Starts an interactive session
 
 ## TODO
 ```
-- Try: video/avi and video/msvideo for avi files - https://github.com/xat/castnow/blob/master/plugins/transcode.js
-- Add bindings to convert a folders media files to mp4 via ffmpeg, and when first one is done start playing?
 - Add flag to go into interactive mode after running command
 - Add metadata to loaded media
 - add sorting to playlist order
 - Fix logging / debug information
 - Add exploratory repl commands to try different things on the media and default connections
 - Cache the dns result of the chromecast
-- Store any loaded media that have been played
-- Is it possible to convert avi files on the fly to mp4 or mkv (or one of the supported formats)?
 ```
 
 ## Resources
