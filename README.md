@@ -2,7 +2,6 @@
 This implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them, if it is a known media type, on at a time
 
 Can play / load a local media file on your chromecast. Currently the chromecast default media receiver only supports the following formats:
-
 ```
 Supported Media formats:
     - MKV
