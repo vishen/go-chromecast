@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,19 +19,8 @@ import (
 type MessageHandler func(*api.CastMessage) bool
 
 type CastConnection struct {
-	conn   *tls.Conn
-	addrV4 net.IP
-	addrV6 net.IP
-	port   int
-
-	name string
-	host string
-
-	uuid       string
-	device     string
-	status     string
-	deviceName string
-	infoFields map[string]string
+	*CastEntry
+	conn *tls.Conn
 
 	mhLock          sync.Mutex
 	messageHandlers []MessageHandler
@@ -47,32 +35,13 @@ func NewCastConnection(debug bool) *CastConnection {
 	entry := getCastEntry()
 	log.Println("Got dns entry")
 
-	infoFields := make(map[string]string, len(entry.InfoFields))
-	for _, infoField := range entry.InfoFields {
-		splitField := strings.Split(infoField, "=")
-		if len(splitField) != 2 {
-			log.Printf("[error] Incorrect format for field in entry.InfoFields: %s\n", infoField)
-			continue
-		}
-		infoFields[splitField[0]] = splitField[1]
-	}
-
 	cc := &CastConnection{
-		addrV4:          entry.AddrV4,
-		addrV6:          entry.AddrV6,
-		port:            entry.Port,
-		name:            entry.Name,
-		host:            entry.Host,
-		infoFields:      infoFields,
-		uuid:            infoFields["id"],
-		device:          infoFields["md"],
-		deviceName:      infoFields["fn"],
-		status:          infoFields["rs"],
+		CastEntry:       entry,
 		mhLock:          sync.Mutex{},
 		messageHandlers: make([]MessageHandler, 0),
 		debug:           debug,
 	}
-	cc.log("debug", "connection info: [IPv4=%s; IPv6=%s; port=%d; name=%s; host=%s; uuid=%s, device=%s, deviceName=%s, status=%s]",
+	cc.log("debug", "connection info: [IPv4=%s; IPv6=%s; port=%d; name=%s; host=%s; uuid=%s; device=%s; deviceName=%s; status=%s]",
 		cc.addrV4.String(), cc.addrV6.String(), cc.port, cc.name, cc.host, cc.uuid, cc.device, cc.deviceName, cc.status)
 	return cc
 }
