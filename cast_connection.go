@@ -28,11 +28,11 @@ type CastConnection struct {
 	debug bool
 }
 
-func NewCastConnection(debug bool) *CastConnection {
+func NewCastConnection(chromecastUuid string, debug bool) *CastConnection {
 
 	log.Println("Getting dns entry")
 	// Find the dns entry for the chromecast
-	entry := getCastEntry()
+	entry := getCastEntry(chromecastUuid)
 	log.Println("Got dns entry")
 
 	cc := &CastConnection{

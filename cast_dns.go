@@ -25,8 +25,19 @@ type CastEntry struct {
 	infoFields map[string]string
 }
 
-func getCastEntry() *CastEntry {
-	entriesCh := make(chan *mdns.ServiceEntry, 1)
+func getCastEntry(uuid string) *CastEntry {
+	castEntriesCh := make(chan *CastEntry, 1)
+	entriesCh := make(chan *mdns.ServiceEntry, 20)
+	go func() {
+		for entry := range entriesCh {
+			ce := fillCastEntry(entry)
+			if uuid == "" || uuid == ce.uuid {
+				castEntriesCh <- ce
+				return
+			}
+		}
+		castEntriesCh <- nil
+	}()
 
 	mdns.Query(&mdns.QueryParam{
 		Service: "_googlecast._tcp",
@@ -34,8 +45,30 @@ func getCastEntry() *CastEntry {
 		Timeout: time.Second * 3,
 		Entries: entriesCh,
 	})
+	close(entriesCh)
 
-	return fillCastEntry(<-entriesCh)
+	return <-castEntriesCh
+}
+
+func printCastEntries() {
+	entriesCh := make(chan *mdns.ServiceEntry, 20)
+	go func() {
+		for entry := range entriesCh {
+			fmt.Println(fillCastEntry(entry).String())
+		}
+	}()
+
+	err := mdns.Query(&mdns.QueryParam{
+		Service: "_googlecast._tcp",
+		Domain:  "local",
+		Timeout: time.Second * 10,
+		Entries: entriesCh,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	close(entriesCh)
 }
 
 func fillCastEntry(entry *mdns.ServiceEntry) *CastEntry {
