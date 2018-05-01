@@ -23,6 +23,7 @@ VERSION:
    0.0.1
 
 COMMANDS:
+    list      list available chromecasts
     status    current status of the chromecast
     pause     pause current media
     unpause   unpause current media
@@ -36,6 +37,7 @@ COMMANDS:
 
 GLOBAL OPTIONS:
    --debug, -d    log debug information
+   --uuid value, -u value  specify chromecast uuid
    --help, -h     show help
    --version, -v  print the version
 ```

@@ -27,9 +27,12 @@ var (
 
 func initialise(ctx *cli.Context) error {
 	log.Println("Initalising")
-	castConn := NewCastConnection()
+	// if uuid is not specified, the first chromecast is used
+	castConn := NewCastConnection(ctx.GlobalString("uuid"), ctx.GlobalBool("debug"))
+	if castConn == nil {
+		log.Fatalf("no chromecast found with uuid: %s", ctx.GlobalString("uuid"))
+	}
 	log.Println("Got cast connection")
-	castConn.debug = ctx.GlobalBool("debug")
 	castConn.connect()
 	log.Println("Finished connecting")
 	go castConn.receiveLoop()
@@ -123,8 +126,20 @@ func main() {
 			Name:  "debug, d",
 			Usage: "log debug information",
 		},
+		cli.StringFlag{
+			Name:  "uuid, u",
+			Usage: "specify chromecast uuid",
+		},
 	}
 	app.Commands = []cli.Command{
+		{
+			Name:  "list",
+			Usage: "list available chromecasts",
+			Action: func(c *cli.Context) error {
+				printCastEntries()
+				return nil
+			},
+		},
 		{
 			Name:  "status",
 			Usage: "current status of the chromecast",

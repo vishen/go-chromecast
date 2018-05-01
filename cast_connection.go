@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,19 +19,8 @@ import (
 type MessageHandler func(*api.CastMessage) bool
 
 type CastConnection struct {
-	conn   *tls.Conn
-	addrV4 net.IP
-	addrV6 net.IP
-	port   int
-
-	name string
-	host string
-
-	uuid       string
-	device     string
-	status     string
-	deviceName string
-	infoFields map[string]string
+	*CastEntry
+	conn *tls.Conn
 
 	mhLock          sync.Mutex
 	messageHandlers []MessageHandler
@@ -40,37 +28,24 @@ type CastConnection struct {
 	debug bool
 }
 
-func NewCastConnection() *CastConnection {
+func NewCastConnection(chromecastUuid string, debug bool) *CastConnection {
 
 	log.Println("Getting dns entry")
 	// Find the dns entry for the chromecast
-	entry := getCastEntry()
+	entry := getCastEntry(chromecastUuid)
+	if entry == nil {
+		return nil
+	}
 	log.Println("Got dns entry")
 
-	infoFields := make(map[string]string, len(entry.InfoFields))
-	for _, infoField := range entry.InfoFields {
-		splitField := strings.Split(infoField, "=")
-		if len(splitField) != 2 {
-			log.Printf("[error] Incorrect format for field in entry.InfoFields: %s\n", infoField)
-			continue
-		}
-		infoFields[splitField[0]] = splitField[1]
-	}
-
-	return &CastConnection{
-		addrV4:          entry.AddrV4,
-		addrV6:          entry.AddrV6,
-		port:            entry.Port,
-		name:            entry.Name,
-		host:            entry.Host,
-		infoFields:      infoFields,
-		uuid:            infoFields["id"],
-		device:          infoFields["md"],
-		deviceName:      infoFields["fn"],
-		status:          infoFields["rs"],
+	cc := &CastConnection{
+		CastEntry:       entry,
 		mhLock:          sync.Mutex{},
 		messageHandlers: make([]MessageHandler, 0),
+		debug:           debug,
 	}
+	cc.log("debug", "connection info: %s", cc.String())
+	return cc
 }
 
 func (cc *CastConnection) addMessageHandler(f MessageHandler) {
