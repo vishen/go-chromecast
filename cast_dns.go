@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -59,4 +60,9 @@ func fillCastEntry(entry *mdns.ServiceEntry) *CastEntry {
 		deviceName: infoFields["fn"],
 		status:     infoFields["rs"],
 	}
+}
+
+func (c *CastEntry) String() string {
+	return fmt.Sprintf("[IPv4=%s; IPv6=%s; port=%d; name=%s; host=%s; uuid=%s; device=%s; deviceName=%s; status=%s]",
+		c.addrV4.String(), c.addrV6.String(), c.port, c.name, c.host, c.uuid, c.device, c.deviceName, c.status)
 }

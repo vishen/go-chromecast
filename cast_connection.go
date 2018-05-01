@@ -41,8 +41,7 @@ func NewCastConnection(debug bool) *CastConnection {
 		messageHandlers: make([]MessageHandler, 0),
 		debug:           debug,
 	}
-	cc.log("debug", "connection info: [IPv4=%s; IPv6=%s; port=%d; name=%s; host=%s; uuid=%s; device=%s; deviceName=%s; status=%s]",
-		cc.addrV4.String(), cc.addrV6.String(), cc.port, cc.name, cc.host, cc.uuid, cc.device, cc.deviceName, cc.status)
+	cc.log("debug", "connection info: %s", cc.String())
 	return cc
 }
 
