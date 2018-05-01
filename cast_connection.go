@@ -33,6 +33,9 @@ func NewCastConnection(chromecastUuid string, debug bool) *CastConnection {
 	log.Println("Getting dns entry")
 	// Find the dns entry for the chromecast
 	entry := getCastEntry(chromecastUuid)
+	if entry == nil {
+		return nil
+	}
 	log.Println("Got dns entry")
 
 	cc := &CastConnection{
