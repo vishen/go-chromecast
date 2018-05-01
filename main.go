@@ -27,9 +27,8 @@ var (
 
 func initialise(ctx *cli.Context) error {
 	log.Println("Initalising")
-	castConn := NewCastConnection()
+	castConn := NewCastConnection(ctx.GlobalBool("debug"))
 	log.Println("Got cast connection")
-	castConn.debug = ctx.GlobalBool("debug")
 	castConn.connect()
 	log.Println("Finished connecting")
 	go castConn.receiveLoop()

@@ -40,7 +40,7 @@ type CastConnection struct {
 	debug bool
 }
 
-func NewCastConnection() *CastConnection {
+func NewCastConnection(debug bool) *CastConnection {
 
 	log.Println("Getting dns entry")
 	// Find the dns entry for the chromecast
@@ -57,7 +57,7 @@ func NewCastConnection() *CastConnection {
 		infoFields[splitField[0]] = splitField[1]
 	}
 
-	return &CastConnection{
+	cc := &CastConnection{
 		addrV4:          entry.AddrV4,
 		addrV6:          entry.AddrV6,
 		port:            entry.Port,
@@ -70,7 +70,11 @@ func NewCastConnection() *CastConnection {
 		status:          infoFields["rs"],
 		mhLock:          sync.Mutex{},
 		messageHandlers: make([]MessageHandler, 0),
+		debug:           debug,
 	}
+	cc.log("debug", "connection info: [IPv4=%s; IPv6=%s; port=%d; name=%s; host=%s; uuid=%s, device=%s, deviceName=%s, status=%s]",
+		cc.addrV4.String(), cc.addrV6.String(), cc.port, cc.name, cc.host, cc.uuid, cc.device, cc.deviceName, cc.status)
+	return cc
 }
 
 func (cc *CastConnection) addMessageHandler(f MessageHandler) {
