@@ -28,9 +28,14 @@ var (
 func initialise(ctx *cli.Context) error {
 	log.Println("Initalising")
 	// if uuid is not specified, the first chromecast is used
-	castConn := NewCastConnection(ctx.GlobalString("uuid"), ctx.GlobalBool("debug"))
+	cUuid := ctx.GlobalString("uuid")
+	castConn := NewCastConnection(cUuid, ctx.GlobalBool("debug"))
 	if castConn == nil {
-		log.Fatalf("no chromecast found with uuid: %s", ctx.GlobalString("uuid"))
+		if cUuid == "" {
+			log.Fatal("no chromecast found")
+		} else {
+			log.Fatalf("no chromecast found with uuid: %s", cUuid)
+		}
 	}
 	log.Println("Got cast connection")
 	castConn.connect()
