@@ -3,13 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
-	"os/signal"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +21,7 @@ const (
 
 var (
 	castApplication *CastApplication
+	stdout          io.ReadCloser
 )
 
 func initialise(ctx *cli.Context) error {
@@ -269,45 +268,6 @@ func main() {
 							log.Printf("Not able to transcode '%s' files to mp4\n", ext)
 							return nil
 						}
-
-						// Start transcoding ffmpeg to a file, and attempt to get the server to
-						// serve the file as it is transcoding
-						tmpDir, err := ioutil.TempDir("", "chromecast")
-						if err != nil {
-							log.Fatal(err)
-						}
-						defer os.RemoveAll(tmpDir)
-
-						writeFilepath := filepath.Join(tmpDir, fmt.Sprintf("%s-%d.mp4", "holder", time.Now().Unix()))
-						cmd := exec.Command(
-							"ffmpeg",
-							"-i", filenameOrUrl,
-							"-vcodec", "h264",
-							"-f", "mp4",
-							"-movflags", "frag_keyframe+faststart",
-							"-strict", "-experimental",
-							writeFilepath,
-						)
-
-						fmt.Printf("Starting transcoding\n")
-						if err := cmd.Start(); err != nil {
-							log.Fatal(err)
-						}
-
-						go func() {
-							sigc := make(chan os.Signal, 1)
-							signal.Notify(sigc, os.Interrupt, os.Kill)
-							defer signal.Stop(sigc)
-							<-sigc
-
-							fmt.Println("Killing running ffmpeg...")
-							if err := cmd.Process.Kill(); err != nil {
-								fmt.Printf("Unable to kill ffmpeg process: %s\n", err)
-							}
-
-						}()
-
-						filenameOrUrl = writeFilepath
 						contentType = "video/mp4"
 
 						// Give it some time to start transcoding the media

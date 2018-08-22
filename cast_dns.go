@@ -31,7 +31,23 @@ func getCastEntry(uuid string) *CastEntry {
 	go func() {
 		for entry := range entriesCh {
 			ce := fillCastEntry(entry)
-			if uuid == "" || uuid == ce.uuid {
+
+			/*
+				&mdns.ServiceEntry{Name:"Chromecast-b380c5847b3182e4fb2eb0d0e270bf16._googlecast._tcp.local.", Host:"b380c584-7b31-82e4-fb2e-b0d0e270bf16.local.", AddrV4:net.IP{0xc0, 0xa8, 0x0, 0x73}, AddrV6:net.IP(nil), Port:8009, Info:"id=b380c5847b3182e4fb2eb0d0e270bf16|cd=71671206FF503E2F4857C87BA235CFAC|rm=9DCA7718E292093B|ve=05|md=Chromecast|ic=/setup/icon.png|fn=MarieGotGame?|ca=4101|st=0|bs=FA8FCA9134E7|nf=1|rs=", InfoFields:[]string{"id=b380c5847b3182e4fb2eb0d0e270bf16", "cd=71671206FF503E2F4857C87BA235CFAC", "rm=9DCA7718E292093B", "ve=05", "md=Chromecast", "ic=/setup/icon.png", "fn=MarieGotGame?", "ca=4101", "st=0", "bs=FA8FCA9134E7", "nf=1", "rs="}, TTL:120, Addr:net.IP{0xc0, 0xa8, 0x0, 0x73}, hasTXT:true, sent:true}
+				&main.CastEntry{addrV4:net.IP{0xc0, 0xa8, 0x0, 0x73}, addrV6:net.IP(nil), port:8009, name:"Chromecast-b380c5847b3182e4fb2eb0d0e270bf16._googlecast._tcp.local.", host:"b380c584-7b31-82e4-fb2e-b0d0e270bf16.local.", uuid:"b380c5847b3182e4fb2eb0d0e270bf16", device:"Chromecast", status:"", deviceName:"MarieGotGame?", infoFields:map[string]string{"id":"b380c5847b3182e4fb2eb0d0e270bf16", "cd":"71671206FF503E2F4857C87BA235CFAC", "rm":"9DCA7718E292093B", "ve":"05", "md":"Chromecast", "ca":"4101", "ic":"/setup/icon.png", "fn":"MarieGotGame?", "st":"0", "bs":"FA8FCA9134E7", "nf":"1", "rs":""}}
+				2018/08/22 19:30:54 no chromecast found
+				exit status 1
+				jonathanpentecost@Jonathans-MacBook-Pro-2 ~/g/s/g/v/go-chromecast> go run *.go  load ~/Movies/The\ Office\ \[2.01\]\ The\ Dundies.avi
+				2018/08/22 19:31:43 Starting new app
+				2018/08/22 19:31:43 Initalising
+				2018/08/22 19:31:43 Getting dns entry
+				&mdns.ServiceEntry{Name:"Google-Home-Mini-b87d86bed423a6feb8b91a7d2778b55c._googlecast._tcp.local.", Host:"b87d86be-d423-a6fe-b8b9-1a7d2778b55c.local.", AddrV4:net.IP{0xc0, 0xa8, 0x0, 0x34}, AddrV6:net.IP(nil), Port:8009, Info:"id=b87d86bed423a6feb8b91a7d2778b55c|cd=7110BCF1C2D6743969B61E5990970AD9|rm=999AE527C5BE349D|ve=05|md=Google Home Mini|ic=/setup/icon.png|fn=Living Room Speaker|ca=2052|st=1|bs=FA8FCA3E22DA|nf=1|rs=Default Media Receiver", InfoFields:[]string{"id=b87d86bed423a6feb8b91a7d2778b55c", "cd=7110BCF1C2D6743969B61E5990970AD9", "rm=999AE527C5BE349D", "ve=05", "md=Google Home Mini", "ic=/setup/icon.png", "fn=Living Room Speaker", "ca=2052", "st=1", "bs=FA8FCA3E22DA", "nf=1", "rs=Default Media Receiver"}, TTL:120, Addr:net.IP{0xc0, 0xa8, 0x0, 0x34}, hasTXT:true, sent:true}
+				&main.CastEntry{addrV4:net.IP{0xc0, 0xa8, 0x0, 0x34}, addrV6:net.IP(nil), port:8009, name:"Google-Home-Mini-b87d86bed423a6feb8b91a7d2778b55c._googlecast._tcp.local.", host:"b87d86be-d423-a6fe-b8b9-1a7d2778b55c.local.", uuid:"b87d86bed423a6feb8b91a7d2778b55c", device:"Google Home Mini", status:"Default Media Receiver", deviceName:"Living Room Speaker", infoFields:map[string]string{"cd":"7110BCF1C2D6743969B61E5990970AD9", "ic":"/setup/icon.png", "bs":"FA8FCA3E22DA", "id":"b87d86bed423a6feb8b91a7d2778b55c", "rm":"999AE527C5BE349D", "ve":"05", "md":"Google Home Mini", "fn":"Living Room Speaker", "ca":"2052", "st":"1", "nf":"1", "rs":"Default Media Receiver"}}
+				2018/08/22 19:31:46 no chromecast found
+				exit status 1
+			*/
+
+			if ce.device == "Chromecast" && (uuid == "" || uuid == ce.uuid) {
 				castEntriesCh <- ce
 				return
 			}

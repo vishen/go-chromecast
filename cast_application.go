@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strconv"
 
 	"github.com/buger/jsonparser"
 	"github.com/vishen/go-chromecast/api"
@@ -310,6 +310,28 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 }
 
 func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", filename,
+		"-vcodec", "h264",
+		"-f", "mp4",
+		"-movflags", "frag_keyframe+faststart",
+		"-strict", "-experimental",
+		"pipe:1",
+	)
+
+	cmd.Stdout = w
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	if err := cmd.Run(); err != nil {
+		log.Printf("error transcoding %q: %v\n", filename, err)
+	}
+
+}
+
+func (ca *CastApplication) serveLiveStreaming2(w http.ResponseWriter, r *http.Request, filename string) {
 
 	dir, file := filepath.Split(filename)
 	fs := http.Dir(dir)
@@ -366,19 +388,28 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 
 	if _, err := f.Seek(startRange, io.SeekStart); err != nil {
 		http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
-		fmt.Printf("[errpr] Unable to seek in file: %s\n", err)
+		fmt.Printf("[error] Unable to seek in file: %s\n", err)
 		return
 	}
-	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize-1))
-	// w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentSize-1, currentSize))
-	w.Header().Set("Accept-Ranges", "bytes")
+	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/*", startRange, currentSize))
+	//w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startRange, currentSize-1, currentSize))
+	//w.Header().Set("Accept-Ranges", "bytes")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	toWrite := currentSize - startRange
-	w.Header().Set("Content-Length", strconv.FormatInt(toWrite, 10))
+	toWrite := (currentSize - startRange) + 1
+	// w.Header().Set("Content-Length", strconv.FormatInt(toWrite, 10))
 
 	if r.Method != "HEAD" {
-		w.WriteHeader(http.StatusPartialContent)
-		io.CopyN(w, sendContent, toWrite)
+		// This is correct when we aren't live streaming
+		if false {
+			w.WriteHeader(http.StatusPartialContent)
+			io.CopyN(w, sendContent, toWrite)
+		}
+
+		if _, err = io.Copy(w, stdout); err != nil {
+			log.Printf("error copying from stdout: %v\n", err)
+		}
+
 	}
 }
 
