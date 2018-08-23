@@ -9,7 +9,7 @@ I love simplicity and prefer to avoid external dependecies. `encoding/json` requ
 I investigated what's on the market and found that most libraries are just wrappers around `encoding/json`, there is few options with own parsers (`ffjson`, `easyjson`), but they still requires you to create data structures.
 
 
-Goal of this project is to push JSON parser to the performance limits and not sucrifice with compliance and developer user experience.
+Goal of this project is to push JSON parser to the performance limits and not sacrifice with compliance and developer user experience.
 
 ## Example
 For the given JSON our goal is to extract the user's full name, number of github followers and avatar.
@@ -51,7 +51,7 @@ jsonparser.Get(data, "company")
 
 // If the key doesn't exist it will throw an error
 var size int64
-if value, _, err := jsonparser.GetInt(data, "company", "size"); err == nil {
+if value, err := jsonparser.GetInt(data, "company", "size"); err == nil {
   size = value
 }
 
@@ -145,7 +145,7 @@ func GetBoolean(data []byte, keys ...string) (val bool, err error)
 
 func GetFloat(data []byte, keys ...string) (val float64, err error)
 
-func GetInt(data []byte, keys ...string) (val float64, err error)
+func GetInt(data []byte, keys ...string) (val int64, err error)
 ```
 If you know the key type, you can use the helpers above.
 If key data type do not match, it will return error.
@@ -170,11 +170,11 @@ jsonparser.ObjectEach(myJson, handler)
 ```
 
 
-### **`KeyEach`**
+### **`EachKey`**
 ```go
-func KeyEach(data []byte, cb func(idx int, value []byte, dataType jsonparser.ValueType, err error), paths ...[]string)
+func EachKey(data []byte, cb func(idx int, value []byte, dataType jsonparser.ValueType, err error), paths ...[]string)
 ```
-When you need to read multiple keys, and you do not afraid of low-level API `KeyEach` is your friend. It read payload only single time, and calls callback function once path is found. For example when you call multiple times `Get`, it has to process payload multiple times, each time you call it. Depending on payload `KeyEach` can be multiple times faster than `Get`. Path can use nested keys as well!
+When you need to read multiple keys, and you do not afraid of low-level API `EachKey` is your friend. It read payload only single time, and calls callback function once path is found. For example when you call multiple times `Get`, it has to process payload multiple times, each time you call it. Depending on payload `EachKey` can be multiple times faster than `Get`. Path can use nested keys as well!
 
 ```go
 paths := [][]string{
@@ -201,6 +201,33 @@ jsonparser.EachKey(smallFixture, func(idx int, value []byte, vt jsonparser.Value
 }, paths...)
 ```
 
+### **`Set`**
+```go
+func Set(data []byte, setValue []byte, keys ...string) (value []byte, err error)
+```
+Receives existing data structure, key path to set, and value to set at that key. *This functionality is experimental.*
+
+Returns:
+* `value` - Pointer to original data structure with updated or added key value.
+* `err` - If any parsing issue, it should return error.
+
+Accepts multiple keys to specify path to JSON value (in case of updating or creating  nested structures).
+
+Note that keys can be an array indexes: `jsonparser.Set(data, []byte("http://github.com"), "person", "avatars", "[0]", "url")`
+
+### **`Delete`**
+```go
+func Delete(data []byte, keys ...string) value []byte
+```
+Receives existing data structure, and key path to delete. *This functionality is experimental.*
+
+Returns:
+* `value` - Pointer to original data structure with key path deleted if it can be found. If there is no key path, then the whole data structure is deleted.
+
+Accepts multiple keys to specify path to JSON value (in case of updating or creating  nested structures).
+
+Note that keys can be an array indexes: `jsonparser.Delete(data, "person", "avatars", "[0]", "url")`
+
 
 ## What makes it so fast?
 * It does not rely on `encoding/json`, `reflection` or `interface{}`, the only real package dependency is `bytes`.
@@ -218,6 +245,7 @@ Benchmarks run on standard Linode 1024 box.
 Compared libraries:
 * https://golang.org/pkg/encoding/json
 * https://github.com/Jeffail/gabs
+* https://github.com/a8m/djson
 * https://github.com/bitly/go-simplejson
 * https://github.com/antonholmquist/jason
 * https://github.com/mreiferson/go-ujson
@@ -233,7 +261,7 @@ If you want to skip next sections we have 2 winner: `jsonparser` and `easyjson`.
 
 It's hard to fully compare `jsonparser` and `easyjson` (or `ffson`), they a true parsers and fully process record, unlike `jsonparser` which parse only keys you specified.
 
-If you searching for replacement of `encoding/json` while keeping structs, `easyjson` is an amazing choise. If you want to process dynamic JSON, have memory constrains, or more control over your data you should try `jsonparser`.
+If you searching for replacement of `encoding/json` while keeping structs, `easyjson` is an amazing choice. If you want to process dynamic JSON, have memory constrains, or more control over your data you should try `jsonparser`.
 
 `jsonparser` performance heavily depends on usage, and it works best when you do not need to process full record, only some keys. The more calls you need to make, the slower it will be, in contrast `easyjson` (or `ffjson`, `encoding/json`) parser record only 1 time, and then you can make as many calls as you want.
 
@@ -246,19 +274,20 @@ Each test processes 190 bytes of http log as a JSON record.
 It should read multiple fields.
 https://github.com/buger/jsonparser/blob/master/benchmark/benchmark_small_payload_test.go
 
-| Library | time/op | bytes/op | allocs/op |
-| --- | --- | --- | --- | --- |
-| encoding/json struct | 7879 | 880 | 18 |
-| encoding/json interface{} | 8946 | 1521 | 38|
-| Jeffail/gabs | 10053 | 1649 | 46 |
-| bitly/go-simplejson | 10128 | 2241 | 36 |
-| antonholmquist/jason | 27152 | 7237 | 101 |
-| github.com/ugorji/go/codec | 8806 | 2176 | 31 |
-| mreiferson/go-ujson | **7008** | **1409** | 37 |
-| pquerna/ffjson | **3769** | **624** | **15** |
-| mailru/easyjson | **2002** | **192** | **9** |
-| buger/jsonparser | **1367** | **0** | **0** |
-| buger/jsonparser (EachKey API) | **809** | **0** | **0** |
+Library | time/op | bytes/op | allocs/op 
+ ------ | ------- | -------- | -------
+encoding/json struct | 7879 | 880 | 18 
+encoding/json interface{} | 8946 | 1521 | 38
+Jeffail/gabs | 10053 | 1649 | 46
+bitly/go-simplejson | 10128 | 2241 | 36 
+antonholmquist/jason | 27152 | 7237 | 101 
+github.com/ugorji/go/codec | 8806 | 2176 | 31 
+mreiferson/go-ujson | **7008** | **1409** | 37 
+a8m/djson | 3862 | 1249 | 30 
+pquerna/ffjson | **3769** | **624** | **15** 
+mailru/easyjson | **2002** | **192** | **9** 
+buger/jsonparser | **1367** | **0** | **0** 
+buger/jsonparser (EachKey API) | **809** | **0** | **0** 
 
 Winners are ffjson, easyjson and jsonparser, where jsonparser is up to 9.8x faster than encoding/json and 4.6x faster than ffjson, and slightly faster than easyjson.
 If you look at memory allocation, jsonparser has no rivals, as it makes no data copy and operates with raw []byte structures and pointers to it.
@@ -271,7 +300,7 @@ It should read multiple nested fields and 1 array.
 https://github.com/buger/jsonparser/blob/master/benchmark/benchmark_medium_payload_test.go
 
 | Library | time/op | bytes/op | allocs/op |
-| --- | --- | --- | --- | --- |
+| ------- | ------- | -------- | --------- |
 | encoding/json struct | 57749 | 1336 | 29 |
 | encoding/json interface{} | 79297 | 10627 | 215 |
 | Jeffail/gabs | 83807 | 11202 | 235 |
@@ -279,6 +308,7 @@ https://github.com/buger/jsonparser/blob/master/benchmark/benchmark_medium_paylo
 | antonholmquist/jason | 94099 | 19013 | 247 |
 | github.com/ugorji/go/codec | 114719 | 6712 | 152 |
 | mreiferson/go-ujson | **56972** | 11547 | 270 |
+| a8m/djson | 28525 | 10196 | 198 | 
 | pquerna/ffjson | **20298** | **856** | **20** |
 | mailru/easyjson | **10512** | **336** | **12** |
 | buger/jsonparser | **15955** | **0** | **0** |
@@ -299,21 +329,21 @@ Basically it means processing a full JSON file.
 https://github.com/buger/jsonparser/blob/master/benchmark/benchmark_large_payload_test.go
 
 | Library | time/op | bytes/op | allocs/op |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | --- |
 | encoding/json struct | 748336 | 8272 | 307 |
 | encoding/json interface{} | 1224271 | 215425 | 3395 |
+| a8m/djson | 510082 | 213682 | 2845 |
 | pquerna/ffjson | **312271** | **7792** | **298** |
 | mailru/easyjson | **154186** | **6992** | **288** |
 | buger/jsonparser | **85308** | **0** | **0** |
 
-`jsonparser` now is a winner, but do not forget that it is way more lighweight parser than `ffson` or `easyjson`, and they have to parser all the data, while `jsonparser` parse only what you need. All `ffjson`, `easysjon` and `jsonparser` have their own parsing code, and does not depend on `encoding/json` or `interface{}`, thats one of the reasons why they are so fast. `easyjson` also use a bit of `unsafe` package to reduce memory consuption (in theory it can lead to some unexpected GC issue, but i did not tested enough)
+`jsonparser` now is a winner, but do not forget that it is way more lightweight parser than `ffson` or `easyjson`, and they have to parser all the data, while `jsonparser` parse only what you need. All `ffjson`, `easysjon` and `jsonparser` have their own parsing code, and does not depend on `encoding/json` or `interface{}`, thats one of the reasons why they are so fast. `easyjson` also use a bit of `unsafe` package to reduce memory consuption (in theory it can lead to some unexpected GC issue, but i did not tested enough)
 
 Also last benchmark did not included `EachKey` test, because in this particular case we need to read lot of Array values, and using `ArrayEach` is more efficient. 
 
 ## Questions and support
 
 All bug-reports and suggestions should go though Github Issues.
-If you have some private questions you can send them directly to me: leonsbox@gmail.com
 
 ## Contributing
 
