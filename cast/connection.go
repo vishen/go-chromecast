@@ -42,12 +42,14 @@ func NewConnection(debugging bool) *Connection {
 	c := &Connection{
 		resultChanMap: map[int]chan *pb.CastMessage{},
 		debugging:     debugging,
+		connected:     false,
 	}
 	return c
 }
 
 func (c *Connection) Start(addr string, port int) error {
 	if !c.connected {
+		defer func() { go c.receiveLoop() }()
 		return c.connect(addr, port)
 	}
 	return nil
@@ -92,7 +94,6 @@ func (c *Connection) SendMediaConn(ctx context.Context, payload Payload, transpo
 }*/
 
 func (c *Connection) Send(ctx context.Context, payload Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
-
 	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
 	// TODO(vishen): just make concurrent safe regardless of current flow
 	requestID += 1

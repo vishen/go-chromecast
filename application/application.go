@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
@@ -197,8 +198,11 @@ func (a *Application) debug(message string, args ...interface{}) {
 
 func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
 
-	// TODO(vishen): make context a timeout with some sensible default
-	ctx := context.Background()
+	// TODO(vishen): make context a timeout with some sensible default, and be configurable
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	// TODO(vishen): Make another send function on cast/connection that won't wait
+	// for a return message, as the initial CONNECT doesn't seem to respond...
 	message, err := a.conn.Send(ctx, payload, sourceID, destinationID, namespace)
 	if err != nil {
 		return nil, err

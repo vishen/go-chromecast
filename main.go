@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/vishen/go-chromecast/application"
@@ -22,5 +23,8 @@ func main() {
 		}
 		log.Printf("found dns entry: %#v", e)
 	}
-	app.Start(entry)
+	if err := app.Start(entry); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("app=%#v\n", app)
 }
