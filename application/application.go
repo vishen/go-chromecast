@@ -60,7 +60,7 @@ func (a *Application) Start(entry castdns.CastDNSEntry) error {
 	if err := a.conn.Start(entry.GetAddr(), entry.GetPort()); err != nil {
 		return errors.Wrap(err, "unable to start connection")
 	}
-	if _, err := a.sendDefaultConn(&cast.ConnectHeader); err != nil {
+	if err := a.sendDefaultConn(&cast.ConnectHeader); err != nil {
 		return errors.Wrap(err, "unable to connect to chromecast")
 	}
 	return errors.Wrap(a.Update(), "unable to update application")
@@ -109,7 +109,7 @@ func (a *Application) updateMediaStatus() error {
 }
 
 func (a *Application) getMediaStatus() (*cast.MediaStatusResponse, error) {
-	apiMessage, err := a.sendMediaRecv(&cast.GetStatusHeader)
+	apiMessage, err := a.sendAndWaitMediaRecv(&cast.GetStatusHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (a *Application) getMediaStatus() (*cast.MediaStatusResponse, error) {
 }
 
 func (a *Application) getReceiverStatus() (*cast.ReceiverStatusResponse, error) {
-	apiMessage, err := a.sendDefaultRecv(&cast.GetStatusHeader)
+	apiMessage, err := a.sendAndWaitDefaultRecv(&cast.GetStatusHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -142,22 +142,20 @@ func (a *Application) Pause() error {
 	if a.media == nil {
 		return errors.New("media not yet initialised")
 	}
-	_, err := a.sendMediaRecv(&cast.MediaHeader{
+	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PauseHeader,
 		MediaSessionId: a.media.MediaSessionId,
 	})
-	return err
 }
 
 func (a *Application) Unpause() error {
 	if a.media == nil {
 		return errors.New("media not yet initialised")
 	}
-	_, err := a.sendMediaRecv(&cast.MediaHeader{
+	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PlayHeader,
 		MediaSessionId: a.media.MediaSessionId,
 	})
-	return err
 }
 
 func (a *Application) Seek(value int) error {
@@ -181,13 +179,15 @@ func (a *Application) Seek(value int) error {
 		}
 	}
 
-	_, err := a.sendMediaRecv(&cast.MediaHeader{
+	// TODO(vishen): maybe there is another ResumeState that lets us
+	// seek from the end? Although not sure how this works for live media?
+
+	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.SeekHeader,
 		MediaSessionId: a.media.MediaSessionId,
 		CurrentTime:    currentTime,
 		ResumeState:    "PLAYBACK_START",
 	})
-	return err
 }
 
 func (a *Application) debug(message string, args ...interface{}) {
@@ -196,14 +196,18 @@ func (a *Application) debug(message string, args ...interface{}) {
 	}
 }
 
-func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
+func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) error {
+	return a.conn.Send(payload, sourceID, destinationID, namespace)
+}
+
+func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
 
 	// TODO(vishen): make context a timeout with some sensible default, and be configurable
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	// TODO(vishen): Make another send function on cast/connection that won't wait
 	// for a return message, as the initial CONNECT doesn't seem to respond...
-	message, err := a.conn.Send(ctx, payload, sourceID, destinationID, namespace)
+	message, err := a.conn.SendAndWait(ctx, payload, sourceID, destinationID, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -233,26 +237,50 @@ func (a *Application) send(payload cast.Payload, sourceID, destinationID, namesp
 	return message, nil
 }
 
-func (a *Application) sendDefaultConn(payload cast.Payload) (*pb.CastMessage, error) {
+// TODO(vishen): needing send(AndWait)* method seems a bit clunky, is there a better approach?
+// Maybe having a struct that has send and sendAndWait, similar to before.
+func (a *Application) sendDefaultConn(payload cast.Payload) error {
 	return a.send(payload, defaultSender, defaultRecv, namespaceConn)
 }
 
-func (a *Application) sendDefaultRecv(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *Application) sendDefaultRecv(payload cast.Payload) error {
 	return a.send(payload, defaultSender, defaultRecv, namespaceRecv)
 }
 
-func (a *Application) sendMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *Application) sendMediaConn(payload cast.Payload) error {
 	if a.application == nil {
-		return nil, errors.New("application isn't set")
+		return errors.New("application isn't set")
 	}
 	return a.send(payload, defaultSender, a.application.TransportId, namespaceConn)
 }
 
-func (a *Application) sendMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *Application) sendMediaRecv(payload cast.Payload) error {
+	if a.application == nil {
+		return errors.New("application isn't set")
+	}
+	return a.send(payload, defaultSender, a.application.TransportId, namespaceMedia)
+}
+
+func (a *Application) sendAndWaitDefaultConn(payload cast.Payload) (*pb.CastMessage, error) {
+	return a.sendAndWait(payload, defaultSender, defaultRecv, namespaceConn)
+}
+
+func (a *Application) sendAndWaitDefaultRecv(payload cast.Payload) (*pb.CastMessage, error) {
+	return a.sendAndWait(payload, defaultSender, defaultRecv, namespaceRecv)
+}
+
+func (a *Application) sendAndWaitMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
 	if a.application == nil {
 		return nil, errors.New("application isn't set")
 	}
-	return a.send(payload, defaultSender, a.application.TransportId, namespaceMedia)
+	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceConn)
+}
+
+func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {
+	if a.application == nil {
+		return nil, errors.New("application isn't set")
+	}
+	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
 }
 
 /*

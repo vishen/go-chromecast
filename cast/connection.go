@@ -24,7 +24,6 @@ const (
 )
 
 var (
-
 	// Global request id
 	requestID int
 )
@@ -77,37 +76,19 @@ func (c *Connection) connect(addr string, port int) error {
 	return nil
 }
 
-/*func (c *Connection) SendDefaultConn(ctx context.Context, payload Payload) (*pb.CastMessage, error) {
-	return c.Send(ctx, payload, defaultSender, defaultRecv, namespaceConn)
-}
+func (c *Connection) SendAndWait(ctx context.Context, payload Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
 
-func (c *Connection) SendDefaultRecv(ctx context.Context, payload Payload) (*pb.CastMessage, error) {
-	return c.Send(ctx, payload, defaultSender, defaultRecv, namespaceRecv)
-}
+	if err := c.Send(payload, sourceID, destinationID, namespace); err != nil {
+		return nil, err
+	}
 
-func (c *Connection) SendMediaConn(ctx context.Context, payload Payload, transportID string) (*pb.CastMessage, error) {
-	return c.Send(ctx, payload, defaultSender, transportID, namespaceConn)
-}
-
-func (c *Connection) SendMediaConn(ctx context.Context, payload Payload, transportID string) (*pb.CastMessage, error) {
-	return c.Send(ctx, payload, defaultSender, transportID, namespaceMedia)
-}*/
-
-func (c *Connection) Send(ctx context.Context, payload Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
-	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
-	// TODO(vishen): just make concurrent safe regardless of current flow
-	requestID += 1
-	payload.SetRequestId(requestID)
-
+	// TODO(vishen): find better solution, super hacky, and it relying on
+	// Send() to set the requestID. This is prone to race conditions!
 	resultChan := make(chan *pb.CastMessage, 1)
 	c.resultChanMap[requestID] = resultChan
 	defer func() {
 		delete(c.resultChanMap, requestID)
 	}()
-
-	if err := c.send(payload, sourceID, destinationID, namespace); err != nil {
-		return nil, err
-	}
 
 	select {
 	case <-ctx.Done():
@@ -117,7 +98,12 @@ func (c *Connection) Send(ctx context.Context, payload Payload, sourceID, destin
 	}
 }
 
-func (c *Connection) send(payload Payload, sourceID, destinationID, namespace string) error {
+func (c *Connection) Send(payload Payload, sourceID, destinationID, namespace string) error {
+	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
+	// TODO(vishen): just make concurrent safe regardless of current flow
+	requestID += 1
+	payload.SetRequestId(requestID)
+
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
 		return errors.Wrap(err, "unable to marshal json payload")
@@ -201,7 +187,7 @@ func (c *Connection) handleMessage(message *pb.CastMessage, headers *PayloadHead
 
 	switch messageType {
 	case "PING":
-		if err := c.send(&PongHeader, *message.SourceId, *message.DestinationId, *message.Namespace); err != nil {
+		if err := c.Send(&PongHeader, *message.SourceId, *message.DestinationId, *message.Namespace); err != nil {
 			c.debug("unable to respond to 'PING': %v", err)
 		}
 	default:
