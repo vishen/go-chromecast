@@ -1,0 +1,20 @@
+- fill in license information
+- fix / update all the cmds help text etc
+- exponential retry for getting the cast application if it fails
+- Maybe add config in home directory to enable user to set cast device etc, and store persistent data in there, eg: what has been played and when
+- remaining commands:
+    - list available casts
+    - current status of chromecast
+    - restart from beginning
+    - seek delta seconds
+    - go to end of playing media
+    - playlist
+        - this should try and sort based on numbers, then words?
+        - some way for user to change the playlist order?
+    - stop the cast from casting?
+    - gui?
+- remember what episodes have been played with timestamp
+    - can we see how far they watched as well?
+- debug should turn off logging, ie: log.SetOutput(ioutil.Discard)
+- different logging levels, one really verbose for everything, one less verbose for everything minus the requests / responses
+- regex device name match?

@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/exec"
+	"path"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -41,10 +45,11 @@ type Application struct {
 	volume      *cast.Volume
 
 	httpServer *http.Server
+	serverPort int
 
 	// NOTE: Currently only playing one media file at a time is handled
-	playMediaFinished  chan bool
-	playMediaFilenames []string
+	mediaFinished  chan bool
+	mediaFilenames []string
 }
 
 func NewApplication(debugging bool) *Application {
@@ -71,6 +76,12 @@ func (a *Application) Update() error {
 	if err != nil {
 		return err
 	}
+
+	/*
+		TODO: this seems to happen semi-frequently, maybe add an exponetial retry?
+		2018/08/26 10:47:56 [connection] sender-0 <- receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":2,"status":{"userEq":{"high_shelf":{"frequency":4500.0,"gain_db":0.0,"quality":0.707},"low_shelf":{"frequency":150.0,"gain_db":0.0,"quality":0.707},"max_peaking_eqs":0,"peaking_eqs":[]},"volume":{"controlType":"master","level":0.550000011920929,"muted":false,"stepInterval":0.019999999552965164}},"type":"RECEIVER_STATUS"}
+		Error: unable to update application: no applications running
+	*/
 
 	if len(recvStatus.Status.Applications) > 1 {
 		a.debug("more than 1 connected application on the chromecast: (%d)%#v", len(recvStatus.Status.Applications), recvStatus.Status.Applications)
@@ -140,7 +151,7 @@ func (a *Application) Close() {
 
 func (a *Application) Pause() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised")
+		return errors.New("media not yet initialised, there is nothing to pause")
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PauseHeader,
@@ -150,7 +161,7 @@ func (a *Application) Pause() error {
 
 func (a *Application) Unpause() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised")
+		return errors.New("media not yet initialised, there is nothing to unpause")
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PlayHeader,
@@ -192,7 +203,7 @@ func (a *Application) Seek(value int) error {
 
 func (a *Application) debug(message string, args ...interface{}) {
 	if a.debugging {
-		log.Printf("[application] %s", fmt.Sprintf(message, args))
+		log.Printf("[application] %s", fmt.Sprintf(message, args...))
 	}
 }
 
@@ -202,15 +213,16 @@ func (a *Application) send(payload cast.Payload, sourceID, destinationID, namesp
 
 func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
 
-	// TODO(vishen): make context a timeout with some sensible default, and be configurable
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	// TODO(vishen): Make another send function on cast/connection that won't wait
-	// for a return message, as the initial CONNECT doesn't seem to respond...
+
 	message, err := a.conn.SendAndWait(ctx, payload, sourceID, destinationID, namespace)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO(vishen): 	if the media application id changes, the media should act as finished
+	// receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":505942120,"status":{"applications":[{"appId":"233637DE","displayName":"YouTube","isIdleScreen":false,"launchedFromCloud":false,"namespaces":[{"name":"urn:x-cast:com.google.cast.debugoverlay"},{"name":"urn:x-cast:com.google.cast.cac"},{"name":"urn:x-cast:com.google.cast.media"},{"name":"urn:x-cast:com.google.youtube.mdx"}],"sessionId":"89efac28-6d0c-420f-9c78-39175dbcae84","statusText":"YouTube","transportId":"89efac28-6d0c-420f-9c78-39175dbcae84"}],"volume":{"controlType":"attenuation","level":1.0,"muted":false,"stepInterval":0.05000000074505806}},"type":"RECEIVER_STATUS"}
 
 	messageBytes := []byte(*message.PayloadUtf8)
 	messageType, err := jsonparser.GetString(messageBytes, "type")
@@ -221,18 +233,18 @@ func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID,
 	}
 	// Happens when the chromecast was unable to process the file served
 	if messageType == "LOAD_FAILED" {
-		//ca.playMediaFinished <- true
+		a.mediaFinished <- true
 
 	} else if messageType == "MEDIA_STATUS" {
-		/*mediaStatusResponse := MediaStatusResponse{}
+		mediaStatusResponse := cast.MediaStatusResponse{}
 		if err := json.Unmarshal(messageBytes, &mediaStatusResponse); err == nil {
 			for _, status := range mediaStatusResponse.Status {
 				if status.IdleReason == "FINISHED" {
-					ca.playMediaFinished <- true
-					return true
+					a.mediaFinished <- true
+					return message, nil
 				}
 			}
-		}*/
+		}
 	}
 	return message, nil
 }
@@ -283,22 +295,149 @@ func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessag
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
 }
 
-/*
+func (a *Application) possibleContentType(filename string) (string, error) {
+	// TODO(vishen): Inspect the file for known headers?
+	// Currently we just check the file extension
 
-func (ca *CastApplication) startServer() {
-	if ca.httpServer != nil {
-		return
+	// Can use the following from the Go std library
+	// mime.TypesByExtenstion(filepath.Ext(filename))
+	// fs.DetectContentType(data []byte) // needs opened(ish) file
+
+	switch ext := path.Ext(filename); ext {
+	case ".mkv", ".mp4", ".m4a", ".m4p", ".MP4":
+		return "video/mp4", nil
+	case ".webm":
+		return "video/webm", nil
+	default:
+		return "", fmt.Errorf("unknown file extension %q", ext)
+	}
+}
+
+func (a *Application) knownFileType(filename string) bool {
+	if ct, _ := a.possibleContentType(filename); ct != "" {
+		return true
+	}
+	return false
+}
+
+func (a *Application) Load(filename, contentType string, transcode bool) error {
+
+	if _, err := os.Stat(filename); err != nil {
+		return errors.Wrapf(err, "unable to find %q", filename)
+	}
+	/*
+		We can play media for the following:
+
+		- if we have a filename with a known content type
+		- if we have a filename, and a specified contentType
+		- if we have a filename with an unknown content type, and transcode is true
+		-
+	*/
+	knownFileType := a.knownFileType(filename)
+	if !knownFileType && contentType == "" && !transcode {
+		return fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
 	}
 
-	ca.playMediaFinished = make(chan bool, 1)
-	ca.httpServer = &http.Server{Addr: "0.0.0.0" + port}
+	// Set the content-type
+	if contentType != "" {
+	} else if knownFileType {
+		contentType, _ = a.possibleContentType(filename)
+	} else if transcode {
+		contentType = "video/mp4"
+		// TODO(vishen): check that ffmpeg is installed and runnable
+	}
+
+	a.debug("starting streaming server")
+
+	// Start server to serve the media
+	if err := a.startStreamingServer(); err != nil {
+		return errors.Wrap(err, "unable to start streaming server")
+	}
+
+	a.debug("started streaming server")
+
+	// Get the local inet address so the chromecast can access it because assumably they
+	// are on the same network
+	localIP, err := a.getLocalIP()
+	if err != nil {
+		return err
+	}
+
+	// Set the content url
+	contentUrl := fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, filename, transcode)
+	a.mediaFilenames = append(a.mediaFilenames, filename)
+
+	// If the current chromecast application isn't the Default Media Receiver
+	// we need to change it
+	if a.application.AppId != defaultChromecastAppId {
+		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
+			PayloadHeader: cast.LaunchHeader,
+			AppId:         defaultChromecastAppId,
+		})
+
+		if err != nil {
+			return errors.Wrap(err, "unable to change to default media receiver")
+		}
+
+		// Update the 'application' and 'media' field on the 'CastApplication'
+		a.Update()
+	}
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(&cast.LoadMediaCommand{
+		PayloadHeader: cast.LoadHeader,
+		CurrentTime:   0,
+		Autoplay:      true,
+		Media: cast.MediaItem{
+			ContentId:   contentUrl,
+			StreamType:  "BUFFERED",
+			ContentType: contentType,
+		},
+	})
+
+	// Wait until we have been notified that the media has finished playing
+	<-a.mediaFinished
+	return nil
+}
+
+func (a *Application) getLocalIP() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("Failed to get local ip address")
+}
+
+func (a *Application) startStreamingServer() error {
+	if a.httpServer != nil {
+		return nil
+	}
+	a.debug("trying to find available port to start streaming server on")
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return errors.Wrap(err, "unable to bind to local tcp address")
+	}
+
+	a.serverPort = listener.Addr().(*net.TCPAddr).Port
+	a.debug("found available port :%d", a.serverPort)
+
+	a.mediaFinished = make(chan bool, 1)
+	a.httpServer = &http.Server{}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Check to see if we have a 'filename' and if it is one of the ones that have
 		// already been validated and is useable.
 		filename := r.URL.Query().Get("media_file")
 		canServe := false
-		for _, fn := range ca.playMediaFilenames {
+		for _, fn := range a.mediaFilenames {
 			if fn == filename {
 				canServe = true
 			}
@@ -312,60 +451,30 @@ func (ca *CastApplication) startServer() {
 			liveStreaming = true
 		}
 
-		fmt.Printf("canServe=%t, liveStreaming=%t, filename=%s\n", canServe, liveStreaming, filename)
+		a.debug("canServe=%t, liveStreaming=%t, filename=%s", canServe, liveStreaming, filename)
 		if canServe {
 			if !liveStreaming {
 				http.ServeFile(w, r, filename)
 			} else {
-				ca.serveLiveStreaming(w, r, filename)
+				a.serveLiveStreaming(w, r, filename)
 			}
 		} else {
 			http.Error(w, "Invalid file", 400)
 		}
-		fmt.Printf("method=%s, headers=%v, reponse_headers=%v\n", r.Method, r.Header, w.Header())
-
+		a.debug("method=%s, headers=%v, reponse_headers=%v", r.Method, r.Header, w.Header())
 	})
 
 	go func() {
-		fmt.Printf("Media server listening on %s\n", port)
-		if err := ca.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		a.debug("media server listening on %d", a.serverPort)
+		if err := a.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
 
-		// TODO(vishen): 	if the media application id changes, the media should act as finished
-
-		// receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":505942120,"status":{"applications":[{"appId":"233637DE","displayName":"YouTube","isIdleScreen":false,"launchedFromCloud":false,"namespaces":[{"name":"urn:x-cast:com.google.cast.debugoverlay"},{"name":"urn:x-cast:com.google.cast.cac"},{"name":"urn:x-cast:com.google.cast.media"},{"name":"urn:x-cast:com.google.youtube.mdx"}],"sessionId":"89efac28-6d0c-420f-9c78-39175dbcae84","statusText":"YouTube","transportId":"89efac28-6d0c-420f-9c78-39175dbcae84"}],"volume":{"controlType":"attenuation","level":1.0,"muted":false,"stepInterval":0.05000000074505806}},"type":"RECEIVER_STATUS"}
-
-	// Add a message handler to listen for any messages received that would indicate that
-	// the media has finished
-	ca.castConn.addMessageHandler(func(message *api.CastMessage) bool {
-		messageBytes := []byte(*message.PayloadUtf8)
-		messageType, err := jsonparser.GetString(messageBytes, "type")
-		if err != nil {
-			return false
-		}
-		// Happens when the chromecast was unable to process the file served
-		if messageType == "LOAD_FAILED" {
-			ca.playMediaFinished <- true
-			return true
-		} else if messageType == "MEDIA_STATUS" {
-			mediaStatusResponse := MediaStatusResponse{}
-			if err := json.Unmarshal(messageBytes, &mediaStatusResponse); err == nil {
-				for _, status := range mediaStatusResponse.Status {
-					if status.IdleReason == "FINISHED" {
-						ca.playMediaFinished <- true
-						return true
-					}
-				}
-			}
-		}
-		return false
-	})
-
+	return nil
 }
 
-func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
+func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-i", filename,
@@ -386,119 +495,3 @@ func (ca *CastApplication) serveLiveStreaming(w http.ResponseWriter, r *http.Req
 	}
 
 }
-func (ca *CastApplication) closeServer() {
-	if ca.httpServer == nil {
-		return
-	}
-
-	ca.httpServer.Shutdown(nil)
-}
-
-func (ca *CastApplication) PlayMedia(filenameOrUrl, contentType string, liveStreaming bool) error {
-
-	// Check that we have a valid content type as the chromecast default media reciever
-	// only handles a limited number of content types.
-	if !ca.CanUseContentType(contentType) {
-		return fmt.Errorf("Unknown content type '%s'", contentType)
-	}
-
-	// The url for the chromecast to stream off
-	var contentUrl string
-
-	// If we have a url just use that, if we have a filename we need to
-	// start a local server to stream the file and use that url to send
-	// to the chromecast for it to stream off
-	if _, err := os.Stat(filenameOrUrl); err == nil {
-
-		// Start server to serve the media
-		ca.startServer()
-
-		// Get the local inet address so the chromecast can access it because assumably they
-		// are on the same network
-		localIP, err := getLocalIP()
-		if err != nil {
-			return err
-		}
-
-		// Set the content url
-		contentUrl = fmt.Sprintf("http://%s%s?media_file=%s&live_streaming=%t", localIP, port, filenameOrUrl, liveStreaming)
-		ca.playMediaFilenames = append(ca.playMediaFilenames, filenameOrUrl)
-
-	} else if _, err := url.ParseRequestURI(filenameOrUrl); err == nil {
-		contentUrl = filenameOrUrl
-	} else {
-		return fmt.Errorf("'%s' is not a valid file or url", filenameOrUrl)
-	}
-
-	// If the current chromecast application isn't the Default Media Receiver
-	// we need to change it
-	if ca.application.AppId != defaultChromecastAppId {
-		_, err := ca.defaultRecv.SendAndWait(&LaunchRequest{
-			PayloadHeader: launchHeader,
-			AppId:         defaultChromecastAppId,
-		})
-
-		if err != nil {
-			return err
-		}
-
-		// Update the 'application' and 'media' field on the 'CastApplication'
-		ca.Update()
-	}
-
-	// Send the command to the chromecast
-	ca.mediaRecv.Send(&LoadMediaCommand{
-		PayloadHeader: loadHeader,
-		CurrentTime:   0,
-		Autoplay:      true,
-		Media: MediaItem{
-			ContentId:   contentUrl,
-			StreamType:  "BUFFERED",
-			ContentType: contentType,
-		},
-	})
-
-	// Wait until we have been notified that the media has finished playing
-	<-ca.playMediaFinished
-
-	fmt.Println("Finished media")
-
-	return nil
-
-}
-func getLikelyContentType(filename string) (string, error) {
-	// TODO(vishen): Inspect the file for known headers?
-	// Currently we just check the file extension
-
-	// Can use the following from the Go std library
-	// mime.TypesByExtenstion(filepath.Ext(filename))
-	// fs.DetectContentType(data []byte) // needs opened(ish) file
-
-	switch ext := path.Ext(filename); ext {
-	case ".mkv", ".mp4", ".m4a", ".m4p", ".MP4":
-		return "video/mp4", nil
-	case ".webm":
-		return "video/webm", nil
-	default:
-		return "", fmt.Errorf("Unknown file extension '%s'", ext)
-	}
-}
-
-func getLocalIP() (string, error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", err
-	}
-
-	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("Failed to get local ip address")
-}
-
-*/

@@ -2,13 +2,17 @@ package dns
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/mdns"
 )
+
+func init() {
+	// Disable mdns annoying and verbose logging
+	// log.SetOutput(ioutil.Discard)
+}
 
 type CastDNSEntry interface {
 	GetAddr() string
@@ -56,7 +60,6 @@ func FindCastDNSEntries() []CastEntry {
 		for _, infoField := range entry.InfoFields {
 			splitField := strings.Split(infoField, "=")
 			if len(splitField) != 2 {
-				log.Printf("[error] Incorrect format for field in entry.InfoFields: %s", infoField)
 				continue
 			}
 			infoFields[splitField[0]] = splitField[1]

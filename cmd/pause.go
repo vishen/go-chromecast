@@ -12,10 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
-import "github.com/vishen/go-chromecast/cmd"
+import (
+	"github.com/spf13/cobra"
+)
 
-func main() {
-	cmd.Execute()
+// pauseCmd represents the pause command
+var pauseCmd = &cobra.Command{
+	Use:   "pause",
+	Short: "Pause the currently playing media on the chromecast",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		app, err := castApplication(cmd, args)
+		if err != nil {
+			return err
+		}
+		if err := app.Pause(); err != nil {
+			return err
+		}
+		return nil
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(pauseCmd)
 }
