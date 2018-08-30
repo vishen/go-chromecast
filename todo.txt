@@ -1,13 +1,14 @@
-- fill in license information
-- fix / update all the cmds help text etc
++ fill in license information
++ fix / update all the cmds help text etc
 - exponential retry for getting the cast application if it fails
 - Maybe add config in home directory to enable user to set cast device etc, and store persistent data in there, eg: what has been played and when
++ add check for load to ensure that ffmpeg is available
 - remaining commands:
     - list available casts
-    - current status of chromecast
-    - restart from beginning
-    - seek delta seconds
-    - go to end of playing media
+    + current status of chromecast
+    + restart from beginning
+    + seek delta seconds
+    + go to end of playing media
     - playlist
         - this should try and sort based on numbers, then words?
         - some way for user to change the playlist order?

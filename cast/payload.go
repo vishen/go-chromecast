@@ -7,9 +7,10 @@ var (
 	GetStatusHeader = PayloadHeader{Type: "GET_STATUS"}
 	PongHeader      = PayloadHeader{Type: "PONG"}       // Response to PING payload
 	LaunchHeader    = PayloadHeader{Type: "LAUNCH"}     // Launches a new chromecast app
+	StopHeader      = PayloadHeader{Type: "STOP"}       // Stop playing current media
 	PlayHeader      = PayloadHeader{Type: "PLAY"}       // Plays / unpauses the running app
 	PauseHeader     = PayloadHeader{Type: "PAUSE"}      // Pauses the running app
-	SeekHeader      = PayloadHeader{Type: "SEEK"}       // Pauses the running app
+	SeekHeader      = PayloadHeader{Type: "SEEK"}       // Seek into the running app
 	VolumeHeader    = PayloadHeader{Type: "SET_VOLUME"} // Sets the volume
 	LoadHeader      = PayloadHeader{Type: "LOAD"}       // Loads an application onto the chromecast
 )

@@ -149,6 +149,10 @@ func (a *Application) Close() {
 	a.sendDefaultConn(&cast.CloseHeader)
 }
 
+func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
+	return a.application, a.media, a.volume
+}
+
 func (a *Application) Pause() error {
 	if a.media == nil {
 		return errors.New("media not yet initialised, there is nothing to pause")
@@ -165,6 +169,16 @@ func (a *Application) Unpause() error {
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PlayHeader,
+		MediaSessionId: a.media.MediaSessionId,
+	})
+}
+
+func (a *Application) Stop() error {
+	if a.media == nil {
+		return errors.New("media not yet initialised, there is nothing to stop")
+	}
+	return a.sendMediaRecv(&cast.MediaHeader{
+		PayloadHeader:  cast.StopHeader,
 		MediaSessionId: a.media.MediaSessionId,
 	})
 }
@@ -344,7 +358,9 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 		contentType, _ = a.possibleContentType(filename)
 	} else if transcode {
 		contentType = "video/mp4"
-		// TODO(vishen): check that ffmpeg is installed and runnable
+		if err := exec.Command("ffmpeg", "-version").Run(); err != nil {
+			return errors.Wrap(err, "unable to run ffmpeg, it is required to transcode videos")
+		}
 	}
 
 	a.debug("starting streaming server")
