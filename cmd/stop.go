@@ -21,7 +21,7 @@ import (
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop playing media",
+	Short: "Stop casting",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		app, err := castApplication(cmd, args)
 		if err != nil {

@@ -20,6 +20,8 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	device, _ := cmd.Flags().GetString("device")
 	deviceName, _ := cmd.Flags().GetString("device_name")
 	deviceUuid, _ := cmd.Flags().GetString("uuid")
+	debug, _ := cmd.Flags().GetBool("debug")
+	disableCache, _ := cmd.Flags().GetBool("disableCache")
 
 	switch l := len(dnsEntries); l {
 	case 0:
@@ -65,7 +67,8 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 			break
 		}
 	}
-	app := application.NewApplication(true)
+	// TODO(vishen): get these values from the configuration
+	app := application.NewApplication(debug, disableCache)
 	if err := app.Start(entry); err != nil {
 		return nil, err
 	}

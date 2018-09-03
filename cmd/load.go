@@ -22,7 +22,7 @@ import (
 
 // loadCmd represents the load command
 var loadCmd = &cobra.Command{
-	Use:   "load",
+	Use:   "load <filename>",
 	Short: "Load and play media on the chromecast",
 	Long: `Load and play media files on the chromecast, this will
 start a streaming server locally and serve the media file to the

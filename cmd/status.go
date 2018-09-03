@@ -43,6 +43,9 @@ var statusCmd = &cobra.Command{
 			}
 			fmt.Printf("%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 		}
+
+		c := make(chan bool, 1)
+		<-c
 		return nil
 	},
 }

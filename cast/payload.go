@@ -2,17 +2,19 @@ package cast
 
 var (
 	// Known Payload headers
-	ConnectHeader   = PayloadHeader{Type: "CONNECT"}
-	CloseHeader     = PayloadHeader{Type: "CLOSE"}
-	GetStatusHeader = PayloadHeader{Type: "GET_STATUS"}
-	PongHeader      = PayloadHeader{Type: "PONG"}       // Response to PING payload
-	LaunchHeader    = PayloadHeader{Type: "LAUNCH"}     // Launches a new chromecast app
-	StopHeader      = PayloadHeader{Type: "STOP"}       // Stop playing current media
-	PlayHeader      = PayloadHeader{Type: "PLAY"}       // Plays / unpauses the running app
-	PauseHeader     = PayloadHeader{Type: "PAUSE"}      // Pauses the running app
-	SeekHeader      = PayloadHeader{Type: "SEEK"}       // Seek into the running app
-	VolumeHeader    = PayloadHeader{Type: "SET_VOLUME"} // Sets the volume
-	LoadHeader      = PayloadHeader{Type: "LOAD"}       // Loads an application onto the chromecast
+	ConnectHeader     = PayloadHeader{Type: "CONNECT"}
+	CloseHeader       = PayloadHeader{Type: "CLOSE"}
+	GetStatusHeader   = PayloadHeader{Type: "GET_STATUS"}
+	PongHeader        = PayloadHeader{Type: "PONG"}         // Response to PING payload
+	LaunchHeader      = PayloadHeader{Type: "LAUNCH"}       // Launches a new chromecast app
+	StopHeader        = PayloadHeader{Type: "STOP"}         // Stop playing current media
+	PlayHeader        = PayloadHeader{Type: "PLAY"}         // Plays / unpauses the running app
+	PauseHeader       = PayloadHeader{Type: "PAUSE"}        // Pauses the running app
+	SeekHeader        = PayloadHeader{Type: "SEEK"}         // Seek into the running app
+	VolumeHeader      = PayloadHeader{Type: "SET_VOLUME"}   // Sets the volume
+	LoadHeader        = PayloadHeader{Type: "LOAD"}         // Loads an application onto the chromecast
+	QueueLoadHeader   = PayloadHeader{Type: "QUEUE_LOAD"}   // Loads an application onto the chromecast
+	QueueUpdateHeader = PayloadHeader{Type: "QUEUE_UPDATE"} // Loads an application onto the chromecast
 )
 
 type Payload interface {
@@ -28,10 +30,32 @@ func (p *PayloadHeader) SetRequestId(id int) {
 	p.RequestId = id
 }
 
+type QueueUpdate struct {
+	PayloadHeader
+	MediaSessionId int `json:"mediaSessionId,omitempty"`
+	Jump           int `json:"jump,omitempty"`
+}
+
+type QueueLoad struct {
+	PayloadHeader
+	MediaSessionId int             `json:"mediaSessionId,omitempty"`
+	CurrentTime    float32         `json:"currentTime"`
+	StartIndex     int             `json:"startIndex"`
+	RepeatMode     string          `json:"repeatMode"`
+	Items          []QueueLoadItem `json:"items"`
+}
+
+type QueueLoadItem struct {
+	Media            MediaItem `json:"media"`
+	Autoplay         bool      `json:"autoplay"`
+	PlaybackDuration int       `json:"playbackDuration"`
+}
+
 type MediaHeader struct {
 	PayloadHeader
 	MediaSessionId int     `json:"mediaSessionId"`
 	CurrentTime    float32 `json:"currentTime"`
+	RelativeTime   float32 `json:"relativeTime,omitempty"`
 	ResumeState    string  `json:"resumeState"`
 }
 
@@ -74,7 +98,12 @@ type LoadMediaCommand struct {
 	Media       MediaItem   `json:"media"`
 	CurrentTime int         `json:"currentTime"`
 	Autoplay    bool        `json:"autoplay"`
+	QueueData   QueueData   `json:"queueData"`
 	CustomData  interface{} `json:"customData"`
+}
+
+type QueueData struct {
+	StartIndex int `json:"startIndex"`
 }
 
 type MediaItem struct {

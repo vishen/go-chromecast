@@ -27,7 +27,8 @@ var restartCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := app.Seek(0); err != nil {
+		// TODO(): THIS DOES NOT WORK
+		if err := app.SeekFromStart(0); err != nil {
 			return err
 		}
 		return nil

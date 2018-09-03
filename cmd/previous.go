@@ -18,10 +18,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// nextCmd represents the next command
-var nextCmd = &cobra.Command{
-	Use:   "next",
-	Short: "Play the next available media",
+// previousCmd represents the previous command
+var previousCmd = &cobra.Command{
+	Use:   "previous",
+	Short: "Play the previous available media",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		app, err := castApplication(cmd, args)
 		if err != nil {
@@ -35,5 +35,5 @@ var nextCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(nextCmd)
+	rootCmd.AddCommand(previousCmd)
 }

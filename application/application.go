@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
 	"time"
 
 	"github.com/buger/jsonparser"
+	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 
 	"github.com/vishen/go-chromecast/cast"
@@ -34,6 +37,19 @@ const (
 	namespaceMedia = "urn:x-cast:com.google.cast.media"
 )
 
+var (
+	possibleCachePaths = []string{
+		".config/gochromecast",
+		".gochromecast",
+	}
+)
+
+type PlayedItem struct {
+	ContentID string `json:"content_id"`
+	Started   int64  `json:"started"`
+	Finished  int64  `json:"finished"`
+}
+
 type Application struct {
 	conn *cast.Connection
 
@@ -50,18 +66,86 @@ type Application struct {
 	// NOTE: Currently only playing one media file at a time is handled
 	mediaFinished  chan bool
 	mediaFilenames []string
+
+	cacheDisabled bool
+	cacheFilename string
+	playedItems   map[string]PlayedItem
 }
 
-func NewApplication(debugging bool) *Application {
+func NewApplication(debugging, cacheDisabled bool) *Application {
 	// TODO(vishen): make cast.Connection an interface, most likely will just need
 	// the Send method
 	return &Application{
-		conn:      cast.NewConnection(debugging),
-		debugging: debugging,
+		conn:          cast.NewConnection(debugging),
+		debugging:     debugging,
+		cacheDisabled: cacheDisabled,
+		playedItems:   map[string]PlayedItem{},
 	}
 }
 
+// TODO(vishen): move to a cache package
+func (a *Application) loadPlayedItems() error {
+	if a.cacheDisabled {
+		return nil
+	}
+	homeDir, err := homedir.Dir()
+	if err != nil {
+		return errors.Wrap(err, "unable to find homedir")
+	}
+
+	for _, p := range possibleCachePaths {
+		filename := homeDir + "/" + p
+		if _, err := os.Stat(filename); err != nil {
+			a.debug("unable to stat %q: %v", filename, err)
+			continue
+		}
+		a.cacheFilename = filename
+		fileContents, err := ioutil.ReadFile(filename)
+		if err != nil {
+			a.debug("unable to read %q: %v", filename, err)
+			continue
+		}
+		if err := json.Unmarshal(fileContents, &a.playedItems); err == nil {
+			return nil
+		}
+		a.debug("unable to unmarshal %q: %v", filename, err)
+	}
+
+	return nil
+}
+
+func (a *Application) writePlayedItems() error {
+	if a.cacheDisabled {
+		return nil
+	}
+	if a.cacheFilename == "" {
+		homeDir, err := homedir.Dir()
+		if err != nil {
+			return errors.Wrap(err, "unable to find homedir")
+		}
+		for _, p := range possibleCachePaths {
+			filename := homeDir + "/" + p
+			if _, err := os.Create(filename); err == nil {
+				a.cacheFilename = filename
+				break
+			}
+			a.debug("unable to create path %q: %v", filename, err)
+		}
+	}
+	if a.cacheFilename == "" {
+		return errors.New("unable to create cache file")
+	}
+
+	playedItemsJson, _ := json.Marshal(a.playedItems)
+	ioutil.WriteFile(a.cacheFilename, playedItemsJson, 0644)
+	return nil
+}
+
 func (a *Application) Start(entry castdns.CastDNSEntry) error {
+	if err := a.loadPlayedItems(); err != nil {
+		a.debug("unable to load played items: %v", err)
+	}
+
 	if err := a.conn.Start(entry.GetAddr(), entry.GetPort()); err != nil {
 		return errors.Wrap(err, "unable to start connection")
 	}
@@ -173,7 +257,7 @@ func (a *Application) Unpause() error {
 	})
 }
 
-func (a *Application) Stop() error {
+func (a *Application) StopMedia() error {
 	if a.media == nil {
 		return errors.New("media not yet initialised, there is nothing to stop")
 	}
@@ -183,7 +267,58 @@ func (a *Application) Stop() error {
 	})
 }
 
+func (a *Application) Stop() error {
+	return a.sendDefaultRecv(&cast.StopHeader)
+}
+
+func (a *Application) Next() error {
+	if a.media == nil {
+		return errors.New("media not yet initialised, there is nothing to stop")
+	}
+
+	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
+	_, err := a.sendAndWaitMediaRecv(&cast.QueueUpdate{
+		PayloadHeader:  cast.QueueUpdateHeader,
+		MediaSessionId: a.media.MediaSessionId,
+		Jump:           1,
+	})
+	return err
+}
+
+func (a *Application) Skip() error {
+
+	if a.media == nil {
+		return errors.New("media not yet initialised, there is nothing to stop")
+	}
+
+	// Get the latest media status
+	// TODO(vishen): can we unroll this, so it doesn't update the current state?
+	// but just returns it?
+	// that might also make a.media == nil checks pointless?
+	a.updateMediaStatus()
+
+	v := a.media.CurrentTime - 10
+	if a.media.Media.Duration > 0 {
+		v = a.media.Media.Duration - 10
+	}
+
+	return a.Seek(int(v))
+}
+
 func (a *Application) Seek(value int) error {
+	if a.media == nil {
+		return errors.New("media not yet initialised")
+	}
+
+	return a.sendMediaRecv(&cast.MediaHeader{
+		PayloadHeader:  cast.SeekHeader,
+		MediaSessionId: a.media.MediaSessionId,
+		RelativeTime:   float32(value),
+		ResumeState:    "PLAYBACK_START",
+	})
+}
+
+func (a *Application) SeekFromStart(value int) error {
 	if a.media == nil {
 		return errors.New("media not yet initialised")
 	}
@@ -194,23 +329,13 @@ func (a *Application) Seek(value int) error {
 	// that might also make a.media == nil checks pointless?
 	a.updateMediaStatus()
 
-	var currentTime float32 = 0.0
-	if value != 0 {
-		currentTime = a.media.CurrentTime + float32(value)
-		if a.media.Media.Duration < currentTime {
-			currentTime = a.media.Media.Duration - 2
-		} else if currentTime < 0 {
-			currentTime = 0
-		}
-	}
-
 	// TODO(vishen): maybe there is another ResumeState that lets us
 	// seek from the end? Although not sure how this works for live media?
 
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.SeekHeader,
 		MediaSessionId: a.media.MediaSessionId,
-		CurrentTime:    currentTime,
+		CurrentTime:    float32(value),
 		ResumeState:    "PLAYBACK_START",
 	})
 }
@@ -327,11 +452,119 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 	}
 }
 
+func (a *Application) PlayableMediaType(filename string) bool {
+	if a.knownFileType(filename) {
+		return true
+	}
+
+	switch path.Ext(filename) {
+	case ".avi":
+		return true
+	}
+
+	return false
+}
+
 func (a *Application) knownFileType(filename string) bool {
 	if ct, _ := a.possibleContentType(filename); ct != "" {
 		return true
 	}
 	return false
+}
+
+func (a *Application) PlayedItems() map[string]PlayedItem {
+	return a.playedItems
+}
+
+func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
+
+	// TODO: Check all filenames
+	filename := filenames[0]
+
+	if _, err := os.Stat(filename); err != nil {
+		return errors.Wrapf(err, "unable to find %q", filename)
+	}
+	/*
+		We can play media for the following:
+
+		- if we have a filename with a known content type
+		- if we have a filename, and a specified contentType
+		- if we have a filename with an unknown content type, and transcode is true
+		-
+	*/
+	knownFileType := a.knownFileType(filename)
+	if !knownFileType && contentType == "" && !transcode {
+		return fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
+	}
+
+	// Set the content-type
+	if contentType != "" {
+	} else if knownFileType {
+		contentType, _ = a.possibleContentType(filename)
+	} else if transcode {
+		contentType = "video/mp4"
+	}
+
+	// TODO: maybe cache this somewhere
+	localIP, err := a.getLocalIP()
+	if err != nil {
+		return err
+	}
+
+	a.debug("starting streaming server")
+
+	// Start server to serve the media
+	if err := a.startStreamingServer(); err != nil {
+		return errors.Wrap(err, "unable to start streaming server")
+	}
+
+	a.debug("started streaming server")
+
+	items := []cast.QueueLoadItem{}
+
+	for _, f := range filenames {
+		// Set the content url
+		contentUrl := fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, f, transcode)
+		a.mediaFilenames = append(a.mediaFilenames, f)
+		items = append(items, cast.QueueLoadItem{
+			Autoplay:         true,
+			PlaybackDuration: 60,
+			Media: cast.MediaItem{
+				ContentId:   contentUrl,
+				StreamType:  "BUFFERED",
+				ContentType: contentType,
+			},
+		})
+	}
+
+	// If the current chromecast application isn't the Default Media Receiver
+	// we need to change it
+	if a.application.AppId != defaultChromecastAppId {
+		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
+			PayloadHeader: cast.LaunchHeader,
+			AppId:         defaultChromecastAppId,
+		})
+
+		if err != nil {
+			return errors.Wrap(err, "unable to change to default media receiver")
+		}
+	}
+
+	// Update the 'application' and 'media' field on the 'CastApplication'
+	a.Update()
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(&cast.QueueLoad{
+		PayloadHeader: cast.QueueLoadHeader,
+		CurrentTime:   0,
+		StartIndex:    0,
+		RepeatMode:    "REPEAT_OFF",
+		Items:         items,
+	})
+
+	c := make(chan bool, 1)
+	<-c
+	return nil
 }
 
 func (a *Application) Load(filename, contentType string, transcode bool) error {
@@ -381,6 +614,7 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 
 	// Set the content url
 	contentUrl := fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, filename, transcode)
+	url, _ := url.Parse(contentUrl)
 	a.mediaFilenames = append(a.mediaFilenames, filename)
 
 	// If the current chromecast application isn't the Default Media Receiver
@@ -390,11 +624,9 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 			PayloadHeader: cast.LaunchHeader,
 			AppId:         defaultChromecastAppId,
 		})
-
 		if err != nil {
 			return errors.Wrap(err, "unable to change to default media receiver")
 		}
-
 		// Update the 'application' and 'media' field on the 'CastApplication'
 		a.Update()
 	}
@@ -405,7 +637,7 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 		CurrentTime:   0,
 		Autoplay:      true,
 		Media: cast.MediaItem{
-			ContentId:   contentUrl,
+			ContentId:   url.String(),
 			StreamType:  "BUFFERED",
 			ContentType: contentType,
 		},
@@ -459,6 +691,9 @@ func (a *Application) startStreamingServer() error {
 			}
 		}
 
+		a.playedItems[filename] = PlayedItem{ContentID: filename, Started: time.Now().Unix()}
+		a.writePlayedItems()
+
 		// Check to see if this is a live streaming video and we need to use an
 		// infinite range request / response. This comes from media that is either
 		// live or currently being transcoded to a different media format.
@@ -478,6 +713,12 @@ func (a *Application) startStreamingServer() error {
 			http.Error(w, "Invalid file", 400)
 		}
 		a.debug("method=%s, headers=%v, reponse_headers=%v", r.Method, r.Header, w.Header())
+		pi := a.playedItems[filename]
+
+		// TODO(vishen): make this a pointer?
+		pi.Finished = time.Now().Unix()
+		a.playedItems[filename] = pi
+		a.writePlayedItems()
 	})
 
 	go func() {
