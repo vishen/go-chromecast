@@ -1,7 +1,9 @@
 # Chromecast
-This implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them, if it is a known media type, on at a time
+
+This implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them sorted by numerically.
 
 Can play / load a local media file on your chromecast. Currently the chromecast default media receiver only supports the following formats:
+
 ```
 Supported Media formats:
     - MKV
@@ -9,73 +11,51 @@ Supported Media formats:
     - WebM
 ```
 
-If an AVI file is found it will use `ffmpeg` to transcode it to MP4 (in a temp file) and use cast the transcoded mp4 file.
+If an unknown file is found, it will use `ffmpeg` to transcode it to MP4, and stream it to the chromecast.
+
+If playing from a playlist, you are able to pass though the `--select` flag, and this will allow you to select
+the media to start playing from. This is useful if you have already played some of the media and want to start
+from one you haven't played yet.
+
+A cache is kept of played media, so if you are playing media from a playlist, it will check to see what
+media files you have recently played and play the next one from the playlist. `--continue=false` can be passed
+through and this will start the playlist from the start.
+
+The cast DNS entry is also cached, this means that if you pass through the device name, `-n <name>`, or the
+device uuid, `-u <uuid>`, the results will be cached and it will connect to the chromecast device instanly.
+Otherwise a DNS multicast is performed to find the chromecast devices.
 
 ## Commands
-```
-NAME:
-   Chromecast - cli to interact with chromecast
 
-USAGE:
-   chromecast [global options] command [command options] [arguments...]
-
-VERSION:
-   0.0.1
-
-COMMANDS:
-    list      list available chromecasts
-    status    current status of the chromecast
-    pause     pause current media
-    unpause   unpause current media
-    reset     reset the current playing media
-    end       go to end of current playing media
-    seek      seek to a delta in the current playing media
-    playlist  loads a playlist and plays the media
-    load      load a mp4 media to play
-    repl      repl for running commands
-    help, h   Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --debug, -d    log debug information
-   --uuid value, -u value  specify chromecast uuid
-   --help, -h     show help
-   --version, -v  print the version
 ```
+Control your Google Chromecast or Google Home Mini from the
+command line.
 
-### Examples
-```
-$ make build
-$ ./chromecast status                       # Shows the status of the chromecast
-$ ./chromecast pause                        # Pauses the current chromecast application
-$ ./chromecast unpause                      # Unpauses the current chromecast application
-$ ./chromecast reset                        # Resets the current chromecast application to the beginning
-$ ./chromecast end                          # Ends the current chromecast application
-$ ./chromecast seek <int>                   # Seeks to a playing time in the current chromecast application
-$ ./chromecast load <filename.mp4>          # Loads a media file to play on the chromecast application
-$ ./chromecast load <filename> video/mp4    # Loads a media file with content type 'mp4' to play on the chromecast application
-$ ./chromecast load <url> video/mp4         # The chromecast will play this media file from the url
-$ ./chromecast playlist <folder>            # This will loop through all the files in a folder and play them one-by-one
-$ ./chromecast repl                         # Starts an interactive session
-```
+Usage:
+  go-chromecast [command]
 
-## TODO
-```
-- Add flag to go into interactive mode after running command
-- Add metadata to loaded media
-- add sorting to playlist order
-- Fix logging / debug information
-- Add exploratory repl commands to try different things on the media and default connections
-- Cache the dns result of the chromecast
-```
+Available Commands:
+  help        Help about any command
+  load        Load and play media on the chromecast
+  next        Play the next available media
+  pause       Pause the currently playing media on the chromecast
+  playlist    Load and play media on the chromecast
+  previous    Play the previous available media
+  restart     Restart the currently playing media
+  rewind      Rewind by seconds the currently playing media
+  seek        Seek by seconds into the currently playing media
+  status      Current chromecast status
+  stop        Stop casting
+  unpause     Unpause the currently playing media on the chromecast
+  watch       Watch all events sent from a chromecaset device
 
-## Resources
-```
-- https://github.com/xat/castnow
-- https://github.com/trenskow/stream-transcoder.js/blob/master/lib/transcoder.js
-- https://github.com/heartszhang/mp4box
-- https://github.com/dhowden/tag
-- https://github.com/balloob/pychromecast
-- https://developers.google.com/cast/docs/reference/receiver/cast.receiver.media
-- https://creativcoders.wordpress.com/2014/12/12/stream-live-mp4-video-with-ffmpeg-while-encoding/
-- https://rigor.com/blog/2016/01/optimizing-mp4-video-for-fast-streaming
+Flags:
+      --debug                debug logging
+  -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
+  -n, --device-name string   chromecast device name
+      --disable-cache        disable the cache
+  -h, --help                 help for go-chromecast
+  -u, --uuid string          chromecast device uuid
+
+Use "go-chromecast [command] --help" for more information about a command.
 ```
