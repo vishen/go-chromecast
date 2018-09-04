@@ -1,6 +1,6 @@
-- move cache out of "application", the "cmd" should use it to
-    - cache the device(-name) and ip address
-    - get the played media list (currently in "application" but should be moved)
++ move cache out of "application", the "cmd" should use it to
+    + cache the device(-name) and ip address
+    + get the played media list (currently in "application" but should be moved)
 - debug should turn off logging, ie: log.SetOutput(ioutil.Discard)
 - different logging levels, one really verbose for everything, one less verbose for everything minus the requests / responses
 - use logrus for better logging?

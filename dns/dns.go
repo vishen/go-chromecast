@@ -15,6 +15,8 @@ func init() {
 }
 
 type CastDNSEntry interface {
+	GetName() string
+	GetUUID() string
 	GetAddr() string
 	GetPort() int
 }
@@ -32,6 +34,14 @@ type CastEntry struct {
 	Status     string
 	DeviceName string
 	InfoFields map[string]string
+}
+
+func (e CastEntry) GetUUID() string {
+	return e.UUID
+}
+
+func (e CastEntry) GetName() string {
+	return e.DeviceName
 }
 
 func (e CastEntry) GetAddr() string {
