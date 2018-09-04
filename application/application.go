@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,6 +11,8 @@ import (
 	"os/exec"
 	"path"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
@@ -45,7 +46,7 @@ type PlayedItem struct {
 type Application struct {
 	conn *cast.Connection
 
-	debugging bool
+	debug bool
 
 	// Current values from the chromecast
 	application *cast.Application
@@ -65,21 +66,23 @@ type Application struct {
 	cache         *storage.Storage
 }
 
-func NewApplication(debugging, cacheDisabled bool) *Application {
+func NewApplication(debug, cacheDisabled bool) *Application {
 	// TODO(vishen): make cast.Connection an interface, most likely will just need
 	// the Send method
 	return &Application{
-		conn:          cast.NewConnection(debugging),
-		debugging:     debugging,
+		conn:          cast.NewConnection(debug),
+		debug:         debug,
 		cacheDisabled: cacheDisabled,
 		playedItems:   map[string]PlayedItem{},
 		cache:         storage.NewStorage(),
 	}
 }
 
+func (a *Application) SetDebug(debug bool) { a.debug = debug }
+
 func (a *Application) Start(entry castdns.CastDNSEntry) error {
 	if err := a.loadPlayedItems(); err != nil {
-		a.debug("unable to load played items: %v", err)
+		a.log("unable to load played items: %v", err)
 	}
 
 	if err := a.conn.Start(entry.GetAddr(), entry.GetPort()); err != nil {
@@ -97,8 +100,8 @@ func (a *Application) loadPlayedItems() error {
 	}
 
 	b, err := a.cache.Load("application")
-	if err != nil {
-		return err
+	if err != nil || len(b) == 0 {
+		return nil
 	}
 	return json.Unmarshal(b, &a.playedItems)
 }
@@ -125,7 +128,7 @@ func (a *Application) Update() error {
 	*/
 
 	if len(recvStatus.Status.Applications) > 1 {
-		a.debug("more than 1 connected application on the chromecast: (%d)%#v", len(recvStatus.Status.Applications), recvStatus.Status.Applications)
+		a.log("more than 1 connected application on the chromecast: (%d)%#v", len(recvStatus.Status.Applications), recvStatus.Status.Applications)
 	} else if len(recvStatus.Status.Applications) == 0 {
 		return errors.New("no applications running")
 	}
@@ -213,6 +216,20 @@ func (a *Application) Next() error {
 		PayloadHeader:  cast.QueueUpdateHeader,
 		MediaSessionId: a.media.MediaSessionId,
 		Jump:           1,
+	})
+	return err
+}
+
+func (a *Application) Previous() error {
+	if a.media == nil {
+		return errors.New("media not yet initialised, there is nothing to stop")
+	}
+
+	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
+	_, err := a.sendAndWaitMediaRecv(&cast.QueueUpdate{
+		PayloadHeader:  cast.QueueUpdateHeader,
+		MediaSessionId: a.media.MediaSessionId,
+		Jump:           -1,
 	})
 	return err
 }
@@ -374,14 +391,14 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 		return err
 	}
 
-	a.debug("starting streaming server")
+	a.log("starting streaming server")
 
 	// Start server to serve the media
 	if err := a.startStreamingServer(); err != nil {
 		return errors.Wrap(err, "unable to start streaming server")
 	}
 
-	a.debug("started streaming server")
+	a.log("started streaming server")
 
 	items := []cast.QueueLoadItem{}
 
@@ -459,14 +476,14 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 		}
 	}
 
-	a.debug("starting streaming server")
+	a.log("starting streaming server")
 
 	// Start server to serve the media
 	if err := a.startStreamingServer(); err != nil {
 		return errors.Wrap(err, "unable to start streaming server")
 	}
 
-	a.debug("started streaming server")
+	a.log("started streaming server")
 
 	// Get the local inet address so the chromecast can access it because assumably they
 	// are on the same network
@@ -536,7 +553,7 @@ func (a *Application) startStreamingServer() error {
 	if a.httpServer != nil {
 		return nil
 	}
-	a.debug("trying to find available port to start streaming server on")
+	a.log("trying to find available port to start streaming server on")
 
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -544,7 +561,7 @@ func (a *Application) startStreamingServer() error {
 	}
 
 	a.serverPort = listener.Addr().(*net.TCPAddr).Port
-	a.debug("found available port :%d", a.serverPort)
+	a.log("found available port :%d", a.serverPort)
 
 	a.mediaFinished = make(chan bool, 1)
 	a.httpServer = &http.Server{}
@@ -571,7 +588,7 @@ func (a *Application) startStreamingServer() error {
 			liveStreaming = true
 		}
 
-		a.debug("canServe=%t, liveStreaming=%t, filename=%s", canServe, liveStreaming, filename)
+		a.log("canServe=%t, liveStreaming=%t, filename=%s", canServe, liveStreaming, filename)
 		if canServe {
 			if !liveStreaming {
 				http.ServeFile(w, r, filename)
@@ -581,7 +598,7 @@ func (a *Application) startStreamingServer() error {
 		} else {
 			http.Error(w, "Invalid file", 400)
 		}
-		a.debug("method=%s, headers=%v, reponse_headers=%v", r.Method, r.Header, w.Header())
+		a.log("method=%s, headers=%v, reponse_headers=%v", r.Method, r.Header, w.Header())
 		pi := a.playedItems[filename]
 
 		// TODO(vishen): make this a pointer?
@@ -591,7 +608,7 @@ func (a *Application) startStreamingServer() error {
 	})
 
 	go func() {
-		a.debug("media server listening on %d", a.serverPort)
+		a.log("media server listening on %d", a.serverPort)
 		if err := a.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
@@ -622,9 +639,9 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 
 }
 
-func (a *Application) debug(message string, args ...interface{}) {
-	if a.debugging {
-		log.Printf("[application] %s", fmt.Sprintf(message, args...))
+func (a *Application) log(message string, args ...interface{}) {
+	if a.debug {
+		log.Infof("[application] %s", fmt.Sprintf(message, args...))
 	}
 }
 

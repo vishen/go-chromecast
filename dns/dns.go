@@ -2,6 +2,8 @@ package dns
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
 	"strings"
 	"time"
@@ -11,7 +13,7 @@ import (
 
 func init() {
 	// Disable mdns annoying and verbose logging
-	// log.SetOutput(ioutil.Discard)
+	log.SetOutput(ioutil.Discard)
 }
 
 type CastDNSEntry interface {

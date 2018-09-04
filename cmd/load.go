@@ -37,12 +37,14 @@ that ffmpeg is installed.`,
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return nil
 		}
 		contentType, _ := cmd.Flags().GetString("content-type")
 		transcode, _ := cmd.Flags().GetBool("transcode")
 		if err := app.Load(args[0], contentType, transcode); err != nil {
-			return err
+			fmt.Printf("unable to load media: %v\n", err)
+			return nil
 		}
 		return nil
 	},

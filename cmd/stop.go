@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,15 +24,17 @@ import (
 var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop casting",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return
 		}
 		if err := app.Stop(); err != nil {
-			return err
+			fmt.Printf("unable to stop casting: %v\n", err)
+			return
 		}
-		return nil
+		return
 	},
 }
 

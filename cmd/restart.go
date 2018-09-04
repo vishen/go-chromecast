@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,16 +24,18 @@ import (
 var restartCmd = &cobra.Command{
 	Use:   "restart",
 	Short: "Restart the currently playing media",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return
 		}
 		// TODO(): THIS DOES NOT WORK
 		if err := app.SeekFromStart(0); err != nil {
-			return err
+			fmt.Printf("unable to restart media: %v\n", err)
+			return
 		}
-		return nil
+		return
 	},
 }
 

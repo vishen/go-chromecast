@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/buger/jsonparser"
 	"github.com/gogo/protobuf/proto"
@@ -33,14 +34,14 @@ type Connection struct {
 
 	resultChanMap map[int]chan *pb.CastMessage
 
-	debugging bool
+	debug     bool
 	connected bool
 }
 
-func NewConnection(debugging bool) *Connection {
+func NewConnection(debug bool) *Connection {
 	c := &Connection{
 		resultChanMap: map[int]chan *pb.CastMessage{},
-		debugging:     debugging,
+		debug:         debug,
 		connected:     false,
 	}
 	return c
@@ -54,8 +55,8 @@ func (c *Connection) Start(addr string, port int) error {
 	return nil
 }
 
-func (c *Connection) debug(message string, args ...interface{}) {
-	if c.debugging {
+func (c *Connection) log(message string, args ...interface{}) {
+	if c.debug {
 		log.Printf("[connection] %s", fmt.Sprintf(message, args...))
 	}
 }
@@ -123,7 +124,7 @@ func (c *Connection) Send(payload Payload, sourceID, destinationID, namespace st
 		return errors.Wrap(err, "unable to marshal proto payload")
 	}
 
-	c.debug("%s -> %s [%s]: %s", sourceID, destinationID, namespace, payloadJson)
+	c.log("%s -> %s [%s]: %s", sourceID, destinationID, namespace, payloadJson)
 
 	if err := binary.Write(c.conn, binary.BigEndian, uint32(len(data))); err != nil {
 		return errors.Wrap(err, "unable to write binary format")
@@ -139,37 +140,37 @@ func (c *Connection) receiveLoop() {
 	for {
 		var length uint32
 		if err := binary.Read(c.conn, binary.BigEndian, &length); err != nil {
-			c.debug("failed to binary read payload: %v", err)
+			c.log("failed to binary read payload: %v", err)
 			break
 		}
 		if length == 0 {
-			c.debug("empty payload received")
+			c.log("empty payload received")
 			continue
 		}
 
 		payload := make([]byte, length)
 		i, err := io.ReadFull(c.conn, payload)
 		if err != nil {
-			c.debug("failed to read payload: %v", err)
+			c.log("failed to read payload: %v", err)
 			continue
 		}
 
 		if i != int(length) {
-			c.debug("invalid payload, wanted: %d but read: %d", length, i)
+			c.log("invalid payload, wanted: %d but read: %d", length, i)
 			continue
 		}
 
 		message := &pb.CastMessage{}
 		if err := proto.Unmarshal(payload, message); err != nil {
-			c.debug("failed to unmarshal proto cast message '%s': %v", payload, err)
+			c.log("failed to unmarshal proto cast message '%s': %v", payload, err)
 			continue
 		}
 
-		c.debug("%s <- %s [%s]: %s", *message.DestinationId, *message.SourceId, *message.Namespace, *message.PayloadUtf8)
+		c.log("%s <- %s [%s]: %s", *message.DestinationId, *message.SourceId, *message.Namespace, *message.PayloadUtf8)
 
 		var headers PayloadHeader
 		if err := json.Unmarshal([]byte(*message.PayloadUtf8), &headers); err != nil {
-			c.debug("failed to unmarshal proto message header: %v", err)
+			c.log("failed to unmarshal proto message header: %v", err)
 			continue
 		}
 
@@ -181,19 +182,19 @@ func (c *Connection) handleMessage(message *pb.CastMessage, headers *PayloadHead
 
 	messageType, err := jsonparser.GetString([]byte(*message.PayloadUtf8), "type")
 	if err != nil {
-		c.debug("could not find 'type' key in response message %q: %s", *message.PayloadUtf8, err)
+		c.log("could not find 'type' key in response message %q: %s", *message.PayloadUtf8, err)
 		return
 	}
 
 	switch messageType {
 	case "PING":
 		if err := c.Send(&PongHeader, *message.SourceId, *message.DestinationId, *message.Namespace); err != nil {
-			c.debug("unable to respond to 'PING': %v", err)
+			c.log("unable to respond to 'PING': %v", err)
 		}
 	default:
 		requestID, err := jsonparser.GetInt([]byte(*message.PayloadUtf8), "requestId")
 		if err != nil {
-			c.debug("unable to find 'requestId' in proto payload '%s': %v", *message.PayloadUtf8, err)
+			c.log("unable to find 'requestId' in proto payload '%s': %v", *message.PayloadUtf8, err)
 		}
 		if resultChan, ok := c.resultChanMap[int(requestID)]; ok {
 			resultChan <- message

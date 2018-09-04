@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -31,14 +32,17 @@ var rewindCmd = &cobra.Command{
 		}
 		value, err := strconv.Atoi(args[0])
 		if err != nil {
-			return errors.Wrapf(err, "unable to parse %q to an integer", args[0])
+			fmt.Printf("unable to parse %q to an integer\n", args[0])
+			return nil
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return nil
 		}
 		if err := app.Seek(-value); err != nil {
-			return err
+			fmt.Printf("unable to rewind current media: %v\n", err)
+			return nil
 		}
 		return nil
 	},

@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,15 +24,17 @@ import (
 var previousCmd = &cobra.Command{
 	Use:   "previous",
 	Short: "Play the previous available media",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return
 		}
-		if err := app.Next(); err != nil {
-			return err
+		if err := app.Previous(); err != nil {
+			fmt.Printf("unable to play previous media: %v\n", err)
+			return
 		}
-		return nil
+		return
 	},
 }
 

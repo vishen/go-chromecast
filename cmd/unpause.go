@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,15 +24,17 @@ import (
 var unpauseCmd = &cobra.Command{
 	Use:   "unpause",
 	Short: "Unpause the currently playing media on the chromecast",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return
 		}
 		if err := app.Unpause(); err != nil {
-			return err
+			fmt.Printf("unable to pause cast application: %v\n", err)
+			return
 		}
-		return nil
+		return
 	},
 }
 

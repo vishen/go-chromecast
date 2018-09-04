@@ -1,13 +1,12 @@
-+ move cache out of "application", the "cmd" should use it to
-    + cache the device(-name) and ip address
-    + get the played media list (currently in "application" but should be moved)
-- debug should turn off logging, ie: log.SetOutput(ioutil.Discard)
 - different logging levels, one really verbose for everything, one less verbose for everything minus the requests / responses
-- use logrus for better logging?
 - exponential retry for getting the cast application if it fails
 - playlist waits forever, need to see if there is someway make it wait until the playlist has finished?
     - Not sure what is possible here
 - rename "seek" to "fastforward"?
 - "application.LoadQueue" only validates the first file, needs to do the rest
 - clean up code
-- regex device name match?
++ move cache out of "application", the "cmd" should use it to
+    + cache the device(-name) and ip address
+    + get the played media list (currently in "application" but should be moved)
++ debug should turn off logging, ie: log.SetOutput(ioutil.Discard)
++ use logrus for better logging?
