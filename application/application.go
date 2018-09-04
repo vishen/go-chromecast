@@ -78,7 +78,7 @@ func NewApplication(debug, cacheDisabled bool) *Application {
 	}
 }
 
-func (a *Application) SetDebug(debug bool) { a.debug = debug }
+func (a *Application) SetDebug(debug bool) { a.debug = debug; a.conn.SetDebug(debug) }
 
 func (a *Application) Start(entry castdns.CastDNSEntry) error {
 	if err := a.loadPlayedItems(); err != nil {

@@ -55,6 +55,8 @@ func (c *Connection) Start(addr string, port int) error {
 	return nil
 }
 
+func (c *Connection) SetDebug(debug bool) { c.debug = debug }
+
 func (c *Connection) log(message string, args ...interface{}) {
 	if c.debug {
 		log.Printf("[connection] %s", fmt.Sprintf(message, args...))
