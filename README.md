@@ -37,6 +37,7 @@ Usage:
 Available Commands:
   help        Help about any command
   load        Load and play media on the chromecast
+  ls          List devices
   next        Play the next available media
   pause       Pause the currently playing media on the chromecast
   playlist    Load and play media on the chromecast
