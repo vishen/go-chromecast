@@ -131,6 +131,8 @@ func (a *Application) Update() error {
 		a.log("more than 1 connected application on the chromecast: (%d)%#v", len(recvStatus.Status.Applications), recvStatus.Status.Applications)
 	} else if len(recvStatus.Status.Applications) == 0 {
 		a.log("no applications running, starting default application")
+		
+		// Start Default Application
         	_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
             		PayloadHeader: cast.LaunchHeader,
             		AppId:         defaultChromecastAppId,
@@ -138,6 +140,12 @@ func (a *Application) Update() error {
 		if err != nil {
             		return err
         	}
+		
+		// Refresh Status
+		recvStatus, err := a.getReceiverStatus()
+		if err != nil {
+			return err
+		}
 	}
 
 	// TODO(vishen): Why could there be more than one application, how to handle this?
@@ -147,9 +155,9 @@ func (a *Application) Update() error {
 	}
 	a.volume = &recvStatus.Status.Volume
 
-	//if a.application.IsIdleScreen {
-	//	return nil
-	//} Causes nilptr exception when running load command (mtbucci)
+	if a.application.IsIdleScreen {
+		return nil
+	}
 
 	a.updateMediaStatus()
 
