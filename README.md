@@ -46,7 +46,10 @@ $ go-chromecast watch
 
 ## Installing
 
-Install the usual Go way:
+### Install binaries
+https://github.com/vishen/go-chromecast/releases
+
+### Install the usual Go way:
 
 ```
 $ go get -u github.com/vishen/go-chromecast
