@@ -51,11 +51,12 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 
 	// If a device name or uuid was specified, check the cache for the ip+port
 	var entry castdns.CastDNSEntry
-
-	if !disableCache {
+	found := false
+	if !disableCache && (deviceName != "" || deviceUuid != "") {
 		entry = findCachedCastDNS(deviceName, deviceUuid)
+		found = entry.GetAddr() != ""
 	}
-	if entry.GetAddr() == "" {
+	if !found {
 		var err error
 		if entry, err = findCastDNS(device, deviceName, deviceUuid); err != nil {
 			return nil, errors.Wrap(err, "unable to find cast dns entry")

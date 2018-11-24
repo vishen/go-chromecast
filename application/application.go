@@ -208,7 +208,7 @@ func (a *Application) Stop() error {
 
 func (a *Application) Next() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to stop")
+		return errors.New("media not yet initialised, there is nothing to go to next")
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
@@ -222,7 +222,7 @@ func (a *Application) Next() error {
 
 func (a *Application) Previous() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to stop")
+		return errors.New("media not yet initialised, there is nothing previous")
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
@@ -237,7 +237,7 @@ func (a *Application) Previous() error {
 func (a *Application) Skip() error {
 
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to stop")
+		return errors.New("media not yet initialised, there is nothing to skip")
 	}
 
 	// Get the latest media status
