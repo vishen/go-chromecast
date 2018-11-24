@@ -23,6 +23,11 @@ import (
 	"github.com/vishen/go-chromecast/storage"
 )
 
+var (
+	// Global request id
+	requestID int
+)
+
 const (
 	// 'CC1AD845' seems to be a predefined app; check link
 	// https://gist.github.com/jloutsenhizer/8855258
@@ -44,11 +49,15 @@ type PlayedItem struct {
 }
 
 type Application struct {
-	conn *cast.Connection
-
+	conn  *cast.Connection
 	debug bool
 
-	// Current values from the chromecast
+	// 'cast.Connection' will send receieved messages back on this channel.
+	recvMsgChan chan *pb.CastMessage
+	// Internal mapping of request id to result channel
+	resultChanMap map[int]chan *pb.CastMessage
+
+	// Current values from the chromecast.
 	application *cast.Application
 	media       *cast.Media
 	volume      *cast.Volume
@@ -69,12 +78,54 @@ type Application struct {
 func NewApplication(debug, cacheDisabled bool) *Application {
 	// TODO(vishen): make cast.Connection an interface, most likely will just need
 	// the Send method
-	return &Application{
-		conn:          cast.NewConnection(debug),
+	// Channel to receive messages from the cast connecttion. 5 is a randomly
+	// chosen number.
+	recvMsgChan := make(chan *pb.CastMessage, 5)
+	a := &Application{
+		recvMsgChan:   recvMsgChan,
+		resultChanMap: map[int]chan *pb.CastMessage{},
+		conn:          cast.NewConnection(recvMsgChan, debug),
 		debug:         debug,
 		cacheDisabled: cacheDisabled,
 		playedItems:   map[string]PlayedItem{},
 		cache:         storage.NewStorage(),
+	}
+	// Kick off the listener for asynchronous messages received from the
+	// cast connection.
+	go a.recvMessages()
+	return a
+}
+
+func (a *Application) recvMessages() {
+	for msg := range a.recvMsgChan {
+		requestID, err := jsonparser.GetInt([]byte(*msg.PayloadUtf8), "requestId")
+		if err == nil {
+			if resultChan, ok := a.resultChanMap[int(requestID)]; ok {
+				resultChan <- msg
+				// TODO(vishen): Does this make sense to not do the below if there is
+				// something waiting on this result? Should it do both?
+				continue
+			}
+		}
+
+		// TODO(vishen): 	if the media application id changes, the media should act as finished
+		// receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":505942120,"status":{"applications":[{"appId":"233637DE","displayName":"YouTube","isIdleScreen":false,"launchedFromCloud":false,"namespaces":[{"name":"urn:x-cast:com.google.cast.debugoverlay"},{"name":"urn:x-cast:com.google.cast.cac"},{"name":"urn:x-cast:com.google.cast.media"},{"name":"urn:x-cast:com.google.youtube.mdx"}],"sessionId":"89efac28-6d0c-420f-9c78-39175dbcae84","statusText":"YouTube","transportId":"89efac28-6d0c-420f-9c78-39175dbcae84"}],"volume":{"controlType":"attenuation","level":1.0,"muted":false,"stepInterval":0.05000000074505806}},"type":"RECEIVER_STATUS"}
+		messageBytes := []byte(*msg.PayloadUtf8)
+		// This already gets checked in the cast.Connection.handleMessage function
+		messageType, _ := jsonparser.GetString(messageBytes, "type")
+		// Happens when the chromecast was unable to process the file served
+		if messageType == "LOAD_FAILED" {
+			a.mediaFinished <- true
+		} else if messageType == "MEDIA_STATUS" {
+			mediaStatusResponse := cast.MediaStatusResponse{}
+			if err := json.Unmarshal(messageBytes, &mediaStatusResponse); err == nil {
+				for _, status := range mediaStatusResponse.Status {
+					if status.IdleReason == "FINISHED" {
+						a.mediaFinished <- true
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -225,7 +276,7 @@ func (a *Application) Previous() error {
 		return errors.New("media not yet initialised, there is nothing previous")
 	}
 
-	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
+	// TODO(vishen): Get the number of queue items, if none, possibly just jump to beginning?
 	_, err := a.sendAndWaitMediaRecv(&cast.QueueUpdate{
 		PayloadHeader:  cast.QueueUpdateHeader,
 		MediaSessionId: a.media.MediaSessionId,
@@ -442,6 +493,8 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 		Items:         items,
 	})
 
+	// TODO(vishen): Currently we wait forever. How to know when a playlist
+	// has finished?
 	c := make(chan bool, 1)
 	<-c
 	return nil
@@ -645,70 +698,66 @@ func (a *Application) log(message string, args ...interface{}) {
 	}
 }
 
-func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) error {
-	return a.conn.Send(payload, sourceID, destinationID, namespace)
+func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) (int, error) {
+	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
+	// TODO(vishen): just make concurrent safe regardless of current flow
+	requestID += 1
+	payload.SetRequestId(requestID)
+	return requestID, a.conn.Send(requestID, payload, sourceID, destinationID, namespace)
 }
 
 func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-
-	message, err := a.conn.SendAndWait(ctx, payload, sourceID, destinationID, namespace)
+	requestID, err := a.send(payload, sourceID, destinationID, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(vishen): 	if the media application id changes, the media should act as finished
-	// receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":505942120,"status":{"applications":[{"appId":"233637DE","displayName":"YouTube","isIdleScreen":false,"launchedFromCloud":false,"namespaces":[{"name":"urn:x-cast:com.google.cast.debugoverlay"},{"name":"urn:x-cast:com.google.cast.cac"},{"name":"urn:x-cast:com.google.cast.media"},{"name":"urn:x-cast:com.google.youtube.mdx"}],"sessionId":"89efac28-6d0c-420f-9c78-39175dbcae84","statusText":"YouTube","transportId":"89efac28-6d0c-420f-9c78-39175dbcae84"}],"volume":{"controlType":"attenuation","level":1.0,"muted":false,"stepInterval":0.05000000074505806}},"type":"RECEIVER_STATUS"}
+	// Set a timeout to wait for the response
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 
-	messageBytes := []byte(*message.PayloadUtf8)
-	messageType, err := jsonparser.GetString(messageBytes, "type")
-	if err != nil {
-		// We don't really care if there is an error here, just let
-		// the caller handle the message
-		return message, nil
-	}
-	// Happens when the chromecast was unable to process the file served
-	if messageType == "LOAD_FAILED" {
-		a.mediaFinished <- true
+	// TODO(vishen): not concurrent safe. Not a problem at the moment
+	// because only synchronous flow currently allowed.
+	resultChan := make(chan *pb.CastMessage, 1)
+	a.resultChanMap[requestID] = resultChan
+	defer func() {
+		delete(a.resultChanMap, requestID)
+	}()
 
-	} else if messageType == "MEDIA_STATUS" {
-		mediaStatusResponse := cast.MediaStatusResponse{}
-		if err := json.Unmarshal(messageBytes, &mediaStatusResponse); err == nil {
-			for _, status := range mediaStatusResponse.Status {
-				if status.IdleReason == "FINISHED" {
-					a.mediaFinished <- true
-					return message, nil
-				}
-			}
-		}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-resultChan:
+		return result, nil
 	}
-	return message, nil
 }
 
 // TODO(vishen): needing send(AndWait)* method seems a bit clunky, is there a better approach?
 // Maybe having a struct that has send and sendAndWait, similar to before.
 func (a *Application) sendDefaultConn(payload cast.Payload) error {
-	return a.send(payload, defaultSender, defaultRecv, namespaceConn)
+	_, err := a.send(payload, defaultSender, defaultRecv, namespaceConn)
+	return err
 }
 
 func (a *Application) sendDefaultRecv(payload cast.Payload) error {
-	return a.send(payload, defaultSender, defaultRecv, namespaceRecv)
+	_, err := a.send(payload, defaultSender, defaultRecv, namespaceRecv)
+	return err
 }
 
 func (a *Application) sendMediaConn(payload cast.Payload) error {
 	if a.application == nil {
 		return errors.New("application isn't set")
 	}
-	return a.send(payload, defaultSender, a.application.TransportId, namespaceConn)
+	_, err := a.send(payload, defaultSender, a.application.TransportId, namespaceConn)
+	return err
 }
 
 func (a *Application) sendMediaRecv(payload cast.Payload) error {
 	if a.application == nil {
 		return errors.New("application isn't set")
 	}
-	return a.send(payload, defaultSender, a.application.TransportId, namespaceMedia)
+	_, err := a.send(payload, defaultSender, a.application.TransportId, namespaceMedia)
+	return err
 }
 
 func (a *Application) sendAndWaitDefaultConn(payload cast.Payload) (*pb.CastMessage, error) {
