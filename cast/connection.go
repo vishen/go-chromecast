@@ -1,7 +1,6 @@
 package cast
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
@@ -24,25 +23,20 @@ const (
 	dialerKeepAlive = time.Second * 30
 )
 
-var (
-	// Global request id
-	requestID int
-)
-
 type Connection struct {
 	conn *tls.Conn
 
-	resultChanMap map[int]chan *pb.CastMessage
+	recvMsgChan chan *pb.CastMessage
 
 	debug     bool
 	connected bool
 }
 
-func NewConnection(debug bool) *Connection {
+func NewConnection(recvMsgChan chan *pb.CastMessage, debug bool) *Connection {
 	c := &Connection{
-		resultChanMap: map[int]chan *pb.CastMessage{},
-		debug:         debug,
-		connected:     false,
+		recvMsgChan: recvMsgChan,
+		debug:       debug,
+		connected:   false,
 	}
 	return c
 }
@@ -79,33 +73,7 @@ func (c *Connection) connect(addr string, port int) error {
 	return nil
 }
 
-func (c *Connection) SendAndWait(ctx context.Context, payload Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
-
-	if err := c.Send(payload, sourceID, destinationID, namespace); err != nil {
-		return nil, err
-	}
-
-	// TODO(vishen): find better solution, super hacky, and it relying on
-	// Send() to set the requestID. This is prone to race conditions!
-	resultChan := make(chan *pb.CastMessage, 1)
-	c.resultChanMap[requestID] = resultChan
-	defer func() {
-		delete(c.resultChanMap, requestID)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-resultChan:
-		return result, nil
-	}
-}
-
-func (c *Connection) Send(payload Payload, sourceID, destinationID, namespace string) error {
-	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
-	// TODO(vishen): just make concurrent safe regardless of current flow
-	requestID += 1
-	payload.SetRequestId(requestID)
+func (c *Connection) Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error {
 
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
@@ -126,7 +94,7 @@ func (c *Connection) Send(payload Payload, sourceID, destinationID, namespace st
 		return errors.Wrap(err, "unable to marshal proto payload")
 	}
 
-	c.log("%s -> %s [%s]: %s", sourceID, destinationID, namespace, payloadJson)
+	c.log("(%d)%s -> %s [%s]: %s", requestID, sourceID, destinationID, namespace, payloadJson)
 
 	if err := binary.Write(c.conn, binary.BigEndian, uint32(len(data))); err != nil {
 		return errors.Wrap(err, "unable to write binary format")
@@ -167,8 +135,17 @@ func (c *Connection) receiveLoop() {
 			c.log("failed to unmarshal proto cast message '%s': %v", payload, err)
 			continue
 		}
+		// Get the requestID from the message to use in the log. We don't really
+		// care if this fails.
+		requestID, _ := jsonparser.GetInt([]byte(*message.PayloadUtf8), "requestId")
+		if requestID == 0 {
+			requestID = -1
+		}
+		// Cast to int, losing information, but unlilely we will
+		// ever send that many messages in a single run.
+		requestIDi := int(requestID)
 
-		c.log("%s <- %s [%s]: %s", *message.DestinationId, *message.SourceId, *message.Namespace, *message.PayloadUtf8)
+		c.log("(%d)%s <- %s [%s]: %s", requestIDi, *message.DestinationId, *message.SourceId, *message.Namespace, *message.PayloadUtf8)
 
 		var headers PayloadHeader
 		if err := json.Unmarshal([]byte(*message.PayloadUtf8), &headers); err != nil {
@@ -176,30 +153,24 @@ func (c *Connection) receiveLoop() {
 			continue
 		}
 
-		c.handleMessage(message, &headers)
+		c.handleMessage(requestIDi, message, &headers)
 	}
 }
 
-func (c *Connection) handleMessage(message *pb.CastMessage, headers *PayloadHeader) {
+func (c *Connection) handleMessage(requestID int, message *pb.CastMessage, headers *PayloadHeader) {
 
 	messageType, err := jsonparser.GetString([]byte(*message.PayloadUtf8), "type")
 	if err != nil {
-		c.log("could not find 'type' key in response message %q: %s", *message.PayloadUtf8, err)
+		c.log("could not find 'type' key in response message request_id=%d %q: %s", requestID, *message.PayloadUtf8, err)
 		return
 	}
 
 	switch messageType {
 	case "PING":
-		if err := c.Send(&PongHeader, *message.SourceId, *message.DestinationId, *message.Namespace); err != nil {
+		if err := c.Send(-1, &PongHeader, *message.SourceId, *message.DestinationId, *message.Namespace); err != nil {
 			c.log("unable to respond to 'PING': %v", err)
 		}
 	default:
-		requestID, err := jsonparser.GetInt([]byte(*message.PayloadUtf8), "requestId")
-		if err != nil {
-			c.log("unable to find 'requestId' in proto payload '%s': %v", *message.PayloadUtf8, err)
-		}
-		if resultChan, ok := c.resultChanMap[int(requestID)]; ok {
-			resultChan <- message
-		}
+		c.recvMsgChan <- message
 	}
 }
