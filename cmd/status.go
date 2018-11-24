@@ -33,8 +33,10 @@ var statusCmd = &cobra.Command{
 			return err
 		}
 		castApplication, castMedia, castVolume := app.Status()
-		if castApplication.IsIdleScreen {
-			fmt.Printf("Chromecast is idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+		if castApplication == nil {
+			fmt.Printf("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
+		} else if castApplication.IsIdleScreen {
+			fmt.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else {
 			metadata := "unknown"
 			if castMedia.Media.Metadata.Title != "" {

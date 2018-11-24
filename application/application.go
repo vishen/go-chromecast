@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -58,7 +57,7 @@ type Application struct {
 	resultChanMap map[int]chan *pb.CastMessage
 
 	// Current values from the chromecast.
-	application *cast.Application
+	application *cast.Application // It is possible that there is no current application, can happen for goole home.
 	media       *cast.Media
 	volume      *cast.Volume
 
@@ -108,19 +107,35 @@ func (a *Application) recvMessages() {
 			}
 		}
 
-		// TODO(vishen): 	if the media application id changes, the media should act as finished
-		// receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":505942120,"status":{"applications":[{"appId":"233637DE","displayName":"YouTube","isIdleScreen":false,"launchedFromCloud":false,"namespaces":[{"name":"urn:x-cast:com.google.cast.debugoverlay"},{"name":"urn:x-cast:com.google.cast.cac"},{"name":"urn:x-cast:com.google.cast.media"},{"name":"urn:x-cast:com.google.youtube.mdx"}],"sessionId":"89efac28-6d0c-420f-9c78-39175dbcae84","statusText":"YouTube","transportId":"89efac28-6d0c-420f-9c78-39175dbcae84"}],"volume":{"controlType":"attenuation","level":1.0,"muted":false,"stepInterval":0.05000000074505806}},"type":"RECEIVER_STATUS"}
 		messageBytes := []byte(*msg.PayloadUtf8)
-		// This already gets checked in the cast.Connection.handleMessage function
+		// This already gets checked in the cast.Connection.handleMessage function.
 		messageType, _ := jsonparser.GetString(messageBytes, "type")
-		// Happens when the chromecast was unable to process the file served
-		if messageType == "LOAD_FAILED" {
+		switch messageType {
+		case "LOAD_FAILED":
 			a.mediaFinished <- true
-		} else if messageType == "MEDIA_STATUS" {
-			mediaStatusResponse := cast.MediaStatusResponse{}
-			if err := json.Unmarshal(messageBytes, &mediaStatusResponse); err == nil {
-				for _, status := range mediaStatusResponse.Status {
-					if status.IdleReason == "FINISHED" {
+		case "MEDIA_STATUS":
+			resp := cast.MediaStatusResponse{}
+			if err := json.Unmarshal(messageBytes, &resp); err == nil {
+				for _, status := range resp.Status {
+					// The LoadingItemId is only set when there is a playlist and there
+					// is an item being loaded to play next.
+					if status.IdleReason == "FINISHED" && status.LoadingItemId == 0 {
+						a.mediaFinished <- true
+					}
+				}
+			}
+		case "RECEIVER_STATUS":
+			// We don't care about this when the application isn't set.
+			if a.application == nil {
+				break
+			}
+			resp := cast.ReceiverStatusResponse{}
+			if err := json.Unmarshal(messageBytes, &resp); err == nil {
+				// Check to see if the application on the device has changed,
+				// if it has it is likely not this running instance that changed
+				// it because that currently isn't possible.
+				for _, app := range resp.Status.Applications {
+					if app.AppId != a.application.AppId {
 						a.mediaFinished <- true
 					}
 				}
@@ -172,17 +187,10 @@ func (a *Application) Update() error {
 		return err
 	}
 
-	/*
-		TODO: this seems to happen semi-frequently, maybe add an exponetial retry?
-		2018/08/26 10:47:56 [connection] sender-0 <- receiver-0 [urn:x-cast:com.google.cast.receiver]: {"requestId":2,"status":{"userEq":{"high_shelf":{"frequency":4500.0,"gain_db":0.0,"quality":0.707},"low_shelf":{"frequency":150.0,"gain_db":0.0,"quality":0.707},"max_peaking_eqs":0,"peaking_eqs":[]},"volume":{"controlType":"master","level":0.550000011920929,"muted":false,"stepInterval":0.019999999552965164}},"type":"RECEIVER_STATUS"}
-		Error: unable to update application: no applications running
-	*/
-
 	if len(recvStatus.Status.Applications) > 1 {
 		a.log("more than 1 connected application on the chromecast: (%d)%#v", len(recvStatus.Status.Applications), recvStatus.Status.Applications)
-	} else if len(recvStatus.Status.Applications) == 0 {
-		return errors.New("no applications running")
 	}
+
 	// TODO(vishen): Why could there be more than one application, how to handle this?
 	// For now just take the last one.
 	for _, app := range recvStatus.Status.Applications {
@@ -190,7 +198,7 @@ func (a *Application) Update() error {
 	}
 	a.volume = &recvStatus.Status.Volume
 
-	if a.application.IsIdleScreen {
+	if a.application == nil || a.application.IsIdleScreen {
 		return nil
 	}
 
@@ -386,11 +394,14 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 	// mime.TypesByExtenstion(filepath.Ext(filename))
 	// fs.DetectContentType(data []byte) // needs opened(ish) file
 
+	// https://developers.google.com/cast/docs/media
 	switch ext := path.Ext(filename); ext {
 	case ".mkv", ".mp4", ".m4a", ".m4p", ".MP4":
 		return "video/mp4", nil
 	case ".webm":
 		return "video/webm", nil
+	case ".mp3":
+		return "audio/mp3", nil
 	default:
 		return "", fmt.Errorf("unknown file extension %q", ext)
 	}
@@ -407,152 +418,20 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 	return a.playedItems
 }
 
-func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
-
-	// TODO: Check all filenames
-	filename := filenames[0]
-
-	if _, err := os.Stat(filename); err != nil {
-		return errors.Wrapf(err, "unable to find %q", filename)
-	}
-	/*
-		We can play media for the following:
-
-		- if we have a filename with a known content type
-		- if we have a filename, and a specified contentType
-		- if we have a filename with an unknown content type, and transcode is true
-		-
-	*/
-	knownFileType := a.knownFileType(filename)
-	if !knownFileType && contentType == "" && !transcode {
-		return fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
-	}
-
-	// Set the content-type
-	if contentType != "" {
-	} else if knownFileType {
-		contentType, _ = a.possibleContentType(filename)
-	} else if transcode {
-		contentType = "video/mp4"
-	}
-
-	// TODO: maybe cache this somewhere
-	localIP, err := a.getLocalIP()
-	if err != nil {
-		return err
-	}
-
-	a.log("starting streaming server")
-
-	// Start server to serve the media
-	if err := a.startStreamingServer(); err != nil {
-		return errors.Wrap(err, "unable to start streaming server")
-	}
-
-	a.log("started streaming server")
-
-	items := []cast.QueueLoadItem{}
-
-	for _, f := range filenames {
-		// Set the content url
-		contentUrl := fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, f, transcode)
-		a.mediaFilenames = append(a.mediaFilenames, f)
-		items = append(items, cast.QueueLoadItem{
-			Autoplay:         true,
-			PlaybackDuration: 60,
-			Media: cast.MediaItem{
-				ContentId:   contentUrl,
-				StreamType:  "BUFFERED",
-				ContentType: contentType,
-			},
-		})
-	}
-
-	// If the current chromecast application isn't the Default Media Receiver
-	// we need to change it
-	if a.application.AppId != defaultChromecastAppId {
-		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
-			PayloadHeader: cast.LaunchHeader,
-			AppId:         defaultChromecastAppId,
-		})
-
-		if err != nil {
-			return errors.Wrap(err, "unable to change to default media receiver")
-		}
-	}
-
-	// Update the 'application' and 'media' field on the 'CastApplication'
-	a.Update()
-
-	// Send the command to the chromecast
-	a.sendMediaRecv(&cast.QueueLoad{
-		PayloadHeader: cast.QueueLoadHeader,
-		CurrentTime:   0,
-		StartIndex:    0,
-		RepeatMode:    "REPEAT_OFF",
-		Items:         items,
-	})
-
-	// TODO(vishen): Currently we wait forever. How to know when a playlist
-	// has finished?
-	c := make(chan bool, 1)
-	<-c
-	return nil
-}
-
 func (a *Application) Load(filename, contentType string, transcode bool) error {
 
-	if _, err := os.Stat(filename); err != nil {
-		return errors.Wrapf(err, "unable to find %q", filename)
-	}
-	/*
-		We can play media for the following:
-
-		- if we have a filename with a known content type
-		- if we have a filename, and a specified contentType
-		- if we have a filename with an unknown content type, and transcode is true
-		-
-	*/
-	knownFileType := a.knownFileType(filename)
-	if !knownFileType && contentType == "" && !transcode {
-		return fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
-	}
-
-	// Set the content-type
-	if contentType != "" {
-	} else if knownFileType {
-		contentType, _ = a.possibleContentType(filename)
-	} else if transcode {
-		contentType = "video/mp4"
-		if err := exec.Command("ffmpeg", "-version").Run(); err != nil {
-			return errors.Wrap(err, "unable to run ffmpeg, it is required to transcode videos")
-		}
-	}
-
-	a.log("starting streaming server")
-
-	// Start server to serve the media
-	if err := a.startStreamingServer(); err != nil {
-		return errors.Wrap(err, "unable to start streaming server")
-	}
-
-	a.log("started streaming server")
-
-	// Get the local inet address so the chromecast can access it because assumably they
-	// are on the same network
-	localIP, err := a.getLocalIP()
+	mediaItems, err := a.loadAndServeFiles([]string{filename}, contentType, transcode)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to load and serve files")
 	}
 
-	// Set the content url
-	contentUrl := fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, filename, transcode)
-	url, _ := url.Parse(contentUrl)
-	a.mediaFilenames = append(a.mediaFilenames, filename)
+	if len(mediaItems) != 1 {
+		return fmt.Errorf("was expecting 1 media item, received %d", len(mediaItems))
+	}
 
 	// If the current chromecast application isn't the Default Media Receiver
 	// we need to change it
-	if a.application.AppId != defaultChromecastAppId {
+	if a.application == nil || a.application.AppId != defaultChromecastAppId {
 		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
 			PayloadHeader: cast.LaunchHeader,
 			AppId:         defaultChromecastAppId,
@@ -570,15 +449,130 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 		CurrentTime:   0,
 		Autoplay:      true,
 		Media: cast.MediaItem{
-			ContentId:   url.String(),
+			ContentId:   mediaItems[0].contentURL,
 			StreamType:  "BUFFERED",
-			ContentType: contentType,
+			ContentType: mediaItems[0].contentType,
 		},
 	})
 
 	// Wait until we have been notified that the media has finished playing
 	<-a.mediaFinished
 	return nil
+}
+
+func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
+
+	mediaItems, err := a.loadAndServeFiles(filenames, contentType, transcode)
+	if err != nil {
+		return errors.Wrap(err, "unable to load and serve files")
+	}
+
+	// If the current chromecast application isn't the Default Media Receiver
+	// we need to change it
+	if a.application == nil || a.application.AppId != defaultChromecastAppId {
+		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
+			PayloadHeader: cast.LaunchHeader,
+			AppId:         defaultChromecastAppId,
+		})
+
+		if err != nil {
+			return errors.Wrap(err, "unable to change to default media receiver")
+		}
+	}
+
+	// Update the 'application' and 'media' field on the 'CastApplication'
+	a.Update()
+
+	items := make([]cast.QueueLoadItem, len(mediaItems))
+	for i, mi := range mediaItems {
+		items[i] = cast.QueueLoadItem{
+			Autoplay:         true,
+			PlaybackDuration: 60,
+			Media: cast.MediaItem{
+				ContentId:   mi.contentURL,
+				StreamType:  "BUFFERED",
+				ContentType: mi.contentType,
+			},
+		}
+	}
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(&cast.QueueLoad{
+		PayloadHeader: cast.QueueLoadHeader,
+		CurrentTime:   0,
+		StartIndex:    0,
+		RepeatMode:    "REPEAT_OFF",
+		Items:         items,
+	})
+
+	// Wait until we have been notified that the media has finished playing
+	<-a.mediaFinished
+	return nil
+}
+
+type mediaItem struct {
+	filename    string
+	contentType string
+	contentURL  string
+}
+
+func (a *Application) loadAndServeFiles(filenames []string, contentType string, transcode bool) ([]mediaItem, error) {
+	mediaItems := make([]mediaItem, len(filenames))
+	for i, filename := range filenames {
+		if _, err := os.Stat(filename); err != nil {
+			return nil, errors.Wrapf(err, "unable to find %q", filename)
+		}
+		/*
+			We can play media for the following:
+
+			- if we have a filename with a known content type
+			- if we have a filename, and a specified contentType
+			- if we have a filename with an unknown content type, and transcode is true
+			-
+		*/
+		knownFileType := a.knownFileType(filename)
+		if !knownFileType && contentType == "" && !transcode {
+			return nil, fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
+		}
+
+		// Set the content-type
+		if contentType != "" {
+			transcode = false
+		} else if knownFileType {
+			contentType, _ = a.possibleContentType(filename)
+			transcode = false
+		} else if transcode {
+			contentType = "video/mp4"
+		}
+
+		mediaItems[i] = mediaItem{
+			filename:    filename,
+			contentType: contentType,
+		}
+		// Add the filename to the list of filenames that go-chromecast will serve.
+		a.mediaFilenames = append(a.mediaFilenames, filename)
+	}
+
+	// TODO: maybe cache this somewhere
+	localIP, err := a.getLocalIP()
+	if err != nil {
+		return nil, err
+	}
+
+	a.log("starting streaming server...")
+	// Start server to serve the media
+	if err := a.startStreamingServer(); err != nil {
+		return nil, errors.Wrap(err, "unable to start streaming server")
+	}
+	a.log("started streaming server")
+
+	// We can only set the content url after the server has started, otherwise we have
+	// no way to know the port used.
+	for i, m := range mediaItems {
+		mediaItems[i].contentURL = fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, m.filename, transcode)
+	}
+
+	return mediaItems, nil
 }
 
 func (a *Application) getLocalIP() (string, error) {
@@ -687,7 +681,7 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Transfer-Encoding", "chunked")
 
 	if err := cmd.Run(); err != nil {
-		log.Printf("error transcoding %q: %v\n", filename, err)
+		log.Printf("error transcoding %q: %v", filename, err)
 	}
 
 }
