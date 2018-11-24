@@ -125,6 +125,8 @@ type Media struct {
 	CurrentTime    float32 `json:"currentTime"`
 	IdleReason     string  `json:"idleReason"`
 	Volume         Volume  `json:"volume"`
+	CurrentItemId  int     `json:"currentItemId"`
+	LoadingItemId  int     `json:"loadingItemId"`
 
 	Media MediaItem `json:"media"`
 }

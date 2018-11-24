@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -134,7 +135,7 @@ that ffmpeg is installed.`,
 
 		filenames := make([]string, len(filesToPlay))
 		for i, f := range filesToPlay {
-			filename := args[0] + f.filename
+			filename := filepath.Join(args[0], f.filename)
 			filenames[i] = filename
 		}
 
