@@ -182,7 +182,18 @@ func (a *Application) writePlayedItems() error {
 }
 
 func (a *Application) Update() error {
-	recvStatus, err := a.getReceiverStatus()
+	var recvStatus *cast.ReceiverStatusResponse
+	var err error
+	// Simple retry. We need this for when the device isn't currently
+	// available, but it is likely that it will come up soon.
+	for i := 0; i < 5; i++ {
+		recvStatus, err = a.getReceiverStatus()
+		if err == nil {
+			break
+		}
+		a.log("unable to get status from device; attempt %d/5, retrying...", i+1)
+		time.Sleep(time.Second * 2)
+	}
 	if err != nil {
 		return err
 	}
