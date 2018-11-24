@@ -27,7 +27,7 @@ var lsCmd = &cobra.Command{
 	Short: "List devices",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dnsEntries := castdns.FindCastDNSEntries()
-		fmt.Printf("Found %d cast dns entries\n", len(dnsEntries))
+		fmt.Printf("Found %d cast devices\n", len(dnsEntries))
 		for i, d := range dnsEntries {
 			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" status=%q uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.Status, d.UUID)
 		}

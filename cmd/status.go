@@ -29,9 +29,6 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := app.Update(); err != nil {
-			return err
-		}
 		castApplication, castMedia, castVolume := app.Status()
 		if castApplication == nil {
 			fmt.Printf("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
