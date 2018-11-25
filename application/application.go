@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -286,12 +287,11 @@ func (a *Application) Next() error {
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
-	_, err := a.sendAndWaitMediaRecv(&cast.QueueUpdate{
+	return a.sendMediaRecv(&cast.QueueUpdate{
 		PayloadHeader:  cast.QueueUpdateHeader,
 		MediaSessionId: a.media.MediaSessionId,
 		Jump:           1,
 	})
-	return err
 }
 
 func (a *Application) Previous() error {
@@ -300,12 +300,11 @@ func (a *Application) Previous() error {
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just jump to beginning?
-	_, err := a.sendAndWaitMediaRecv(&cast.QueueUpdate{
+	return a.sendMediaRecv(&cast.QueueUpdate{
 		PayloadHeader:  cast.QueueUpdateHeader,
 		MediaSessionId: a.media.MediaSessionId,
 		Jump:           -1,
 	})
-	return err
 }
 
 func (a *Application) Skip() error {
@@ -433,15 +432,31 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 	return a.playedItems
 }
 
-func (a *Application) Load(filename, contentType string, transcode bool) error {
+func (a *Application) Load(filenameOrUrl, contentType string, transcode bool) error {
 
-	mediaItems, err := a.loadAndServeFiles([]string{filename}, contentType, transcode)
-	if err != nil {
-		return errors.Wrap(err, "unable to load and serve files")
-	}
+	var mi mediaItem
+	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
+		if contentType == "" {
+			var err error
+			contentType, err = a.possibleContentType(filenameOrUrl)
+			if err != nil {
+				return err
+			}
+		}
+		mi = mediaItem{
+			contentURL:  filenameOrUrl,
+			contentType: contentType,
+		}
+	} else {
+		mediaItems, err := a.loadAndServeFiles([]string{filenameOrUrl}, contentType, transcode)
+		if err != nil {
+			return errors.Wrap(err, "unable to load and serve files")
+		}
 
-	if len(mediaItems) != 1 {
-		return fmt.Errorf("was expecting 1 media item, received %d", len(mediaItems))
+		if len(mediaItems) != 1 {
+			return fmt.Errorf("was expecting 1 media item, received %d", len(mediaItems))
+		}
+		mi = mediaItems[0]
 	}
 
 	// If the current chromecast application isn't the Default Media Receiver
@@ -464,9 +479,9 @@ func (a *Application) Load(filename, contentType string, transcode bool) error {
 		CurrentTime:   0,
 		Autoplay:      true,
 		Media: cast.MediaItem{
-			ContentId:   mediaItems[0].contentURL,
+			ContentId:   mi.contentURL,
 			StreamType:  "BUFFERED",
-			ContentType: mediaItems[0].contentType,
+			ContentType: mi.contentType,
 		},
 	})
 

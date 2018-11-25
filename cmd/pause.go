@@ -34,7 +34,6 @@ var pauseCmd = &cobra.Command{
 			fmt.Printf("unable to pause cast application: %v\n", err)
 			return
 		}
-		return
 	},
 }
 

@@ -73,7 +73,9 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson)
 		cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson)
 	}
-
+	if debug {
+		fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+	}
 	app := application.NewApplication(debug, disableCache)
 	if err := app.Start(entry); err != nil {
 		// NOTE: currently we delete the dns cache every time we get
