@@ -17,12 +17,95 @@ Supported Media formats:
 
 If an unknown file is found, it will use `ffmpeg` to transcode it to MP4, and stream it to the chromecast.
 
+## Play Local Media Files
+
+We are able to play local media files by creating a http server that will stream the media file to the cast device.
+
 ## Cast DNS Lookup
 
 A DNS multicast is used to determine the Chromecast and Google Home devices.
 
 The cast DNS entry is also cached, this means that if you pass through the device name, `-n <name>`, or the
 device uuid, `-u <uuid>`, the results will be cached and it will connect to the chromecast device instanly.
+
+## Usage
+```
+# View available cast devices.
+$ go-chromecast ls
+Found 2 cast devices
+1) device="Chromecast" device_name="MarieGotGame?" address="192.168.0.115:8009" status="" uuid="b380c5847b3182e4fb2eb0d0e270bf16"
+2) device="Google Home Mini" device_name="Living Room Speaker" address="192.168.0.52:8009" status="" uuid="b87d86bed423a6feb8b91a7d2778b55c"
+
+# Status of a cast device.
+go-chromecast status
+Found 2 cast dns entries, select one:
+1) device="Chromecast" device_name="MarieGotGame?" address="192.168.0.115:8009" status="" uuid="b380c5847b3182e4fb2eb0d0e270bf16"
+2) device="Google Home Mini" device_name="Living Room Speaker" address="192.168.0.52:8009" status="" uuid="b87d86bed423a6feb8b91a7d2778b55c"
+Enter selection: 1
+Idle (Backdrop), volume=1.00 muted=false
+
+# Specify a cast device name.
+$ go-chromecast status -n "Living Room Speaker"
+Idle, volume=0.17 muted=false
+
+# Specify a cast device uuid.
+$ go-chromecast status -u b87d86bed423a6feb8b91a7d2778b55c
+Idle (Default Media Receiver), volume=0.17 muted=false
+
+# Load a local media file (can play both audio and video).
+$ go-chromecast load ~/Downloads/SampleAudio_0.4mb.mp3
+Found 2 cast dns entries, select one:
+1) device="Chromecast" device_name="MarieGotGame?" address="192.168.0.115:8009" status="" uuid="b380c5847b3182e4fb2eb0d0e270bf16"
+2) device="Google Home Mini" device_name="Living Room Speaker" address="192.168.0.52:8009" status="" uuid="b87d86bed423a6feb8b91a7d2778b55c"
+Enter selection: 2
+
+# Status of cast device running an audio file.
+$ go-chromecast status
+Found 2 cast dns entries, select one:
+1) device="Chromecast" device_name="MarieGotGame?" address="192.168.0.115:8009" status="" uuid="b380c5847b3182e4fb2eb0d0e270bf16"
+2) device="Google Home Mini" device_name="Living Room Speaker" address="192.168.0.52:8009" status="Default Media Receiver" uuid="b87d86bed423a6feb8b91a7d2778b55c"
+Enter selection: 2
+Default Media Receiver (PLAYING), unknown, time remaining=8s/28s, volume=1.00, muted=false
+
+# Play a playlist of media files.
+$ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker"
+Attemping to play the following media:
+- /home/jonathan/playlist_test/SampleAudio_0.4mb.mp3
+- /home/jonathan/playlist_test/sample_1.mp3
+
+# Select where to start a playlist from.
+$ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker" --select
+Will play the following items, select where to start from:
+1) /home/jonathan/playlist_test/SampleAudio_0.4mb.mp3: last played "2018-11-25 11:17:25 +0000 GMT"
+2) /home/jonathan/playlist_test/sample_1.mp3: last played "2018-11-25 11:17:28 +0000 GMT"
+Enter selection: 2
+Attemping to play the following media:
+- /home/jonathan/playlist_test/sample_1.mp3
+
+# Start a playlist from the start, ignoring if you have previously played that playlist.
+$ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker" --continue=false
+
+# Pause the playing media.
+$ go-chromecast pause
+
+# Continue playing the currently playing media.
+$ go-chromecast play
+
+# Play the next item in a playlist.
+$ go-chromecast next
+
+# Play the previous item in a playlist.
+$ go-chromecast previous
+
+# Rewind the currently playing media by x seconds.
+$ go-chromecast rewind 30
+
+# Go forward in the currently playing media by x seconds.
+$ go-chromecast seek 30
+
+# View what a cast device is sending out.
+$ go-chromecast watch
+```
 
 ## Playlist
 

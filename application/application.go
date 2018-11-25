@@ -121,6 +121,10 @@ func (a *Application) recvMessages() {
 					// is an item being loaded to play next.
 					if status.IdleReason == "FINISHED" && status.LoadingItemId == 0 {
 						a.mediaFinished <- true
+					} else if status.IdleReason == "INTERRUPTED" && status.Media.ContentId == "" {
+						// This can happen when we go "next" in a playlist when it
+						// is playing the last track.
+						a.mediaFinished <- true
 					}
 				}
 			}

@@ -192,6 +192,11 @@ that ffmpeg is installed.`,
 			indexToPlayFrom = lastPlayedIndex
 		}
 
+		fmt.Println("Attemping to play the following media:")
+		for _, f := range filenames[indexToPlayFrom:] {
+			fmt.Printf("- %s\n", f)
+		}
+
 		if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
 			fmt.Printf("unable to play playlist on cast application: %v\n", err)
 			return nil
