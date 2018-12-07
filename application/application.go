@@ -410,7 +410,7 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 
 	// https://developers.google.com/cast/docs/media
 	switch ext := path.Ext(filename); ext {
-	case ".mkv", ".mp4", ".m4a", ".m4p", ".MP4":
+	case ".mp4", ".m4a", ".m4p", ".MP4":
 		return "video/mp4", nil
 	case ".webm":
 		return "video/webm", nil
@@ -566,9 +566,15 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 		}
 
 		// Set the content-type
+		// This assumes that a conten-type was passed through, and that it
+		// doesn't need to be transcoded. This is for media files without
+		// file extensions.
+		// TODO: Is this correct behaviour?
 		if contentType != "" {
 			transcode = false
 		} else if knownFileType {
+			// If this is a media file we know the chromecast can play,
+			// then we don't need to transcode it.
 			contentType, _ = a.possibleContentType(filename)
 			transcode = false
 		} else if transcode {
