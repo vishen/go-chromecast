@@ -416,6 +416,8 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 		return "video/webm", nil
 	case ".mp3":
 		return "audio/mp3", nil
+	case ".flac":
+		return "audio/flac", nil
 	default:
 		return "", fmt.Errorf("unknown file extension %q", ext)
 	}
