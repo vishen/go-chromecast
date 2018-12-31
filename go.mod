@@ -7,8 +7,11 @@ require (
 	github.com/hashicorp/go.net v0.0.0-20151006203346-104dcad90073 // indirect
 	github.com/hashicorp/mdns v0.0.0-20170221172940-4e527d9d8081
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jroimartin/gocui v0.4.0
+	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/miekg/dns v1.0.8 // indirect
 	github.com/mitchellh/go-homedir v1.0.0
+	github.com/nsf/termbox-go v0.0.0-20181027232701-60ab7e3d12ed // indirect
 	github.com/onsi/ginkgo v1.7.0 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/pkg/errors v0.8.0

@@ -53,7 +53,7 @@ func (c *Connection) SetDebug(debug bool) { c.debug = debug }
 
 func (c *Connection) log(message string, args ...interface{}) {
 	if c.debug {
-		log.Printf("[connection] %s", fmt.Sprintf(message, args...))
+		log.WithField("package", "cast").Debugf(message, args...)
 	}
 }
 
