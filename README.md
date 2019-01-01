@@ -13,6 +13,7 @@ Supported Media formats:
     - MKV
     - MP4
     - WebM
+    - FLAC
 ```
 
 If an unknown file is found, it will use `ffmpeg` to transcode it to MP4, and stream it to the chromecast.
