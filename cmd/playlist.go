@@ -25,7 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/ui"
 )
 
 type mediaFile struct {
@@ -60,6 +62,7 @@ that ffmpeg is installed.`,
 			fmt.Printf("unable to get cast application: %v\n", err)
 			return nil
 		}
+
 		contentType, _ := cmd.Flags().GetString("content-type")
 		transcode, _ := cmd.Flags().GetBool("transcode")
 		forcePlay, _ := cmd.Flags().GetBool("force-play")
@@ -195,6 +198,22 @@ that ffmpeg is installed.`,
 		fmt.Println("Attemping to play the following media:")
 		for _, f := range filenames[indexToPlayFrom:] {
 			fmt.Printf("- %s\n", f)
+		}
+
+		// Optionally run a UI when playing this media:
+		runWithUI, _ := cmd.Flags().GetBool("with-ui")
+		if runWithUI {
+			go func() {
+				if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
+					logrus.WithError(err).Fatal("unable to play playlist on cast application")
+				}
+			}()
+
+			ccui, err := ui.NewUserInterface(app)
+			if err != nil {
+				logrus.WithError(err).Fatal("unable to prepare a new user-interface")
+			}
+			return ccui.Run()
 		}
 
 		if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {

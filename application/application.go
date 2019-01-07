@@ -249,7 +249,7 @@ func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
 
 func (a *Application) Pause() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to pause")
+		return ErrNoMediaPause
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PauseHeader,
@@ -259,7 +259,7 @@ func (a *Application) Pause() error {
 
 func (a *Application) Unpause() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to unpause")
+		return ErrNoMediaUnpause
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PlayHeader,
@@ -269,7 +269,7 @@ func (a *Application) Unpause() error {
 
 func (a *Application) StopMedia() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to stop")
+		return ErrNoMediaStop
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.StopHeader,
@@ -283,7 +283,7 @@ func (a *Application) Stop() error {
 
 func (a *Application) Next() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to go to next")
+		return ErrNoMediaNext
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
@@ -296,7 +296,7 @@ func (a *Application) Next() error {
 
 func (a *Application) Previous() error {
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing previous")
+		return ErrNoMediaPrevious
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just jump to beginning?
@@ -310,7 +310,7 @@ func (a *Application) Previous() error {
 func (a *Application) Skip() error {
 
 	if a.media == nil {
-		return errors.New("media not yet initialised, there is nothing to skip")
+		return ErrNoMediaSkip
 	}
 
 	// Get the latest media status
@@ -329,7 +329,7 @@ func (a *Application) Skip() error {
 
 func (a *Application) Seek(value int) error {
 	if a.media == nil {
-		return errors.New("media not yet initialised")
+		return ErrMediaNotYetInitialised
 	}
 
 	return a.sendMediaRecv(&cast.MediaHeader{
@@ -342,7 +342,7 @@ func (a *Application) Seek(value int) error {
 
 func (a *Application) SeekFromStart(value int) error {
 	if a.media == nil {
-		return errors.New("media not yet initialised")
+		return ErrMediaNotYetInitialised
 	}
 
 	// Get the latest media status
@@ -359,6 +359,28 @@ func (a *Application) SeekFromStart(value int) error {
 		MediaSessionId: a.media.MediaSessionId,
 		CurrentTime:    float32(value),
 		ResumeState:    "PLAYBACK_START",
+	})
+}
+
+func (a *Application) SetVolume(value float32) error {
+	if value > 1 || value < 0 {
+		return ErrVolumeOutOfRange
+	}
+
+	return a.sendDefaultRecv(&cast.SetVolume{
+		PayloadHeader: cast.VolumeHeader,
+		Volume: cast.Volume{
+			Level: value,
+		},
+	})
+}
+
+func (a *Application) SetMuted(value bool) error {
+	return a.sendDefaultRecv(&cast.SetVolume{
+		PayloadHeader: cast.VolumeHeader,
+		Volume: cast.Volume{
+			Muted: value,
+		},
 	})
 }
 
@@ -695,7 +717,7 @@ func (a *Application) startStreamingServer() error {
 	go func() {
 		a.log("media server listening on %d", a.serverPort)
 		if err := a.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
+			log.WithField("package", "application").WithError(err).Fatal("error serving HTTP")
 		}
 	}()
 
@@ -719,14 +741,14 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Transfer-Encoding", "chunked")
 
 	if err := cmd.Run(); err != nil {
-		log.Printf("error transcoding %q: %v", filename, err)
+		log.WithField("package", "application").WithField("filename", filename).WithError(err).Error("error transcoding")
 	}
 
 }
 
 func (a *Application) log(message string, args ...interface{}) {
 	if a.debug {
-		log.Infof("[application] %s", fmt.Sprintf(message, args...))
+		log.WithField("package", "application").Infof(message, args...)
 	}
 }
 
@@ -778,7 +800,7 @@ func (a *Application) sendDefaultRecv(payload cast.Payload) error {
 
 func (a *Application) sendMediaConn(payload cast.Payload) error {
 	if a.application == nil {
-		return errors.New("application isn't set")
+		return ErrApplicationNotSet
 	}
 	_, err := a.send(payload, defaultSender, a.application.TransportId, namespaceConn)
 	return err
@@ -786,7 +808,7 @@ func (a *Application) sendMediaConn(payload cast.Payload) error {
 
 func (a *Application) sendMediaRecv(payload cast.Payload) error {
 	if a.application == nil {
-		return errors.New("application isn't set")
+		return ErrApplicationNotSet
 	}
 	_, err := a.send(payload, defaultSender, a.application.TransportId, namespaceMedia)
 	return err
@@ -802,14 +824,14 @@ func (a *Application) sendAndWaitDefaultRecv(payload cast.Payload) (*pb.CastMess
 
 func (a *Application) sendAndWaitMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
 	if a.application == nil {
-		return nil, errors.New("application isn't set")
+		return nil, ErrApplicationNotSet
 	}
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceConn)
 }
 
 func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {
 	if a.application == nil {
-		return nil, errors.New("application isn't set")
+		return nil, ErrApplicationNotSet
 	}
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
 }

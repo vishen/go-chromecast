@@ -17,6 +17,9 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/vishen/go-chromecast/ui"
+
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -40,8 +43,27 @@ that ffmpeg is installed.`,
 			fmt.Printf("unable to get cast application: %v\n", err)
 			return nil
 		}
+
 		contentType, _ := cmd.Flags().GetString("content-type")
 		transcode, _ := cmd.Flags().GetBool("transcode")
+
+		// Optionally run a UI when playing this media:
+		runWithUI, _ := cmd.Flags().GetBool("with-ui")
+		if runWithUI {
+			go func() {
+				if err := app.Load(args[0], contentType, transcode); err != nil {
+					logrus.WithError(err).Fatal("unable to load media")
+				}
+			}()
+
+			ccui, err := ui.NewUserInterface(app)
+			if err != nil {
+				logrus.WithError(err).Fatal("unable to prepare a new user-interface")
+			}
+			return ccui.Run()
+		}
+
+		// Otherwise just run in CLI mode:
 		if err := app.Load(args[0], contentType, transcode); err != nil {
 			fmt.Printf("unable to load media: %v\n", err)
 			return nil

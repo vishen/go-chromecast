@@ -60,7 +60,7 @@ type MediaHeader struct {
 }
 
 type Volume struct {
-	Level float32 `json:"level"`
+	Level float32 `json:"level,omitempty"`
 	Muted bool    `json:"muted"`
 }
 
@@ -107,16 +107,26 @@ type QueueData struct {
 }
 
 type MediaItem struct {
-	ContentId   string  `json:"contentId"`
-	ContentType string  `json:"contentType"`
-	StreamType  string  `json:"streamType"`
-	Duration    float32 `json:"duration"`
-	Metadata    struct {
-		MetadataType int    `json:"metadataType`
-		Title        string `json:"title"`
-		SongName     string `json:"songName"`
-		Artist       string `json:"artist"`
-	} `json:"metadata"`
+	ContentId   string        `json:"contentId"`
+	ContentType string        `json:"contentType"`
+	StreamType  string        `json:"streamType"`
+	Duration    float32       `json:"duration"`
+	Metadata    MediaMetadata `json:"metadata"`
+}
+
+type MediaMetadata struct {
+	MetadataType int     `json:"metadataType`
+	Artist       string  `json:"artist"`
+	Title        string  `json:"title"`
+	Subtitle     string  `json:"subtitle"`
+	Images       []Image `json:"images"`
+	ReleaseDate  string  `json:"releaseDate"`
+}
+
+type Image struct {
+	URL    string `json:"url"`
+	Height int    `json:"height"`
+	Width  int    `json:"width"`
 }
 
 type Media struct {
@@ -134,4 +144,9 @@ type Media struct {
 type MediaStatusResponse struct {
 	PayloadHeader
 	Status []Media `json:"status"`
+}
+
+type SetVolume struct {
+	PayloadHeader
+	Volume Volume `json:"volume"`
 }

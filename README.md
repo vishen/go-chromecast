@@ -128,6 +128,45 @@ If you would like to see what a device is sending, you are able to `watch` the p
 $ go-chromecast watch
 ```
 
+## User Interface
+
+![User-interface example](go-chromecast-ui.png "User-interface example")
+
+A basic terminal user-interface is provided, that supports the following controls:
+* Quit: "q"
+* Play/Pause: SPACE
+* Volume: - / +
+* Mute/Unmute: "m"
+* Seek (15s): <- / ->
+* Previous/Next: PgUp / PgDn
+* Stop: "s"
+
+It can be run in the following ways:
+
+### Standalone
+
+If you just want to remote-control a chromecast that is already playing something:
+
+```
+$ go-chromecast ui
+```
+
+### Playlist
+
+Use the UI in combination with the `playlist` command (detailed above):
+
+```
+$ go-chromecast --with-ui playlist /path/to/directory
+```
+
+### Load
+
+Use the UI in combination with the `load` command (detailed above):
+
+```
+$ go-chromecast --with-ui load /path/to/file.flac
+```
+
 ## Installing
 
 ### Install binaries
@@ -161,6 +200,7 @@ Available Commands:
   seek        Seek by seconds into the currently playing media
   status      Current chromecast status
   stop        Stop casting
+  ui          Run the UI
   unpause     Unpause the currently playing media on the chromecast
   watch       Watch all events sent from a chromecaset device
 
@@ -171,6 +211,7 @@ Flags:
       --disable-cache        disable the cache
   -h, --help                 help for go-chromecast
   -u, --uuid string          chromecast device uuid
+      --with-ui              run with a UI
 
 Use "go-chromecast [command] --help" for more information about a command.
 ```

@@ -1,2 +1,11 @@
-- Control volume via command line; +10%, -10% or set a value between 0-99.
-- Is it possible to support subtitles.
+CLI
+---
+* Control volume via command line; +10%, -10% or set a value between 0-99.
+* Is it possible to support subtitles.
+
+UI
+--
+* Get the application metadata to update from whatever the chosen chromecast is doing (not just the first thing it was doing)
+* Include a playlist view
+* Incorporate a file-browser (which could use the playlist view)
+* Allow hiding / unhiding of the log view
