@@ -45,4 +45,6 @@ func init() {
 	rootCmd.PersistentFlags().StringP("device", "d", "", "chromecast device, ie: 'Chromecast' or 'Google Home Mini'")
 	rootCmd.PersistentFlags().StringP("device-name", "n", "", "chromecast device name")
 	rootCmd.PersistentFlags().StringP("uuid", "u", "", "chromecast device uuid")
+	rootCmd.PersistentFlags().StringP("addr", "a", "", "Address of the chromecast device")
+	rootCmd.PersistentFlags().StringP("port", "p", "8009", "Port of the chromecast device if 'addr' is specified")
 }

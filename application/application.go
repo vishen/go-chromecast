@@ -157,7 +157,7 @@ func (a *Application) Start(entry castdns.CastDNSEntry) error {
 	}
 
 	if err := a.conn.Start(entry.GetAddr(), entry.GetPort()); err != nil {
-		return errors.Wrap(err, "unable to start connection")
+		return err
 	}
 	if err := a.sendDefaultConn(&cast.ConnectHeader); err != nil {
 		return errors.Wrap(err, "unable to connect to chromecast")

@@ -49,6 +49,10 @@ Idle (Backdrop), volume=1.00 muted=false
 $ go-chromecast status -n "Living Room Speaker"
 Idle, volume=0.17 muted=false
 
+# Specify a cat device by ip address.
+$ go-chromecast status -a 192.168.0.52
+Idle, volume=0.17 muted=false
+
 # Specify a cast device uuid.
 $ go-chromecast status -u b87d86bed423a6feb8b91a7d2778b55c
 Idle (Default Media Receiver), volume=0.17 muted=false
@@ -205,11 +209,13 @@ Available Commands:
   watch       Watch all events sent from a chromecaset device
 
 Flags:
+  -a, --addr string          Address of the chromecast device
       --debug                debug logging
   -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
   -n, --device-name string   chromecast device name
       --disable-cache        disable the cache
   -h, --help                 help for go-chromecast
+  -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
       --with-ui              run with a UI
 

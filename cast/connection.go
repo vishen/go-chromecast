@@ -109,6 +109,9 @@ func (c *Connection) Send(requestID int, payload Payload, sourceID, destinationI
 func (c *Connection) receiveLoop() {
 	for {
 		var length uint32
+		if c.conn == nil {
+			continue
+		}
 		if err := binary.Read(c.conn, binary.BigEndian, &length); err != nil {
 			c.log("failed to binary read payload: %v", err)
 			break

@@ -58,9 +58,11 @@ func FindCastDNSEntries() []CastEntry {
 	entriesCh := make(chan *mdns.ServiceEntry, 20)
 	go func() {
 		// This will find any and all google products, including chromecast, home mini, etc.
+		fmt.Println("WERD")
 		mdns.Query(&mdns.QueryParam{
 			Service: "_googlecast._tcp",
-			Domain:  "local",
+			// Domain:  "local",
+			Domain:  "192.168.0.1",
 			Timeout: time.Second * 3,
 			Entries: entriesCh,
 		})

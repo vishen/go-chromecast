@@ -48,33 +48,48 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	device, _ := cmd.Flags().GetString("device")
 	debug, _ := cmd.Flags().GetBool("debug")
 	disableCache, _ := cmd.Flags().GetBool("disable-cache")
+	addr, _ := cmd.Flags().GetString("addr")
+	port, _ := cmd.Flags().GetString("port")
 
-	// If a device name or uuid was specified, check the cache for the ip+port
 	var entry castdns.CastDNSEntry
-	found := false
-	if !disableCache && (deviceName != "" || deviceUuid != "") {
-		entry = findCachedCastDNS(deviceName, deviceUuid)
-		found = entry.GetAddr() != ""
-	}
-	if !found {
-		var err error
-		if entry, err = findCastDNS(device, deviceName, deviceUuid); err != nil {
-			return nil, errors.Wrap(err, "unable to find cast dns entry")
+	// If no address was specified, attempt to determine the address of any
+	// local chromecast devices.
+	if addr == "" {
+		// If a device name or uuid was specified, check the cache for the ip+port
+		found := false
+		if !disableCache && (deviceName != "" || deviceUuid != "") {
+			entry = findCachedCastDNS(deviceName, deviceUuid)
+			found = entry.GetAddr() != ""
 		}
-	}
-	if !disableCache {
-		cachedEntry := CachedDNSEntry{
-			UUID: entry.GetUUID(),
-			Name: entry.GetName(),
-			Addr: entry.GetAddr(),
-			Port: entry.GetPort(),
+		if !found {
+			var err error
+			if entry, err = findCastDNS(device, deviceName, deviceUuid); err != nil {
+				return nil, errors.Wrap(err, "unable to find cast dns entry")
+			}
 		}
-		cachedEntryJson, _ := json.Marshal(cachedEntry)
-		cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson)
-		cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson)
-	}
-	if debug {
-		fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+		if !disableCache {
+			cachedEntry := CachedDNSEntry{
+				UUID: entry.GetUUID(),
+				Name: entry.GetName(),
+				Addr: entry.GetAddr(),
+				Port: entry.GetPort(),
+			}
+			cachedEntryJson, _ := json.Marshal(cachedEntry)
+			cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson)
+			cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson)
+		}
+		if debug {
+			fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+		}
+	} else {
+		p, err := strconv.Atoi(port)
+		if err != nil {
+			return nil, errors.Wrap(err, "port needs to be a number")
+		}
+		entry = CachedDNSEntry{
+			Addr: addr,
+			Port: p,
+		}
 	}
 	app := application.NewApplication(debug, disableCache)
 	if err := app.Start(entry); err != nil {
