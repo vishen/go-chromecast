@@ -457,7 +457,6 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 }
 
 func (a *Application) Load(filenameOrUrl, contentType string, transcode bool) error {
-
 	var mi mediaItem
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
 		if contentType == "" {
