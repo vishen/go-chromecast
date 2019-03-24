@@ -24,10 +24,11 @@ import (
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Current chromecast status",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get cast application: %v\n", err)
+			return
 		}
 		castApplication, castMedia, castVolume := app.Status()
 		if castApplication == nil {
@@ -44,7 +45,7 @@ var statusCmd = &cobra.Command{
 			}
 			fmt.Printf("%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 		}
-		return nil
+		return
 	},
 }
 
