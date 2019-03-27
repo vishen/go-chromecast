@@ -47,4 +47,5 @@ func init() {
 	rootCmd.PersistentFlags().StringP("uuid", "u", "", "chromecast device uuid")
 	rootCmd.PersistentFlags().StringP("addr", "a", "", "Address of the chromecast device")
 	rootCmd.PersistentFlags().StringP("port", "p", "8009", "Port of the chromecast device if 'addr' is specified")
+	rootCmd.PersistentFlags().StringP("iface", "i", "", "Network interface to use when looking for a local address to use for the http server")
 }

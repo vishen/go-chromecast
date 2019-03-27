@@ -65,6 +65,7 @@ type Application struct {
 	httpServer *http.Server
 	serverPort int
 	localIP    string
+	iface      string
 
 	// NOTE: Currently only playing one media file at a time is handled
 	mediaFinished  chan bool
@@ -75,7 +76,7 @@ type Application struct {
 	cache         *storage.Storage
 }
 
-func NewApplication(debug, cacheDisabled bool) *Application {
+func NewApplication(iface string, debug, cacheDisabled bool) *Application {
 	// TODO(vishen): make cast.Connection an interface, most likely will just need
 	// the Send method
 	// Channel to receive messages from the cast connecttion. 5 is a randomly
@@ -89,6 +90,7 @@ func NewApplication(debug, cacheDisabled bool) *Application {
 		cacheDisabled: cacheDisabled,
 		playedItems:   map[string]PlayedItem{},
 		cache:         storage.NewStorage(),
+		iface:         iface,
 	}
 	// Kick off the listener for asynchronous messages received from the
 	// cast connection.
@@ -638,9 +640,34 @@ func (a *Application) getLocalIP() (string, error) {
 	if a.localIP != "" {
 		return a.localIP, nil
 	}
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", err
+
+	var addrs []net.Addr
+	if a.iface == "" {
+		var err error
+		addrs, err = net.InterfaceAddrs()
+		if err != nil {
+			return "", err
+		}
+	} else {
+		ifs, err := net.Interfaces()
+		if err != nil {
+			return "", err
+		}
+
+		var foundIface net.Interface
+		for _, i := range ifs {
+			if i.Name == a.iface {
+				foundIface = i
+				break
+			}
+		}
+		if foundIface.Name == "" {
+			return "", fmt.Errorf("no network interface with name %q exists", a.iface)
+		}
+		addrs, err = foundIface.Addrs()
+		if err != nil {
+			return "", err
+		}
 	}
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {

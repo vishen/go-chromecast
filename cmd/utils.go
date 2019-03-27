@@ -57,6 +57,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	disableCache, _ := cmd.Flags().GetBool("disable-cache")
 	addr, _ := cmd.Flags().GetString("addr")
 	port, _ := cmd.Flags().GetString("port")
+	iface, _ := cmd.Flags().GetString("iface")
 
 	var entry castdns.CastDNSEntry
 	// If no address was specified, attempt to determine the address of any
@@ -98,7 +99,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 			Port: p,
 		}
 	}
-	app := application.NewApplication(debug, disableCache)
+	app := application.NewApplication(iface, debug, disableCache)
 	if err := app.Start(entry); err != nil {
 		// NOTE: currently we delete the dns cache every time we get
 		// an error, this is to make sure that if the device gets a new
