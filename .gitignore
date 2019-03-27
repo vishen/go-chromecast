@@ -1,2 +1,4 @@
 *.swp
 chromecast
+go-chromecast
+dist/

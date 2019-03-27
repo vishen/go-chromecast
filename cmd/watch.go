@@ -23,7 +23,7 @@ import (
 // watchCmd represents the watch command
 var watchCmd = &cobra.Command{
 	Use:   "watch",
-	Short: "Watch all events sent from a chromecaset device",
+	Short: "Watch all events sent from a chromecast device",
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
