@@ -132,6 +132,19 @@ If you would like to see what a device is sending, you are able to `watch` the p
 $ go-chromecast watch
 ```
 
+### Text To Speech
+
+Experimental text-to-speech support has been added. This uses (Google
+Cloud's Text-to-Speech)[https://cloud.google.com/text-to-speech/] to
+turn text into an mp3 audio file, this is then streamed to the device.
+
+Text-to-speech api needs to be enabled https://console.cloud.google.com/flows/enableapi?apiid=texttospeech.googleapis.com and a google service account is required https://console.cloud.google.com/apis/credentials/serviceaccountkey
+
+```
+$ go-chromecast tts <message> --google-service-account=/path/to/service/account.json
+```
+
+
 ## User Interface
 
 ![User-interface example](go-chromecast-ui.png "User-interface example")
@@ -204,9 +217,10 @@ Available Commands:
   seek        Seek by seconds into the currently playing media
   status      Current chromecast status
   stop        Stop casting
+  tts         text-to-speech
   ui          Run the UI
   unpause     Unpause the currently playing media on the chromecast
-  watch       Watch all events sent from a chromecaset device
+  watch       Watch all events sent from a chromecast device
 
 Flags:
   -a, --addr string          Address of the chromecast device
@@ -215,6 +229,7 @@ Flags:
   -n, --device-name string   chromecast device name
       --disable-cache        disable the cache
   -h, --help                 help for go-chromecast
+  -i, --iface string         Network interface to use
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
       --with-ui              run with a UI

@@ -17,6 +17,7 @@ var (
 	MalformedArrayError        = errors.New("Value is array, but can't find closing ']' symbol")
 	MalformedObjectError       = errors.New("Value looks like object, but can't find closing '}' symbol")
 	MalformedValueError        = errors.New("Value looks like Number/Boolean/None, but can't find its end: ',' or '}' symbol")
+	OverflowIntegerError       = errors.New("Value is number, but overflowed while parsing")
 	MalformedStringEscapeError = errors.New("Encountered an invalid escape sequence in a string")
 )
 
@@ -213,6 +214,7 @@ func searchKeys(data []byte, keys ...string) int {
 	i := 0
 	ln := len(data)
 	lk := len(keys)
+	lastMatched := true
 
 	if lk == 0 {
 		return 0
@@ -240,8 +242,8 @@ func searchKeys(data []byte, keys ...string) int {
 
 			i += valueOffset
 
-			// if string is a key, and key level match
-			if data[i] == ':' && keyLevel == level-1 {
+			// if string is a key
+			if data[i] == ':' {
 				if level < 1 {
 					return -1
 				}
@@ -260,17 +262,32 @@ func searchKeys(data []byte, keys ...string) int {
 				}
 
 				if equalStr(&keyUnesc, keys[level-1]) {
-					keyLevel++
-					// If we found all keys in path
-					if keyLevel == lk {
-						return i + 1
+					lastMatched = true
+
+					// if key level match
+					if keyLevel == level-1 {
+						keyLevel++
+						// If we found all keys in path
+						if keyLevel == lk {
+							return i + 1
+						}
 					}
+				} else {
+					lastMatched = false
 				}
 			} else {
 				i--
 			}
 		case '{':
-			level++
+
+			// in case parent key is matched then only we will increase the level otherwise can directly
+			// can move to the end of this block
+			if !lastMatched {
+				end := blockEnd(data[i:], '{', '}')
+				i += end - 1
+			} else{
+				level++
+			}
 		case '}':
 			level--
 			if level == keyLevel {
@@ -1183,7 +1200,10 @@ func ParseFloat(b []byte) (float64, error) {
 
 // ParseInt parses a Number ValueType into a Go int64
 func ParseInt(b []byte) (int64, error) {
-	if v, ok := parseInt(b); !ok {
+	if v, ok, overflow := parseInt(b); !ok {
+		if overflow {
+			return 0, OverflowIntegerError
+		}
 		return 0, MalformedValueError
 	} else {
 		return v, nil
