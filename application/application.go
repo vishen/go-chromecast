@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -48,6 +49,8 @@ type PlayedItem struct {
 	Finished  int64  `json:"finished"`
 }
 
+type CastMessageFunc func(*pb.CastMessage)
+
 type Application struct {
 	conn  *cast.Connection
 	debug bool
@@ -56,6 +59,13 @@ type Application struct {
 	recvMsgChan chan *pb.CastMessage
 	// Internal mapping of request id to result channel
 	resultChanMap map[int]chan *pb.CastMessage
+
+	messageMu sync.Mutex
+	// Relay messages receieved so users can add custom logic to
+	// events.
+	messageChan chan *pb.CastMessage
+	// Functions that will receieve messages from 'messageChan'
+	messageFuncs []CastMessageFunc
 
 	// Current values from the chromecast.
 	application *cast.Application // It is possible that there is no current application, can happen for goole home.
@@ -85,6 +95,7 @@ func NewApplication(iface string, debug, cacheDisabled bool) *Application {
 	a := &Application{
 		recvMsgChan:   recvMsgChan,
 		resultChanMap: map[int]chan *pb.CastMessage{},
+		messageChan:   make(chan *pb.CastMessage),
 		conn:          cast.NewConnection(recvMsgChan, debug),
 		debug:         debug,
 		cacheDisabled: cacheDisabled,
@@ -95,7 +106,26 @@ func NewApplication(iface string, debug, cacheDisabled bool) *Application {
 	// Kick off the listener for asynchronous messages received from the
 	// cast connection.
 	go a.recvMessages()
+	// Kick off the message channel listener.
+	go a.messageChanHandler()
 	return a
+}
+
+func (a *Application) AddMessageFunc(f CastMessageFunc) {
+	a.messageMu.Lock()
+	defer a.messageMu.Unlock()
+
+	a.messageFuncs = append(a.messageFuncs, f)
+}
+
+func (a *Application) messageChanHandler() {
+	for msg := range a.messageChan {
+		a.messageMu.Lock()
+		for _, f := range a.messageFuncs {
+			f(msg)
+		}
+		a.messageMu.Unlock()
+	}
 }
 
 func (a *Application) recvMessages() {
@@ -104,8 +134,8 @@ func (a *Application) recvMessages() {
 		if err == nil {
 			if resultChan, ok := a.resultChanMap[int(requestID)]; ok {
 				resultChan <- msg
-				// TODO(vishen): Does this make sense to not do the below if there is
-				// something waiting on this result? Should it do both?
+				// Relay the event to any user specified message funcs.
+				a.messageChan <- msg
 				continue
 			}
 		}
@@ -145,9 +175,13 @@ func (a *Application) recvMessages() {
 					if app.AppId != a.application.AppId {
 						a.mediaFinished <- true
 					}
+					a.application = &app
 				}
+				a.volume = &resp.Status.Volume
 			}
 		}
+		// Relay the event to any user specified message funcs.
+		a.messageChan <- msg
 	}
 }
 
@@ -602,7 +636,9 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 			// then we don't need to transcode it.
 			contentType, _ = a.possibleContentType(filename)
 			transcode = false
-		} else if transcode {
+		}
+
+		if transcode {
 			contentType = "video/mp4"
 		}
 

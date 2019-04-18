@@ -16,8 +16,12 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/buger/jsonparser"
 	"github.com/spf13/cobra"
+
+	pb "github.com/vishen/go-chromecast/cast/proto"
 )
 
 // watchCmd represents the watch command
@@ -30,26 +34,48 @@ var watchCmd = &cobra.Command{
 			fmt.Printf("unable to get cast application: %v\n", err)
 			return
 		}
-		app.SetDebug(true)
-		if err := app.Update(); err != nil {
-			fmt.Printf("unable to update cast application: %v\n", err)
-			return
-		}
-		castApplication, castMedia, castVolume := app.Status()
-		if castApplication == nil {
-			fmt.Printf("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
-		} else if castApplication.IsIdleScreen {
-			fmt.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
-		} else if castMedia == nil {
-			fmt.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
-		} else {
-			metadata := "unknown"
-			if castMedia.Media.Metadata.Title != "" {
-				md := castMedia.Media.Metadata
-				metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
+		go func() {
+			for {
+				if err := app.Update(); err != nil {
+					fmt.Printf("unable to update cast application: %v\n", err)
+					return
+				}
+				castApplication, castMedia, castVolume := app.Status()
+				if castApplication == nil {
+					fmt.Printf("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
+				} else if castApplication.IsIdleScreen {
+					fmt.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+				} else if castMedia == nil {
+					fmt.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+				} else {
+					metadata := "unknown"
+					if castMedia.Media.Metadata.Title != "" {
+						md := castMedia.Media.Metadata
+						metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
+					}
+					fmt.Printf(">> %s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+				}
+				time.Sleep(time.Second * 10)
 			}
-			fmt.Printf("%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
-		}
+		}()
+
+		app.AddMessageFunc(func(msg *pb.CastMessage) {
+			protocolVersion := msg.GetProtocolVersion()
+			sourceID := msg.GetSourceId()
+			destID := msg.GetDestinationId()
+			namespace := msg.GetNamespace()
+
+			payload := msg.GetPayloadUtf8()
+			payloadBytes := []byte(payload)
+			requestID, _ := jsonparser.GetInt(payloadBytes, "requestId")
+			messageType, _ := jsonparser.GetString(payloadBytes, "type")
+			// Only log requests that are broadcasted from the chromecast.
+			if requestID != 0 {
+				return
+			}
+
+			fmt.Printf("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s\n", messageType, protocolVersion, namespace, sourceID, destID, payload)
+		})
 		// Wait forever
 		c := make(chan bool, 1)
 		<-c
