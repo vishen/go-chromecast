@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/buger/jsonparser"
@@ -603,11 +604,13 @@ type mediaItem struct {
 	filename    string
 	contentType string
 	contentURL  string
+	transcode   bool
 }
 
 func (a *Application) loadAndServeFiles(filenames []string, contentType string, transcode bool) ([]mediaItem, error) {
 	mediaItems := make([]mediaItem, len(filenames))
 	for i, filename := range filenames {
+		transcodeFile := transcode
 		if _, err := os.Stat(filename); err != nil {
 			return nil, errors.Wrapf(err, "unable to find %q", filename)
 		}
@@ -620,32 +623,28 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 			-
 		*/
 		knownFileType := a.knownFileType(filename)
-		if !knownFileType && contentType == "" && !transcode {
+		if !knownFileType && contentType == "" && !transcodeFile {
 			return nil, fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
 		}
 
-		// Set the content-type
-		// This assumes that a conten-type was passed through, and that it
-		// doesn't need to be transcoded. This is for media files without
-		// file extensions.
-		// TODO: Is this correct behaviour?
+		// If we have a content-type specified we should always
+		// attempt to use that
 		if contentType != "" {
-			transcode = false
 		} else if knownFileType {
 			// If this is a media file we know the chromecast can play,
 			// then we don't need to transcode it.
 			contentType, _ = a.possibleContentType(filename)
-			transcode = false
-		}
-
-		if transcode {
+			transcodeFile = false
+		} else if transcodeFile {
 			contentType = "video/mp4"
 		}
 
 		mediaItems[i] = mediaItem{
 			filename:    filename,
 			contentType: contentType,
+			transcode:   transcodeFile,
 		}
+		fmt.Printf("TRANSCODE_DEBUG: %#v\n", mediaItems[i])
 		// Add the filename to the list of filenames that go-chromecast will serve.
 		a.mediaFilenames = append(a.mediaFilenames, filename)
 	}
@@ -666,7 +665,7 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 	// We can only set the content url after the server has started, otherwise we have
 	// no way to know the port used.
 	for i, m := range mediaItems {
-		mediaItems[i].contentURL = fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, m.filename, transcode)
+		mediaItems[i].contentURL = fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, m.filename, m.transcode)
 	}
 
 	return mediaItems, nil
@@ -803,7 +802,14 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Transfer-Encoding", "chunked")
 
 	if err := cmd.Run(); err != nil {
-		log.WithField("package", "application").WithField("filename", filename).WithError(err).Error("error transcoding")
+		if e, ok := err.(*exec.ExitError); ok {
+			log.WithField("package", "application").WithFields(logrus.Fields{
+				"filename": filename,
+				"stderr":   string(e.Stderr),
+			}).WithError(err).Error("error transcoding")
+		} else {
+			log.WithField("package", "application").WithField("filename", filename).WithError(err).Error("error transcoding")
+		}
 	}
 
 }
