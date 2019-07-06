@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,6 +17,11 @@ func init() {
 	log.SetOutput(ioutil.Discard)
 }
 
+const (
+	maxEntries = 20
+)
+
+// CastDNSEntry is the interface that satisfies a Cast type.
 type CastDNSEntry interface {
 	GetName() string
 	GetUUID() string
@@ -23,6 +29,7 @@ type CastDNSEntry interface {
 	GetPort() int
 }
 
+// CastEntry is the concrete cast entry type.
 type CastEntry struct {
 	AddrV4 net.IP
 	AddrV6 net.IP
@@ -38,24 +45,29 @@ type CastEntry struct {
 	InfoFields map[string]string
 }
 
+// GetUUID returns a unqiue id of a cast entry.
 func (e CastEntry) GetUUID() string {
 	return e.UUID
 }
 
+// GetName returns the identified name of a cast entry.
 func (e CastEntry) GetName() string {
 	return e.DeviceName
 }
 
+// GetAddr returns the IPV4 of a cast entry.
 func (e CastEntry) GetAddr() string {
 	return fmt.Sprintf("%s", e.AddrV4)
 }
 
+// GetPort returns the port of a cast entry.
 func (e CastEntry) GetPort() int {
 	return e.Port
 }
 
+// FindCastDNSEntries returns all found cast entries.
 func FindCastDNSEntries() []CastEntry {
-	entriesCh := make(chan *mdns.ServiceEntry, 20)
+	entriesCh := make(chan *mdns.ServiceEntry, maxEntries)
 	go func() {
 		// This will find any and all google products, including chromecast, home mini, etc.
 		mdns.Query(&mdns.QueryParam{
@@ -66,7 +78,7 @@ func FindCastDNSEntries() []CastEntry {
 		})
 		close(entriesCh)
 	}()
-	entries := make([]CastEntry, 0, 20)
+	entries := make([]CastEntry, 0)
 	for entry := range entriesCh {
 		infoFields := make(map[string]string, len(entry.InfoFields))
 		for _, infoField := range entry.InfoFields {
@@ -89,5 +101,9 @@ func FindCastDNSEntries() []CastEntry {
 			Status:     infoFields["rs"],
 		})
 	}
+
+	// Always return entries in deterministic order.
+	sort.Slice(entries, func(i, j int) bool { return entries[i].DeviceName < entries[j].DeviceName })
+
 	return entries
 }
