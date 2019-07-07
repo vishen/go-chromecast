@@ -37,6 +37,9 @@ command line.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		printVersion, _ := cmd.Flags().GetBool("version")
 		if printVersion {
+			if len(Version) > 0 && Version[0] != 'v' && Version != "dev" {
+				Version = "v" + Version
+			}
 			fmt.Printf("go-chromecast %s (%s) %s\n", Version, Commit, Date)
 			return nil
 		}
