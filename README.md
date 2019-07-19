@@ -49,7 +49,7 @@ Idle (Backdrop), volume=1.00 muted=false
 $ go-chromecast status -n "Living Room Speaker"
 Idle, volume=0.17 muted=false
 
-# Specify a cat device by ip address.
+# Specify a cast device by ip address.
 $ go-chromecast status -a 192.168.0.52
 Idle, volume=0.17 muted=false
 
