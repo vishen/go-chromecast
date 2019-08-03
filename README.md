@@ -29,6 +29,59 @@ A DNS multicast is used to determine the Chromecast and Google Home devices.
 The cast DNS entry is also cached, this means that if you pass through the device name, `-n <name>`, or the
 device uuid, `-u <uuid>`, the results will be cached and it will connect to the chromecast device instanly.
 
+## Installing
+
+### Install binaries
+https://github.com/vishen/go-chromecast/releases
+
+### Install the usual Go way:
+
+```
+$ go get -u github.com/vishen/go-chromecast
+```
+
+## Commands
+
+```
+Control your Google Chromecast or Google Home Mini from the
+command line.
+
+Usage:
+  go-chromecast [command]
+
+Available Commands:
+  help        Help about any command
+  load        Load and play media on the chromecast
+  ls          List devices
+  next        Play the next available media
+  pause       Pause the currently playing media on the chromecast
+  playlist    Load and play media on the chromecast
+  previous    Play the previous available media
+  restart     Restart the currently playing media
+  rewind      Rewind by seconds the currently playing media
+  seek        Seek by seconds into the currently playing media
+  status      Current chromecast status
+  stop        Stop casting
+  tts         text-to-speech
+  ui          Run the UI
+  unpause     Unpause the currently playing media on the chromecast
+  watch       Watch all events sent from a chromecast device
+
+Flags:
+  -a, --addr string          Address of the chromecast device
+      --debug                debug logging
+  -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
+  -n, --device-name string   chromecast device name
+      --disable-cache        disable the cache
+  -h, --help                 help for go-chromecast
+  -i, --iface string         Network interface to use
+  -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
+  -u, --uuid string          chromecast device uuid
+      --with-ui              run with a UI
+
+Use "go-chromecast [command] --help" for more information about a command.
+```
+
 ## Usage
 ```
 # View available cast devices.
@@ -90,6 +143,9 @@ Attemping to play the following media:
 # Start a playlist from the start, ignoring if you have previously played that playlist.
 $ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker" --continue=false
 
+# Start a playlist and launch the terminal ui
+$ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker"  --with-ui
+
 # Pause the playing media.
 $ go-chromecast pause
 
@@ -110,40 +166,10 @@ $ go-chromecast seek 30
 
 # View what a cast device is sending out.
 $ go-chromecast watch
+
+# Use a terminal UI to interact with the cast device
+$ go-chromecast ui
 ```
-
-## Playlist
-
-There is support for playing media items as a playlist.
-
-If playing from a playlist, you are able to pass though the `--select` flag, and this will allow you to select
-the media to start playing from. This is useful if you have already played some of the media and want to start
-from one you haven't played yet.
-
-A cache is kept of played media, so if you are playing media from a playlist, it will check to see what
-media files you have recently played and play the next one from the playlist. `--continue=false` can be passed
-through and this will start the playlist from the start.
-
-## Watching a Device
-
-If you would like to see what a device is sending, you are able to `watch` the protobuf messages being sent from your device:
-
-```
-$ go-chromecast watch
-```
-
-### Text To Speech
-
-Experimental text-to-speech support has been added. This uses (Google
-Cloud's Text-to-Speech)[https://cloud.google.com/text-to-speech/] to
-turn text into an mp3 audio file, this is then streamed to the device.
-
-Text-to-speech api needs to be enabled https://console.cloud.google.com/flows/enableapi?apiid=texttospeech.googleapis.com and a google service account is required https://console.cloud.google.com/apis/credentials/serviceaccountkey
-
-```
-$ go-chromecast tts <message> --google-service-account=/path/to/service/account.json
-```
-
 
 ## User Interface
 
@@ -184,55 +210,34 @@ Use the UI in combination with the `load` command (detailed above):
 $ go-chromecast --with-ui load /path/to/file.flac
 ```
 
-## Installing
+## Playlist
 
-### Install binaries
-https://github.com/vishen/go-chromecast/releases
+There is support for playing media items as a playlist.
 
-### Install the usual Go way:
+If playing from a playlist, you are able to pass though the `--select` flag, and this will allow you to select
+the media to start playing from. This is useful if you have already played some of the media and want to start
+from one you haven't played yet.
+
+A cache is kept of played media, so if you are playing media from a playlist, it will check to see what
+media files you have recently played and play the next one from the playlist. `--continue=false` can be passed
+through and this will start the playlist from the start.
+
+## Watching a Device
+
+If you would like to see what a device is sending, you are able to `watch` the protobuf messages being sent from your device:
 
 ```
-$ go get -u github.com/vishen/go-chromecast
+$ go-chromecast watch
 ```
 
-## Commands
+### Text To Speech
+
+Experimental text-to-speech support has been added. This uses [Google
+Cloud's Text-to-Speech](https://cloud.google.com/text-to-speech/) to
+turn text into an mp3 audio file, this is then streamed to the device.
+
+Text-to-speech api needs to be enabled https://console.cloud.google.com/flows/enableapi?apiid=texttospeech.googleapis.com and a google service account is required https://console.cloud.google.com/apis/credentials/serviceaccountkey
 
 ```
-Control your Google Chromecast or Google Home Mini from the
-command line.
-
-Usage:
-  go-chromecast [command]
-
-Available Commands:
-  help        Help about any command
-  load        Load and play media on the chromecast
-  ls          List devices
-  next        Play the next available media
-  pause       Pause the currently playing media on the chromecast
-  playlist    Load and play media on the chromecast
-  previous    Play the previous available media
-  restart     Restart the currently playing media
-  rewind      Rewind by seconds the currently playing media
-  seek        Seek by seconds into the currently playing media
-  status      Current chromecast status
-  stop        Stop casting
-  tts         text-to-speech
-  ui          Run the UI
-  unpause     Unpause the currently playing media on the chromecast
-  watch       Watch all events sent from a chromecast device
-
-Flags:
-  -a, --addr string          Address of the chromecast device
-      --debug                debug logging
-  -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
-  -n, --device-name string   chromecast device name
-      --disable-cache        disable the cache
-  -h, --help                 help for go-chromecast
-  -i, --iface string         Network interface to use
-  -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
-  -u, --uuid string          chromecast device uuid
-      --with-ui              run with a UI
-
-Use "go-chromecast [command] --help" for more information about a command.
+$ go-chromecast tts <message_to_say> --google-service-account=/path/to/service/account.json
 ```
