@@ -29,7 +29,7 @@ var ttsCmd = &cobra.Command{
 	Short: "text-to-speech",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if len(args) != 1 {
+		if (len(args) != 1 || args[0] == "") {
 			fmt.Printf("expected exactly one argument to convert to speech\n")
 			return
 		}
@@ -52,7 +52,7 @@ var ttsCmd = &cobra.Command{
 			return
 		}
 
-		data, err := tts.Create("Hello, World!", b)
+		data, err := tts.Create(args[0], b)
 		if err != nil {
 			fmt.Printf("%v\n", err)
 			return
