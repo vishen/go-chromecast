@@ -65,6 +65,7 @@ Available Commands:
   tts         text-to-speech
   ui          Run the UI
   unpause     Unpause the currently playing media on the chromecast
+  volume      Get or set volume
   watch       Watch all events sent from a chromecast device
 
 Flags:
@@ -166,6 +167,12 @@ $ go-chromecast rewind 30
 
 # Go forward in the currently playing media by x seconds.
 $ go-chromecast seek 30
+
+# Get the current volume level
+$ go-chromecast volume
+
+# Set the volume level
+$ go-chromecast volume 0.55
 
 # View what a cast device is sending out.
 $ go-chromecast watch
