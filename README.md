@@ -4,7 +4,7 @@ Implements a basic number of the google chromecast commands. Other than the basi
 
 ## Media Content Playable
 
-Can play / load a local media file on your chromecast.
+Can play / load a local media file or a file hosted on the internet on your chromecast.
 
 ```
 Supported Media formats:
@@ -109,6 +109,9 @@ Idle, volume=0.17 muted=false
 # Specify a cast device uuid.
 $ go-chromecast status -u b87d86bed423a6feb8b91a7d2778b55c
 Idle (Default Media Receiver), volume=0.17 muted=false
+
+# Play a file hosted on the internet
+$ go-chromecast load https://example.com/path/to/media.mp4
 
 # Load a local media file (can play both audio and video).
 $ go-chromecast load ~/Downloads/SampleAudio_0.4mb.mp3
@@ -222,7 +225,7 @@ A cache is kept of played media, so if you are playing media from a playlist, it
 media files you have recently played and play the next one from the playlist. `--continue=false` can be passed
 through and this will start the playlist from the start.
 
-## Watching a Device
+## Discover sent and received events from a Device
 
 If you would like to see what a device is sending, you are able to `watch` the protobuf messages being sent from your device:
 
