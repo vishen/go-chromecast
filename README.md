@@ -244,3 +244,10 @@ Text-to-speech api needs to be enabled https://console.cloud.google.com/flows/en
 ```
 $ go-chromecast tts <message_to_say> --google-service-account=/path/to/service/account.json
 ```
+
+For non en-US languages
+
+```
+$ go-chromecast tts <message_to_say> --google-service-account=/path/to/service/account.json \
+  --language-code ja-JP
+```

@@ -40,6 +40,8 @@ var ttsCmd = &cobra.Command{
 			return
 		}
 
+		languageCode, _ := cmd.Flags().GetString("language-code")
+
 		b, err := ioutil.ReadFile(googleServiceAccount)
 		if err != nil {
 			fmt.Printf("unable to open google service account file: %v\n", err)
@@ -52,7 +54,7 @@ var ttsCmd = &cobra.Command{
 			return
 		}
 
-		data, err := tts.Create(args[0], b)
+		data, err := tts.Create(args[0], b, languageCode)
 		if err != nil {
 			fmt.Printf("%v\n", err)
 			return
@@ -86,4 +88,5 @@ var ttsCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(ttsCmd)
 	ttsCmd.Flags().String("google-service-account", "", "google service account JSON file")
+	ttsCmd.Flags().String("language-code", "en-US", "text-to-speech Language Code (de-DE, ja-JP,...)")
 }
