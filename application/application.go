@@ -788,8 +788,11 @@ func (a *Application) startStreamingServer() error {
 func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
 	cmd := exec.Command(
 		"ffmpeg",
+		"-re", // encode at 1x playback speed, to not burn the CPU
 		"-i", filename,
 		"-vcodec", "h264",
+		"-acodec", "aac",
+		"-ac", "2", // chromecasts don't support more than two audio channels
 		"-f", "mp4",
 		"-movflags", "frag_keyframe+faststart",
 		"-strict", "-experimental",
@@ -797,21 +800,18 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	)
 
 	cmd.Stdout = w
+	if a.debug {
+		cmd.Stderr = os.Stderr
+	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Transfer-Encoding", "chunked")
 
 	if err := cmd.Run(); err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			log.WithField("package", "application").WithFields(logrus.Fields{
-				"filename": filename,
-				"stderr":   string(e.Stderr),
-			}).WithError(err).Error("error transcoding")
-		} else {
-			log.WithField("package", "application").WithField("filename", filename).WithError(err).Error("error transcoding")
-		}
+		log.WithField("package", "application").WithFields(logrus.Fields{
+			"filename": filename,
+		}).WithError(err).Error("error transcoding")
 	}
-
 }
 
 func (a *Application) log(message string, args ...interface{}) {
