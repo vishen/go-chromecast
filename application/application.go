@@ -493,9 +493,11 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 	return a.playedItems
 }
 
-func (a *Application) Load(filenameOrUrl, contentType string, transcode bool) error {
+func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach bool) error {
 	var mi mediaItem
+	isExternalMedia := false
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
+		isExternalMedia = true
 		if contentType == "" {
 			var err error
 			contentType, err = a.possibleContentType(filenameOrUrl)
@@ -519,6 +521,10 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode bool) er
 		mi = mediaItems[0]
 	}
 
+	if !isExternalMedia && detach {
+		return fmt.Errorf("unable to detach from locally playing media content")
+	}
+
 	// If the current chromecast application isn't the Default Media Receiver
 	// we need to change it
 	if a.application == nil || a.application.AppId != defaultChromecastAppId {
@@ -533,6 +539,9 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode bool) er
 		a.Update()
 	}
 
+	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
+	a.mediaFinished = make(chan bool, 1)
+
 	// Send the command to the chromecast
 	a.sendMediaRecv(&cast.LoadMediaCommand{
 		PayloadHeader: cast.LoadHeader,
@@ -544,6 +553,12 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode bool) er
 			ContentType: mi.contentType,
 		},
 	})
+
+	// If we should detach from waiting for media to finish playing
+	// and this is a url loaded external media, then we can exit early.
+	if detach && isExternalMedia {
+		return nil
+	}
 
 	// Wait until we have been notified that the media has finished playing
 	<-a.mediaFinished
@@ -731,7 +746,6 @@ func (a *Application) startStreamingServer() error {
 	a.serverPort = listener.Addr().(*net.TCPAddr).Port
 	a.log("found available port :%d", a.serverPort)
 
-	a.mediaFinished = make(chan bool, 1)
 	a.httpServer = &http.Server{}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
