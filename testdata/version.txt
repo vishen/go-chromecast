@@ -1,0 +1,4 @@
+# Version
+go-chromecast --version
+stdout 'go-chromecast dev \(master\)'
+! stderr .

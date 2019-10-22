@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -50,7 +49,7 @@ command line.`,
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute(version, commit, date string) {
+func Execute(version, commit, date string) int {
 	Version = version
 	Commit = commit
 	if date != "" {
@@ -59,9 +58,9 @@ func Execute(version, commit, date string) {
 		Date = time.Now().UTC().Format(time.RFC3339)
 	}
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func init() {

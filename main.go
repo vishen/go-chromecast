@@ -14,7 +14,11 @@
 
 package main
 
-import "github.com/vishen/go-chromecast/cmd"
+import (
+	"os"
+
+	"github.com/vishen/go-chromecast/cmd"
+)
 
 var (
 	// These are build-time variables that get set by goreleaser.
@@ -24,5 +28,9 @@ var (
 )
 
 func main() {
-	cmd.Execute(version, commit, date)
+	os.Exit(main1())
+}
+
+func main1() int {
+	return cmd.Execute(version, commit, date)
 }
