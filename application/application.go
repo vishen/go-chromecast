@@ -71,7 +71,12 @@ type Application struct {
 	// Current values from the chromecast.
 	application *cast.Application // It is possible that there is no current application, can happen for goole home.
 	media       *cast.Media
-	volume      *cast.Volume
+	// There seems to be two different volumes returned from the chromecast,
+	// one for the receiever and one for the playing media. It looks we update
+	// the receiever volume from go-chromecast so we should use that one. But
+	// we will keep the other one around in-case we need it at some point.
+	volumeMedia    *cast.Volume
+	volumeReceiver *cast.Volume
 
 	httpServer *http.Server
 	serverPort int
@@ -178,7 +183,7 @@ func (a *Application) recvMessages() {
 					}
 					a.application = &app
 				}
-				a.volume = &resp.Status.Volume
+				a.volumeReceiver = &resp.Status.Volume
 			}
 		}
 		// Relay the event to any user specified message funcs.
@@ -249,7 +254,7 @@ func (a *Application) Update() error {
 	for _, app := range recvStatus.Status.Applications {
 		a.application = &app
 	}
-	a.volume = &recvStatus.Status.Volume
+	a.volumeReceiver = &recvStatus.Status.Volume
 
 	if a.application == nil || a.application.IsIdleScreen {
 		return nil
@@ -270,7 +275,7 @@ func (a *Application) updateMediaStatus() error {
 	}
 	for _, media := range mediaStatus.Status {
 		a.media = &media
-		a.volume = &media.Volume
+		a.volumeMedia = &media.Volume
 	}
 	return nil
 }
@@ -281,7 +286,7 @@ func (a *Application) Close() {
 }
 
 func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
-	return a.application, a.media, a.volume
+	return a.application, a.media, a.volumeReceiver
 }
 
 func (a *Application) Pause() error {
