@@ -29,7 +29,7 @@ var ttsCmd = &cobra.Command{
 	Short: "text-to-speech",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if (len(args) != 1 || args[0] == "") {
+		if len(args) != 1 || args[0] == "" {
 			fmt.Printf("expected exactly one argument to convert to speech\n")
 			return
 		}
@@ -76,7 +76,7 @@ var ttsCmd = &cobra.Command{
 			return
 		}
 
-		if err := app.Load(f.Name(), "audio/mp3", false); err != nil {
+		if err := app.Load(f.Name(), "audio/mp3", false, false); err != nil {
 			fmt.Printf("unable to load media to device: %v\n", err)
 			return
 		}
