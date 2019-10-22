@@ -17,8 +17,15 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	Version = ""
+	Commit  = ""
+	Date    = ""
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -26,12 +33,31 @@ var rootCmd = &cobra.Command{
 	Use:   "go-chromecast",
 	Short: "CLI for interacting with the Google Chromecast",
 	Long: `Control your Google Chromecast or Google Home Mini from the
-command line.
-`}
+command line.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		printVersion, _ := cmd.Flags().GetBool("version")
+		if printVersion {
+			if len(Version) > 0 && Version[0] != 'v' && Version != "dev" {
+				Version = "v" + Version
+			}
+			fmt.Printf("go-chromecast %s (%s) %s\n", Version, Commit, Date)
+			return nil
+		}
+		cmd.Help()
+		return nil
+	},
+}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(version, commit, date string) {
+	Version = version
+	Commit = commit
+	if date != "" {
+		Date = date
+	} else {
+		Date = time.Now().UTC().Format(time.RFC3339)
+	}
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -39,7 +65,8 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().Bool("debug", false, "debug logging")
+	rootCmd.PersistentFlags().Bool("version", false, "display command version")
+	rootCmd.PersistentFlags().BoolP("debug", "v", false, "debug logging")
 	rootCmd.PersistentFlags().Bool("disable-cache", false, "disable the cache")
 	rootCmd.PersistentFlags().Bool("with-ui", false, "run with a UI")
 	rootCmd.PersistentFlags().StringP("device", "d", "", "chromecast device, ie: 'Chromecast' or 'Google Home Mini'")
