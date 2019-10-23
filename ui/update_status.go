@@ -71,6 +71,11 @@ func (ui *UserInterface) updateStatus(sleepTime time.Duration) {
 			fmt.Fprintf(viewStatus, "%sDetail: %s%s%s\n", normalTextColour, boldTextColour, castApplication.StatusText, resetTextColour)
 		}
 
+		// Update the player status:
+		if castMedia != nil {
+			ui.paused = castMedia.PlayerState == "PAUSED"
+		}
+
 		// Update the playback position:
 		if castMedia != nil {
 			ui.positionCurrent = castMedia.CurrentTime
