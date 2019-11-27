@@ -472,9 +472,27 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 	// mime.TypesByExtenstion(filepath.Ext(filename))
 	// fs.DetectContentType(data []byte) // needs opened(ish) file
 
+	// URL's can contain url parameters, and path.Ext doesn't
+	// handle it nicely (`.jpg?xxxx....` isn't the extension).
+	// Split the URL by ? and use the left side for extension.
+	if strings.Contains(filename, "://") && strings.Contains(filename, "?") {
+		parts := strings.Split(filename, "?")
+		filename = parts[0]
+	}
+
 	// https://developers.google.com/cast/docs/media
-	switch ext := path.Ext(filename); ext {
-	case ".mp4", ".m4a", ".m4p", ".MP4":
+	switch ext := strings.ToLower(path.Ext(filename)); ext {
+	case ".jpg", ".jpeg":
+		return "image/jpeg", nil
+	case ".gif":
+		return "image/gif", nil
+	case ".bmp":
+		return "image/bmp", nil
+	case ".png":
+		return "image/png", nil
+	case ".webp":
+		return "image/webp", nil
+	case ".mp4", ".m4a", ".m4p":
 		return "video/mp4", nil
 	case ".webm":
 		return "video/webm", nil
