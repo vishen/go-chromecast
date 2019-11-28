@@ -669,22 +669,22 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 
 		// If we have a content-type specified we should always
 		// attempt to use that
+		contentTypeToUse := contentType
 		if contentType != "" {
 		} else if knownFileType {
 			// If this is a media file we know the chromecast can play,
 			// then we don't need to transcode it.
-			contentType, _ = a.possibleContentType(filename)
+			contentTypeToUse, _ = a.possibleContentType(filename)
 			transcodeFile = false
 		} else if transcodeFile {
-			contentType = "video/mp4"
+			contentTypeToUse = "video/mp4"
 		}
 
 		mediaItems[i] = mediaItem{
 			filename:    filename,
-			contentType: contentType,
+			contentType: contentTypeToUse,
 			transcode:   transcodeFile,
 		}
-		fmt.Printf("TRANSCODE_DEBUG: %#v\n", mediaItems[i])
 		// Add the filename to the list of filenames that go-chromecast will serve.
 		a.mediaFilenames = append(a.mediaFilenames, filename)
 	}
