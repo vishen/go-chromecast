@@ -55,6 +55,11 @@ func (c *Connection) Start(addr string, port int) error {
 
 func (c *Connection) SetDebug(debug bool) { c.debug = debug }
 
+func (c *Connection) LocalAddr() (addr string, err error) {
+	host, _, err := net.SplitHostPort(c.conn.LocalAddr().String())
+	return host, err
+}
+
 func (c *Connection) log(message string, args ...interface{}) {
 	if c.debug {
 		log.WithField("package", "cast").Debugf(message, args...)
