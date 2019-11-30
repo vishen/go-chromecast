@@ -44,7 +44,7 @@ func NewUserInterface(app *application.Application) (*UserInterface, error) {
 		gui:             g,
 		seekFastforward: 15,
 		seekRewind:      -15,
-		volume:          100,
+		volume:          0,
 	}
 
 	// Tell the GUI about its "Manager" function (defines the gocui "views"):
