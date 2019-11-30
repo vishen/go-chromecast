@@ -80,6 +80,7 @@ type Application struct {
 
 	httpServer *http.Server
 	serverPort int
+	localIP    string
 	iface      string
 
 	// NOTE: Currently only playing one media file at a time is handled
@@ -688,8 +689,7 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 		a.mediaFilenames = append(a.mediaFilenames, filename)
 	}
 
-	// TODO: maybe cache this somewhere
-	localIP, err := a.conn.LocalAddr()
+	localIP, err := a.getLocalIP()
 	if err != nil {
 		return nil, err
 	}
@@ -709,6 +709,50 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 	}
 
 	return mediaItems, nil
+}
+
+func (a *Application) getLocalIP() (string, error) {
+	if a.localIP != "" {
+		return a.localIP, nil
+	}
+
+	// If we aren't looking for an address on a certain network
+	// interface, then we can use the local address of the connection.
+	if a.iface == "" {
+		var err error
+		a.localIP, err = a.conn.LocalAddr()
+		return a.localIP, errors.Wrap(err, "unable to get local addr from cast connection")
+	}
+
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return "", errors.Wrap(err, "unable to get network interfaces")
+	}
+	var foundIface net.Interface
+	for _, i := range ifs {
+		if i.Name == a.iface {
+			foundIface = i
+			break
+		}
+	}
+	if foundIface.Name == "" {
+		return "", fmt.Errorf("no network interface with name %q exists", a.iface)
+	}
+	addrs, err := foundIface.Addrs()
+	if err != nil {
+		return "", err
+	}
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			// TODO(vishen): Fallback to ipv6 if ipv4 fails? Or maybe do the other
+			// way around? I am unsure if chromecast supports ipv6???
+			if ipnet.IP.To4() != nil {
+				a.localIP = ipnet.IP.String()
+				return a.localIP, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("Failed to get local ip address")
 }
 
 func (a *Application) startStreamingServer() error {
