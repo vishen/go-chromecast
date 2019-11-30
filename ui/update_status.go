@@ -85,6 +85,12 @@ func (ui *UserInterface) updateStatus(sleepTime time.Duration) {
 			ui.positionTotal = 0
 		}
 
+		// Update volume status
+		if castVolume != nil {
+			ui.volume = int(castVolume.Level * 100)
+			ui.muted = castVolume.Muted
+		}
+
 		// Update the "progress" view:
 		if castMedia != nil {
 			viewProgress.Clear()
