@@ -550,18 +550,8 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach 
 		return fmt.Errorf("unable to detach from locally playing media content")
 	}
 
-	// If the current chromecast application isn't the Default Media Receiver
-	// we need to change it
-	if a.application == nil || a.application.AppId != defaultChromecastAppId {
-		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
-			PayloadHeader: cast.LaunchHeader,
-			AppId:         defaultChromecastAppId,
-		})
-		if err != nil {
-			return errors.Wrap(err, "unable to change to default media receiver")
-		}
-		// Update the 'application' and 'media' field on the 'CastApplication'
-		a.Update()
+	if err := a.ensureIsDefaultMediaReceiver(); err != nil {
+		return err
 	}
 
 	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
@@ -597,21 +587,9 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 		return errors.Wrap(err, "unable to load and serve files")
 	}
 
-	// If the current chromecast application isn't the Default Media Receiver
-	// we need to change it
-	if a.application == nil || a.application.AppId != defaultChromecastAppId {
-		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
-			PayloadHeader: cast.LaunchHeader,
-			AppId:         defaultChromecastAppId,
-		})
-
-		if err != nil {
-			return errors.Wrap(err, "unable to change to default media receiver")
-		}
+	if err := a.ensureIsDefaultMediaReceiver(); err != nil {
+		return err
 	}
-
-	// Update the 'application' and 'media' field on the 'CastApplication'
-	a.Update()
 
 	items := make([]cast.QueueLoadItem, len(mediaItems))
 	for i, mi := range mediaItems {
@@ -637,6 +615,95 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 
 	// Wait until we have been notified that the media has finished playing
 	<-a.mediaFinished
+	return nil
+}
+
+func (a *Application) ensureIsDefaultMediaReceiver() error {
+	// If the current chromecast application isn't the Default Media Receiver
+	// we need to change it.
+	if a.application == nil || a.application.AppId != defaultChromecastAppId {
+		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
+			PayloadHeader: cast.LaunchHeader,
+			AppId:         defaultChromecastAppId,
+		})
+
+		if err != nil {
+			return errors.Wrap(err, "unable to change to default media receiver")
+		}
+		// Update the 'application' and 'media' field on the 'CastApplication'
+		return a.Update()
+	}
+	return nil
+}
+
+func (a *Application) Slideshow(filenames []string, duration int, repeat bool) error {
+	mediaItems, err := a.loadAndServeFiles(filenames, "", false)
+	if err != nil {
+		return errors.Wrap(err, "unable to load and serve files")
+	}
+
+	if err := a.ensureIsDefaultMediaReceiver(); err != nil {
+		return err
+	}
+
+	items := make([]cast.QueueLoadItem, len(mediaItems))
+	for i, mi := range mediaItems {
+		items[i] = cast.QueueLoadItem{
+			Autoplay:         true,
+			PlaybackDuration: duration,
+			Media: cast.MediaItem{
+				ContentId:   mi.contentURL,
+				StreamType:  "BUFFERED",
+				ContentType: mi.contentType,
+			},
+		}
+	}
+
+	var repeatMode string
+	if repeat {
+		repeatMode = "REPEAT_ALL"
+	} else {
+		repeatMode = "REPEAT_OFF"
+	}
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(&cast.QueueLoad{
+		PayloadHeader: cast.QueueLoadHeader,
+		CurrentTime:   0,
+		StartIndex:    0,
+		RepeatMode:    repeatMode,
+		Items:         items,
+	})
+
+	// Timer for when to call the next image
+	t := time.NewTicker(time.Second * time.Duration(duration))
+	i := len(filenames)
+	for {
+		//  If we are not repeating, we need to stop after we have show the last image.
+		if !repeat {
+			if i == 0 {
+				break
+			}
+			i--
+		}
+		select {
+		case <-t.C:
+			if err := a.Update(); err != nil {
+				return err
+			}
+			// This is a hack because I can't work out how to
+			// get the chromecast to automatically change a photo
+			// in a slideshow. There is some documentation that
+			// implies it should be possible but I was not able to make it work.
+			// https://developers.google.com/cast/docs/reference/caf_receiver/cast.framework.messages.QueueItem.html#playbackDuration
+			if err := a.Next(); err != nil {
+				return err
+			}
+		// Media has finished playing
+		case <-a.mediaFinished:
+			return nil
+		}
+	}
 	return nil
 }
 

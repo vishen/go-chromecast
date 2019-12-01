@@ -1,10 +1,10 @@
 # Chromecast
 
-Implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them sorted by numerically.
+Implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them sorted by numerically. It also lets you play a slideshow of images with the `slideshow` command.
 
 ## Media Content Playable
 
-Can play / load a local media file or a file hosted on the internet on your chromecast.
+Can load a local media file or a file hosted on the internet on your chromecast.
 
 ```
 Supported Media formats:
@@ -17,7 +17,7 @@ Supported Media formats:
     - WAV
 ```
 
-If an unknown file is found, it will use `ffmpeg` to transcode it to MP4, and stream it to the chromecast.
+If an unknown video file is found, it will use `ffmpeg` to transcode it to MP4 and stream it to the chromecast.
 
 ## Play Local Media Files
 
@@ -28,7 +28,7 @@ We are able to play local media files by creating a http server that will stream
 A DNS multicast is used to determine the Chromecast and Google Home devices.
 
 The cast DNS entry is also cached, this means that if you pass through the device name, `-n <name>`, or the
-device uuid, `-u <uuid>`, the results will be cached and it will connect to the chromecast device instanly.
+device uuid, `-u <uuid>`, the results will be cached and it will connect to the chromecast device instantly.
 
 ## Installing
 
@@ -48,6 +48,7 @@ Control your Google Chromecast or Google Home Mini from the
 command line.
 
 Usage:
+  go-chromecast [flags]
   go-chromecast [command]
 
 Available Commands:
@@ -61,6 +62,7 @@ Available Commands:
   restart     Restart the currently playing media
   rewind      Rewind by seconds the currently playing media
   seek        Seek by seconds into the currently playing media
+  slideshow   Play a slideshow of photos
   status      Current chromecast status
   stop        Stop casting
   tts         text-to-speech
@@ -71,14 +73,15 @@ Available Commands:
 
 Flags:
   -a, --addr string          Address of the chromecast device
-      --debug                debug logging
+  -v, --debug                debug logging
   -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
   -n, --device-name string   chromecast device name
       --disable-cache        disable the cache
   -h, --help                 help for go-chromecast
-  -i, --iface string         Network interface to use
+  -i, --iface string         Network interface to use when looking for a local address to use for the http server
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
+      --version              display command version
       --with-ui              run with a UI
 
 Use "go-chromecast [command] --help" for more information about a command.
@@ -151,6 +154,9 @@ $ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker" --continue=fa
 # Start a playlist and launch the terminal ui
 $ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker"  --with-ui
 
+# Start a slideshow of images
+$ go-chromecast slideshow slideshow_images/*.png --repeat=false
+
 # Pause the playing media.
 $ go-chromecast pause
 
@@ -175,7 +181,7 @@ $ go-chromecast volume
 # Set the volume level
 $ go-chromecast volume 0.55
 
-# View what a cast device is sending out.
+# View what messages a cast device is sending out.
 $ go-chromecast watch
 
 # Use a terminal UI to interact with the cast device
