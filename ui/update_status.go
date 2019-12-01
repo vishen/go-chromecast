@@ -99,13 +99,12 @@ func (ui *UserInterface) updateStatus(sleepTime time.Duration) {
 
 		// Update the "volume" view:
 		if castVolume != nil {
+			ui.volume = int(castVolume.Level * 100)
+			ui.muted = castVolume.Muted
+
 			viewVolume.Clear()
 			if ui.muted {
-				if castVolume.Muted {
-					fmt.Fprintf(viewVolume, "%s(muted)", volumeMutedColour)
-				} else {
-					fmt.Fprintf(viewVolume, "%s(muted)", volumeColour)
-				}
+				fmt.Fprintf(viewVolume, "%s(muted)", volumeMutedColour)
 			} else {
 				for i := 0; i < ui.volume/5; i++ {
 					fmt.Fprintf(viewVolume, "%s#", volumeColour)
