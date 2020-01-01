@@ -502,6 +502,8 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 		return "audio/flac", nil
 	case ".wav":
 		return "audio/wav", nil
+	case ".m3u8":
+		return "application/x-mpegURL", nil
 	default:
 		return "", fmt.Errorf("unknown file extension %q", ext)
 	}
