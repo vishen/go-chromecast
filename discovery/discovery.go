@@ -1,4 +1,4 @@
-// Package discovery is used to discover devices on the network using a scanner
+// Package discovery is used to discover devices on the network using a provided scanner
 package discovery
 
 import (
@@ -9,7 +9,7 @@ import (
 
 // Scanner scans for chromecast and pushes them onto the results channel (eventually multiple times)
 // It must return immediately and scan in a different goroutine
-// The the results channel must be closed  when the ctx is done
+// The results channel must be closed when the ctx is done
 type Scanner interface {
 	Scan(ctx context.Context, results chan<- *Device) error
 }

@@ -15,6 +15,7 @@ func NewDevice(ip net.IP, port int, properties []string) *Device {
 	}
 }
 
+// Device represents a device discoverd on the network
 type Device struct {
 	IP         net.IP
 	Port       int
@@ -35,7 +36,7 @@ func (d Device) GetPort() int {
 	return d.Port
 }
 
-// Kind of more idiomatic method
+// Kind of more idiomatic methods:
 
 // Addr return the ip and port of the device
 func (d Device) Addr() string {
