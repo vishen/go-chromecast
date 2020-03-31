@@ -43,13 +43,13 @@ var lsCmd = &cobra.Command{
 }
 
 func listDevices(scanDuration time.Duration) ([]*discovery.Device, error) {
-	service := discovery.Service{
+	discover := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, scanDuration)
 	defer cancel()
-	return service.Sorted(ctx)
+	return discover.Sorted(ctx)
 }
 
 func init() {

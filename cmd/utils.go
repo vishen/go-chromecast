@@ -161,21 +161,21 @@ func deviceMatchers(deviceType, deviceName, deviceUuid string) []discovery.Devic
 
 func selectFirstDevice(deviceType, deviceName, deviceUuid string) (*discovery.Device, error) {
 	matchers := deviceMatchers(deviceType, deviceName, deviceUuid)
-	service := discovery.Service{
+	discover := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
-	return service.First(context.Background(), matchers...)
+	return discover.First(context.Background(), matchers...)
 }
 
 func makeDeviceList(deviceType, deviceName, deviceUuid string) ([]*discovery.Device, error) {
 	matchers := deviceMatchers(deviceType, deviceName, deviceUuid)
-	service := discovery.Service{
+	discover := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	return service.Sorted(ctx, matchers...)
+	return discover.Sorted(ctx, matchers...)
 }
 
 func selectDevice(device, deviceName, deviceUuid string) (*discovery.Device, error) {
