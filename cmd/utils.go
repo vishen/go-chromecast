@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/discovery"
@@ -76,9 +77,9 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		if !found {
 			var err error
 			if first {
-				entry, err = findFirstDevice(device, deviceName, deviceUuid)
+				entry, err = selectFirstDevice(device, deviceName, deviceUuid)
 			} else {
-				entry, err = findCastDNS(device, deviceName, deviceUuid)
+				entry, err = selectDevice(device, deviceName, deviceUuid)
 			}
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to find cast dns entry")
@@ -137,59 +138,72 @@ func findCachedCastDNS(deviceName, deviceUuid string) castdns.CastDNSEntry {
 	return CachedDNSEntry{}
 }
 
-func findFirstDevice(deviceType, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {
-	var matchers []discovery.DeviceMatcher
+func makeMatchers(deviceType, deviceName, deviceUuid string) []discovery.DeviceMatcher {
+	var m []discovery.DeviceMatcher
 	if deviceType != "" {
-		matchers = append(matchers, discovery.WithType(deviceType))
+		m = append(m, discovery.WithType(deviceType))
 	}
 	if deviceUuid != "" {
-		matchers = append(matchers, discovery.WithID(deviceUuid))
+		m = append(m, discovery.WithID(deviceUuid))
 	}
 	if deviceName != "" {
-		matchers = append(matchers, discovery.WithName(deviceName))
+		m = append(m, discovery.WithName(deviceName))
 	}
+	return m
+}
+
+func selectFirstDevice(deviceType, deviceName, deviceUuid string) (*discovery.Device, error) {
+	matchers := makeMatchers(deviceType, deviceName, deviceUuid)
 	service := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
 	return service.First(context.Background(), matchers...)
 }
 
-func findCastDNS(device, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {
-	dnsEntries := castdns.FindCastDNSEntries()
-	switch l := len(dnsEntries); l {
-	case 0:
-		return castdns.CastEntry{}, errors.New("no cast dns entries found")
-	default:
-		for _, d := range dnsEntries {
-			if (deviceUuid != "" && d.UUID == deviceUuid) || (deviceName != "" && d.DeviceName == deviceName) || (device != "" && d.Device == device) {
-				return d, nil
-			}
-		}
-
-		if l == 1 {
-			return dnsEntries[0], nil
-		}
-
-		fmt.Printf("Found %d cast dns entries, select one:\n", l)
-		for i, d := range dnsEntries {
-			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" status=%q uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.Status, d.UUID)
-		}
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			fmt.Printf("Enter selection: ")
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				fmt.Printf("error reading console: %v\n", err)
-				continue
-			}
-			i, err := strconv.Atoi(strings.TrimSpace(text))
-			if err != nil {
-				continue
-			} else if i < 1 || i > l {
-				continue
-			}
-			return dnsEntries[i-1], nil
-		}
+func makeDeviceList(deviceType, deviceName, deviceUuid string) ([]*discovery.Device, error) {
+	matchers := makeMatchers(deviceType, deviceName, deviceUuid)
+	service := discovery.Service{
+		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
-	return castdns.CastEntry{}, errors.New("no cast dns entries found")
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	return service.Sorted(ctx, matchers...)
+}
+
+func selectDevice(device, deviceName, deviceUuid string) (*discovery.Device, error) {
+	devices, err := makeDeviceList(device, deviceName, deviceUuid)
+	if err != nil {
+		return nil, err
+	}
+	l := len(devices)
+	if l == 0 {
+		return nil, errors.New("no device found")
+	}
+	if l == 1 {
+		return devices[0], nil
+	}
+
+	fmt.Printf("Found %d cast dns entries, select one:\n", l)
+	for i, d := range devices {
+		fmt.Printf("%d) device=%q device_name=%q address=\"%s\" status=%q uuid=%q\n", i+1, d.Type(), d.Name(), d.Addr(), d.Status(), d.ID())
+	}
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Printf("Enter selection: ")
+		text, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("error reading console: %v\n", err)
+			continue
+		}
+		i, err := strconv.Atoi(strings.TrimSpace(text))
+		if err != nil {
+			fmt.Printf("error parsing number: %v\n", err)
+			continue
+		} else if i < 1 || i > l {
+			fmt.Printf("%d is an invalid choice\n", i)
+			continue
+		}
+		return devices[i-1], nil
+	}
 }

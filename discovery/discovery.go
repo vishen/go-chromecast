@@ -4,6 +4,7 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"sort"
 )
 
 // Scanner scans for chromecast and pushes them onto the results channel (eventually multiple times)
@@ -40,4 +41,41 @@ func (s Service) First(ctx context.Context, matchers ...DeviceMatcher) (*Device,
 			}
 		}
 	}
+}
+
+// Uniq scans until cancellation of the context and returns a map of chromecast devices by ID
+func (s Service) Uniq(ctx context.Context, matchers ...DeviceMatcher) (map[string]*Device, error) {
+	scanned := make(chan *Device, 5)
+
+	err := s.Scanner.Scan(ctx, scanned)
+	if err != nil {
+		return nil, fmt.Errorf("could not initiliaze scanner: %v", err)
+	}
+	match := matchAll(matchers...)
+	found := make(map[string]*Device)
+	for {
+		select {
+		case <-ctx.Done():
+			return found, nil
+		case device := <-scanned:
+			if match(device) {
+				found[device.ID()] = device
+			}
+		}
+	}
+}
+
+// Sorted scans until cancellation of the context and returns a sorted list of chromecast devices
+func (s Service) Sorted(ctx context.Context, matchers ...DeviceMatcher) ([]*Device, error) {
+	found, err := s.Uniq(ctx, matchers...)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*Device, 0, len(found))
+	for _, d := range found {
+		result = append(result, d)
+	}
+
+	sort.Slice(result, func(i, j int) bool { return result[i].Name() < result[j].Name() })
+	return result, nil
 }
