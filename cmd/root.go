@@ -68,6 +68,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("debug", "v", false, "debug logging")
 	rootCmd.PersistentFlags().Bool("disable-cache", false, "disable the cache")
 	rootCmd.PersistentFlags().Bool("with-ui", false, "run with a UI")
+	rootCmd.PersistentFlags().BoolP("first", "f", false, "use the first chromecast device found")
 	rootCmd.PersistentFlags().StringP("device", "d", "", "chromecast device, ie: 'Chromecast' or 'Google Home Mini'")
 	rootCmd.PersistentFlags().StringP("device-name", "n", "", "chromecast device name")
 	rootCmd.PersistentFlags().StringP("uuid", "u", "", "chromecast device uuid")

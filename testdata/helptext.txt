@@ -38,6 +38,7 @@ Flags:
   -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
   -n, --device-name string   chromecast device name
       --disable-cache        disable the cache
+  -f, --first                use the first chromecast device found
   -h, --help                 help for go-chromecast
   -i, --iface string         Network interface to use when looking for a local address to use for the http server
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vishen/go-chromecast/discovery"
+	"github.com/vishen/go-chromecast/discovery/zeroconf"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -58,6 +61,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	addr, _ := cmd.Flags().GetString("addr")
 	port, _ := cmd.Flags().GetString("port")
 	iface, _ := cmd.Flags().GetString("iface")
+	first, _ := cmd.Flags().GetBool("first")
 
 	var entry castdns.CastDNSEntry
 	// If no address was specified, attempt to determine the address of any
@@ -71,7 +75,12 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		}
 		if !found {
 			var err error
-			if entry, err = findCastDNS(device, deviceName, deviceUuid); err != nil {
+			if first {
+				entry, err = findFirstDevice(device, deviceName, deviceUuid)
+			} else {
+				entry, err = findCastDNS(device, deviceName, deviceUuid)
+			}
+			if err != nil {
 				return nil, errors.Wrap(err, "unable to find cast dns entry")
 			}
 		}
@@ -126,6 +135,23 @@ func findCachedCastDNS(deviceName, deviceUuid string) castdns.CastDNSEntry {
 		}
 	}
 	return CachedDNSEntry{}
+}
+
+func findFirstDevice(deviceType, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {
+	var matchers []discovery.DeviceMatcher
+	if deviceType != "" {
+		matchers = append(matchers, discovery.WithType(deviceType))
+	}
+	if deviceUuid != "" {
+		matchers = append(matchers, discovery.WithID(deviceUuid))
+	}
+	if deviceName != "" {
+		matchers = append(matchers, discovery.WithName(deviceName))
+	}
+	service := discovery.Service{
+		Scanner: zeroconf.Scanner{Logger: log.New()},
+	}
+	return service.First(context.Background(), matchers...)
 }
 
 func findCastDNS(device, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {

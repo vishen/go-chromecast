@@ -5,7 +5,9 @@ go 1.12
 require (
 	cloud.google.com/go v0.37.2
 	github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/gogo/protobuf v1.2.1
+	github.com/grandcat/zeroconf v0.0.0-20180329153754-df75bb3ccae1
 	github.com/hashicorp/mdns v1.0.0
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jroimartin/gocui v0.4.0
