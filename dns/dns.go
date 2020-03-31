@@ -1,3 +1,4 @@
+// Package dns got superseeded by the package discovery
 package dns
 
 import (

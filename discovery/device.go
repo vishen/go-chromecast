@@ -21,7 +21,7 @@ type Device struct {
 	Properties map[string]string
 }
 
-// Compatibility with dns.CastDNSEntry
+// Compatibility with cmd.CastDNSEntry
 func (d Device) GetName() string {
 	return d.Name()
 }
@@ -35,22 +35,29 @@ func (d Device) GetPort() int {
 	return d.Port
 }
 
+// Kind of more idiomatic method
+
+// Addr return the ip and port of the device
 func (d Device) Addr() string {
 	return fmt.Sprintf("%s:%d", d.IP, d.Port)
 }
 
+// Name of the device
 func (d Device) Name() string {
 	return d.Properties["fn"]
 }
 
+// ID of the device (example: 7a5fd8ff1f425150a79ec0e36f497445)
 func (d Device) ID() string {
 	return d.Properties["id"]
 }
 
+// Type of the device (examples: Chromecast, Google Home Mini)
 func (d Device) Type() string {
 	return d.Properties["md"]
 }
 
+// Status of the device
 func (d Device) Status() string {
 	return d.Properties["rs"]
 }

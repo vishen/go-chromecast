@@ -4,11 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	castdns "github.com/vishen/go-chromecast/dns"
 )
-
-var _ castdns.CastDNSEntry = Device{}
 
 func TestParseProperties(t *testing.T) {
 

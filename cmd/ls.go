@@ -15,10 +15,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	castdns "github.com/vishen/go-chromecast/dns"
+	"github.com/vishen/go-chromecast/discovery"
+	"github.com/vishen/go-chromecast/discovery/zeroconf"
 )
 
 // lsCmd represents the ls command
@@ -26,13 +30,26 @@ var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List devices",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dnsEntries := castdns.FindCastDNSEntries()
-		fmt.Printf("Found %d cast devices\n", len(dnsEntries))
-		for i, d := range dnsEntries {
-			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" status=%q uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.Status, d.UUID)
+		devices, err := listDevices(3 * time.Second)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Found %d cast devices\n", len(devices))
+		for i, d := range devices {
+			fmt.Printf("%d) device=%q device_name=%q address=\"%s\" status=%q uuid=%q\n", i+1, d.Type(), d.Name(), d.Addr(), d.Status(), d.ID())
 		}
 		return nil
 	},
+}
+
+func listDevices(scanDuration time.Duration) ([]*discovery.Device, error) {
+	service := discovery.Service{
+		Scanner: zeroconf.Scanner{Logger: log.New()},
+	}
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, scanDuration)
+	defer cancel()
+	return service.Sorted(ctx)
 }
 
 func init() {

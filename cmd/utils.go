@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/application"
-	castdns "github.com/vishen/go-chromecast/dns"
 	"github.com/vishen/go-chromecast/storage"
 )
 
@@ -29,6 +28,14 @@ func init() {
 var (
 	cache = storage.NewStorage()
 )
+
+// CastDNSEntry is used by DNS and caching discovery
+type CastDNSEntry interface {
+	GetName() string
+	GetUUID() string
+	GetAddr() string
+	GetPort() int
+}
 
 type CachedDNSEntry struct {
 	UUID string `json:"uuid"`
@@ -64,14 +71,14 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	iface, _ := cmd.Flags().GetString("iface")
 	first, _ := cmd.Flags().GetBool("first")
 
-	var entry castdns.CastDNSEntry
+	var entry CastDNSEntry
 	// If no address was specified, attempt to determine the address of any
 	// local chromecast devices.
 	if addr == "" {
 		// If a device name or uuid was specified, check the cache for the ip+port
 		found := false
 		if !disableCache && (deviceName != "" || deviceUuid != "") {
-			entry = findCachedCastDNS(deviceName, deviceUuid)
+			entry = findCachedDevice(deviceName, deviceUuid)
 			found = entry.GetAddr() != ""
 		}
 		if !found {
@@ -125,7 +132,7 @@ func getCacheKey(suffix string) string {
 	return fmt.Sprintf("cmd/utils/dns/%s", suffix)
 }
 
-func findCachedCastDNS(deviceName, deviceUuid string) castdns.CastDNSEntry {
+func findCachedDevice(deviceName, deviceUuid string) CachedDNSEntry {
 	for _, s := range []string{deviceName, deviceUuid} {
 		cacheKey := getCacheKey(s)
 		if b, err := cache.Load(cacheKey); err == nil {
@@ -138,7 +145,7 @@ func findCachedCastDNS(deviceName, deviceUuid string) castdns.CastDNSEntry {
 	return CachedDNSEntry{}
 }
 
-func makeMatchers(deviceType, deviceName, deviceUuid string) []discovery.DeviceMatcher {
+func deviceMatchers(deviceType, deviceName, deviceUuid string) []discovery.DeviceMatcher {
 	var m []discovery.DeviceMatcher
 	if deviceType != "" {
 		m = append(m, discovery.WithType(deviceType))
@@ -153,7 +160,7 @@ func makeMatchers(deviceType, deviceName, deviceUuid string) []discovery.DeviceM
 }
 
 func selectFirstDevice(deviceType, deviceName, deviceUuid string) (*discovery.Device, error) {
-	matchers := makeMatchers(deviceType, deviceName, deviceUuid)
+	matchers := deviceMatchers(deviceType, deviceName, deviceUuid)
 	service := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
@@ -161,7 +168,7 @@ func selectFirstDevice(deviceType, deviceName, deviceUuid string) (*discovery.De
 }
 
 func makeDeviceList(deviceType, deviceName, deviceUuid string) ([]*discovery.Device, error) {
-	matchers := makeMatchers(deviceType, deviceName, deviceUuid)
+	matchers := deviceMatchers(deviceType, deviceName, deviceUuid)
 	service := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
