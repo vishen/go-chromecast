@@ -145,37 +145,41 @@ func findCachedDevice(deviceName, deviceUuid string) CachedDNSEntry {
 	return CachedDNSEntry{}
 }
 
-func deviceMatchers(deviceType, deviceName, deviceUuid string) []discovery.DeviceMatcher {
-	var m []discovery.DeviceMatcher
-	if deviceType != "" {
-		m = append(m, discovery.WithType(deviceType))
+func deviceMatcher(deviceType, deviceName, deviceUuid string) discovery.DeviceMatcher {
+	return func(d *discovery.Device) bool {
+		if d == nil {
+			return false
+		}
+		if deviceType != "" && deviceType != d.Type() {
+			return false
+		}
+		if deviceName != "" && deviceName != d.Name() {
+			return false
+		}
+		if deviceUuid != "" && deviceUuid != d.ID() {
+			return false
+		}
+		return true
 	}
-	if deviceUuid != "" {
-		m = append(m, discovery.WithID(deviceUuid))
-	}
-	if deviceName != "" {
-		m = append(m, discovery.WithName(deviceName))
-	}
-	return m
 }
 
 func selectFirstDevice(deviceType, deviceName, deviceUuid string) (*discovery.Device, error) {
-	matchers := deviceMatchers(deviceType, deviceName, deviceUuid)
+	matcher := deviceMatcher(deviceType, deviceName, deviceUuid)
 	discover := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
-	return discover.First(context.Background(), matchers...)
+	return discover.First(context.Background(), matcher)
 }
 
 func makeDeviceList(deviceType, deviceName, deviceUuid string) ([]*discovery.Device, error) {
-	matchers := deviceMatchers(deviceType, deviceName, deviceUuid)
+	matcher := deviceMatcher(deviceType, deviceName, deviceUuid)
 	discover := discovery.Service{
 		Scanner: zeroconf.Scanner{Logger: log.New()},
 	}
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	return discover.Sorted(ctx, matchers...)
+	return discover.Sorted(ctx, matcher)
 }
 
 func selectDevice(device, deviceName, deviceUuid string) (*discovery.Device, error) {
