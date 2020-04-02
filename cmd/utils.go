@@ -29,8 +29,8 @@ var (
 	cache = storage.NewStorage()
 )
 
-// CastDNSEntry is used by DNS and caching discovery
-type CastDNSEntry interface {
+// castDNSEntry is the common interface between DNS discovery and caching entries
+type castDNSEntry interface {
 	GetName() string
 	GetUUID() string
 	GetAddr() string
@@ -71,7 +71,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	iface, _ := cmd.Flags().GetString("iface")
 	first, _ := cmd.Flags().GetBool("first")
 
-	var entry CastDNSEntry
+	var entry castDNSEntry
 	// If no address was specified, attempt to determine the address of any
 	// local chromecast devices.
 	if addr == "" {
