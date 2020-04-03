@@ -36,8 +36,6 @@ func (d Device) GetPort() int {
 	return d.Port
 }
 
-// Kind of more idiomatic methods:
-
 // Addr return the ip and port of the device
 func (d Device) Addr() string {
 	return fmt.Sprintf("%s:%d", d.IP, d.Port)
