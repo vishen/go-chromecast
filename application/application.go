@@ -81,7 +81,7 @@ type Application struct {
 	httpServer *http.Server
 	serverPort int
 	localIP    string
-	iface      string
+	iface      *net.Interface
 
 	// NOTE: Currently only playing one media file at a time is handled
 	mediaFinished  chan bool
@@ -92,7 +92,7 @@ type Application struct {
 	cache         *storage.Storage
 }
 
-func NewApplication(iface string, debug, cacheDisabled bool) *Application {
+func NewApplication(iface *net.Interface, debug, cacheDisabled bool) *Application {
 	// TODO(vishen): make cast.Connection an interface, most likely will just need
 	// the Send method
 	// Channel to receive messages from the cast connecttion. 5 is a randomly
@@ -787,27 +787,13 @@ func (a *Application) getLocalIP() (string, error) {
 
 	// If we aren't looking for an address on a certain network
 	// interface, then we can use the local address of the connection.
-	if a.iface == "" {
+	if a.iface == nil {
 		var err error
 		a.localIP, err = a.conn.LocalAddr()
 		return a.localIP, errors.Wrap(err, "unable to get local addr from cast connection")
 	}
 
-	ifs, err := net.Interfaces()
-	if err != nil {
-		return "", errors.Wrap(err, "unable to get network interfaces")
-	}
-	var foundIface net.Interface
-	for _, i := range ifs {
-		if i.Name == a.iface {
-			foundIface = i
-			break
-		}
-	}
-	if foundIface.Name == "" {
-		return "", fmt.Errorf("no network interface with name %q exists", a.iface)
-	}
-	addrs, err := foundIface.Addrs()
+	addrs, err := a.iface.Addrs()
 	if err != nil {
 		return "", err
 	}

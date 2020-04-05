@@ -66,15 +66,16 @@ func (e CastEntry) GetPort() int {
 }
 
 // FindCastDNSEntries returns all found cast entries.
-func FindCastDNSEntries() []CastEntry {
+func FindCastDNSEntries(iface *net.Interface, dnsTimeoutSeconds int) []CastEntry {
 	entriesCh := make(chan *mdns.ServiceEntry, maxEntries)
 	go func() {
 		// This will find any and all google products, including chromecast, home mini, etc.
 		mdns.Query(&mdns.QueryParam{
-			Service: "_googlecast._tcp",
-			Domain:  "local",
-			Timeout: time.Second * 3,
-			Entries: entriesCh,
+			Service:   "_googlecast._tcp",
+			Domain:    "local",
+			Timeout:   time.Second * time.Duration(dnsTimeoutSeconds),
+			Entries:   entriesCh,
+			Interface: iface,
 		})
 		close(entriesCh)
 	}()

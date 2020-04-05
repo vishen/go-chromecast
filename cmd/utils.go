@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -57,7 +58,19 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	disableCache, _ := cmd.Flags().GetBool("disable-cache")
 	addr, _ := cmd.Flags().GetString("addr")
 	port, _ := cmd.Flags().GetString("port")
-	iface, _ := cmd.Flags().GetString("iface")
+	ifaceName, _ := cmd.Flags().GetString("iface")
+	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
+
+	// If we need to look on a specific network interface for mdns or
+	// for finding a network ip to host from, ensure that the network
+	// interface exists.
+	var iface *net.Interface
+	if ifaceName != "" {
+		var err error
+		if iface, err = net.InterfaceByName(ifaceName); err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("unable to find interface %q", ifaceName))
+		}
+	}
 
 	var entry castdns.CastDNSEntry
 	// If no address was specified, attempt to determine the address of any
@@ -71,7 +84,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		}
 		if !found {
 			var err error
-			if entry, err = findCastDNS(device, deviceName, deviceUuid); err != nil {
+			if entry, err = findCastDNS(iface, dnsTimeoutSeconds, device, deviceName, deviceUuid); err != nil {
 				return nil, errors.Wrap(err, "unable to find cast dns entry")
 			}
 		}
@@ -128,8 +141,8 @@ func findCachedCastDNS(deviceName, deviceUuid string) castdns.CastDNSEntry {
 	return CachedDNSEntry{}
 }
 
-func findCastDNS(device, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {
-	dnsEntries := castdns.FindCastDNSEntries()
+func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {
+	dnsEntries := castdns.FindCastDNSEntries(iface, dnsTimeoutSeconds)
 	switch l := len(dnsEntries); l {
 	case 0:
 		return castdns.CastEntry{}, errors.New("no cast dns entries found")
