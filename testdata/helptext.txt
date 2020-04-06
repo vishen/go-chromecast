@@ -38,8 +38,9 @@ Flags:
   -d, --device string        chromecast device, ie: 'Chromecast' or 'Google Home Mini'
   -n, --device-name string   chromecast device name
       --disable-cache        disable the cache
+      --dns-timeout int      Multicast DNS timeout in seconds when searching for chromecast DNS entries (default 3)
   -h, --help                 help for go-chromecast
-  -i, --iface string         Network interface to use when looking for a local address to use for the http server
+  -i, --iface string         Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
       --version              display command version

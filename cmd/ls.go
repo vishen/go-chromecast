@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	castdns "github.com/vishen/go-chromecast/dns"
 )
@@ -26,7 +28,16 @@ var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List devices",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dnsEntries := castdns.FindCastDNSEntries()
+		ifaceName, _ := cmd.Flags().GetString("iface")
+		dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
+		var iface *net.Interface
+		var err error
+		if ifaceName != "" {
+			if iface, err = net.InterfaceByName(ifaceName); err != nil {
+				log.Fatalf("unable to find interface %q: %v", ifaceName, err)
+			}
+		}
+		dnsEntries := castdns.FindCastDNSEntries(iface, dnsTimeoutSeconds)
 		fmt.Printf("Found %d cast devices\n", len(dnsEntries))
 		for i, d := range dnsEntries {
 			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" status=%q uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.Status, d.UUID)
