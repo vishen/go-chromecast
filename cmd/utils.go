@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -60,6 +63,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	port, _ := cmd.Flags().GetString("port")
 	ifaceName, _ := cmd.Flags().GetString("iface")
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
+	useFirstDevice, _ := cmd.Flags().GetBool("first")
 
 	// If we need to look on a specific network interface for mdns or
 	// for finding a network ip to host from, ensure that the network
@@ -84,7 +88,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		}
 		if !found {
 			var err error
-			if entry, err = findCastDNS(iface, dnsTimeoutSeconds, device, deviceName, deviceUuid); err != nil {
+			if entry, err = findCastDNS(iface, dnsTimeoutSeconds, device, deviceName, deviceUuid, useFirstDevice); err != nil {
 				return nil, errors.Wrap(err, "unable to find cast dns entry")
 			}
 		}
@@ -141,42 +145,43 @@ func findCachedCastDNS(deviceName, deviceUuid string) castdns.CastDNSEntry {
 	return CachedDNSEntry{}
 }
 
-func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName, deviceUuid string) (castdns.CastDNSEntry, error) {
-	dnsEntries := castdns.FindCastDNSEntries(iface, dnsTimeoutSeconds)
-	switch l := len(dnsEntries); l {
-	case 0:
-		return castdns.CastEntry{}, errors.New("no cast dns entries found")
-	default:
-		for _, d := range dnsEntries {
-			if (deviceUuid != "" && d.UUID == deviceUuid) || (deviceName != "" && d.DeviceName == deviceName) || (device != "" && d.Device == device) {
-				return d, nil
-			}
-		}
-
-		if l == 1 {
-			return dnsEntries[0], nil
-		}
-
-		fmt.Printf("Found %d cast dns entries, select one:\n", l)
-		for i, d := range dnsEntries {
-			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" status=%q uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.Status, d.UUID)
-		}
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			fmt.Printf("Enter selection: ")
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				fmt.Printf("error reading console: %v\n", err)
-				continue
-			}
-			i, err := strconv.Atoi(strings.TrimSpace(text))
-			if err != nil {
-				continue
-			} else if i < 1 || i > l {
-				continue
-			}
-			return dnsEntries[i-1], nil
-		}
+func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName, deviceUuid string, first bool) (castdns.CastDNSEntry, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(dnsTimeoutSeconds))
+	defer cancel()
+	castEntryChan, err := castdns.DiscoverCastDNSEntries(ctx, iface)
+	if err != nil {
+		return castdns.CastEntry{}, err
 	}
-	return castdns.CastEntry{}, errors.New("no cast dns entries found")
+
+	foundEntries := []castdns.CastEntry{}
+	for entry := range castEntryChan {
+		if first || (deviceUuid != "" && entry.UUID == deviceUuid) || (deviceName != "" && entry.DeviceName == deviceName) || (device != "" && entry.Device == device) {
+			return entry, nil
+		}
+		foundEntries = append(foundEntries, entry)
+	}
+
+	// Always return entries in deterministic order.
+	sort.Slice(foundEntries, func(i, j int) bool { return foundEntries[i].DeviceName < foundEntries[j].DeviceName })
+
+	fmt.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
+	for i, d := range foundEntries {
+		fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+	}
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Printf("Enter selection: ")
+		text, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("error reading console: %v\n", err)
+			continue
+		}
+		i, err := strconv.Atoi(strings.TrimSpace(text))
+		if err != nil {
+			continue
+		} else if i < 1 || i > len(foundEntries) {
+			continue
+		}
+		return foundEntries[i-1], nil
+	}
 }
