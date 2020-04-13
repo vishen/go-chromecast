@@ -1,24 +1,13 @@
 package dns
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
-	"sort"
 	"strings"
-	"time"
 
-	"github.com/hashicorp/mdns"
-)
-
-func init() {
-	// Disable mdns annoying and verbose logging
-	log.SetOutput(ioutil.Discard)
-}
-
-const (
-	maxEntries = 20
+	"github.com/grandcat/zeroconf"
 )
 
 // CastDNSEntry is the interface that satisfies a Cast type.
@@ -65,46 +54,65 @@ func (e CastEntry) GetPort() int {
 	return e.Port
 }
 
-// FindCastDNSEntries returns all found cast entries.
-func FindCastDNSEntries(iface *net.Interface, dnsTimeoutSeconds int) []CastEntry {
-	entriesCh := make(chan *mdns.ServiceEntry, maxEntries)
-	go func() {
-		// This will find any and all google products, including chromecast, home mini, etc.
-		mdns.Query(&mdns.QueryParam{
-			Service:   "_googlecast._tcp",
-			Domain:    "local",
-			Timeout:   time.Second * time.Duration(dnsTimeoutSeconds),
-			Entries:   entriesCh,
-			Interface: iface,
-		})
-		close(entriesCh)
-	}()
-	entries := make([]CastEntry, 0)
-	for entry := range entriesCh {
-		infoFields := make(map[string]string, len(entry.InfoFields))
-		for _, infoField := range entry.InfoFields {
-			splitField := strings.Split(infoField, "=")
-			if len(splitField) != 2 {
-				continue
-			}
-			infoFields[splitField[0]] = splitField[1]
-		}
-		entries = append(entries, CastEntry{
-			AddrV4:     entry.AddrV4,
-			AddrV6:     entry.AddrV6,
-			Port:       entry.Port,
-			Name:       entry.Name,
-			Host:       entry.Host,
-			InfoFields: infoFields,
-			UUID:       infoFields["id"],
-			Device:     infoFields["md"],
-			DeviceName: infoFields["fn"],
-			Status:     infoFields["rs"],
-		})
+// DiscoverCastDNSEntries will return a channel with any cast dns entries
+// found.
+func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan CastEntry, error) {
+	resolver, err := zeroconf.NewResolver(zeroconf.SelectIfaces([]net.Interface{*iface}))
+	if err != nil {
+		return nil, fmt.Errorf("unable to create new zeroconf resolver: %w", err)
 	}
 
-	// Always return entries in deterministic order.
-	sort.Slice(entries, func(i, j int) bool { return entries[i].DeviceName < entries[j].DeviceName })
+	castDNSEntriesChan := make(chan CastEntry, 5)
+	entriesChan := make(chan *zeroconf.ServiceEntry, 5)
+	go func() {
+		if err := resolver.Browse(ctx, "_googlecast._tcp", "local", entriesChan); err != nil {
+			log.Printf("error: unable to browser for mdns entries: %v", err)
+			return
+		}
+	}()
 
-	return entries
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				close(castDNSEntriesChan)
+				return
+			case entry := <-entriesChan:
+				if entry == nil {
+					continue
+				}
+				castEntry := CastEntry{
+					Port: entry.Port,
+					Host: entry.HostName,
+				}
+				if len(entry.AddrIPv4) > 0 {
+					castEntry.AddrV4 = entry.AddrIPv4[0]
+				}
+				if len(entry.AddrIPv6) > 0 {
+					castEntry.AddrV6 = entry.AddrIPv6[0]
+				}
+				infoFields := make(map[string]string, len(entry.Text))
+				for _, value := range entry.Text {
+					if kv := strings.SplitN(value, "=", 2); len(kv) == 2 {
+						key := kv[0]
+						val := kv[1]
+
+						infoFields[key] = val
+
+						switch key {
+						case "fn":
+							castEntry.DeviceName = val
+						case "md":
+							castEntry.Device = val
+						case "id":
+							castEntry.UUID = val
+						}
+					}
+				}
+				castEntry.InfoFields = infoFields
+				castDNSEntriesChan <- castEntry
+			}
+		}
+	}()
+	return castDNSEntriesChan, nil
 }

@@ -15,8 +15,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -37,10 +39,13 @@ var lsCmd = &cobra.Command{
 				log.Fatalf("unable to find interface %q: %v", ifaceName, err)
 			}
 		}
-		dnsEntries := castdns.FindCastDNSEntries(iface, dnsTimeoutSeconds)
-		fmt.Printf("Found %d cast devices\n", len(dnsEntries))
-		for i, d := range dnsEntries {
-			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" status=%q uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.Status, d.UUID)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(dnsTimeoutSeconds))
+		defer cancel()
+		castEntryChan, err := castdns.DiscoverCastDNSEntries(ctx, iface)
+		i := 1
+		for d := range castEntryChan {
+			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+			i++
 		}
 		return nil
 	},
