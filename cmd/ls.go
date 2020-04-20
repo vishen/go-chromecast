@@ -47,6 +47,9 @@ var lsCmd = &cobra.Command{
 			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 			i++
 		}
+		if i == 1 {
+			fmt.Printf("no cast devices found on network\n")
+		}
 		return nil
 	},
 }

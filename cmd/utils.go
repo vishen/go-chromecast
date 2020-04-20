@@ -161,6 +161,10 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 		foundEntries = append(foundEntries, entry)
 	}
 
+	if len(foundEntries) == 0 {
+		return castdns.CastEntry{}, fmt.Errorf("no cast devices found on network")
+	}
+
 	// Always return entries in deterministic order.
 	sort.Slice(foundEntries, func(i, j int) bool { return foundEntries[i].DeviceName < foundEntries[j].DeviceName })
 

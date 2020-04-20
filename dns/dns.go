@@ -57,7 +57,11 @@ func (e CastEntry) GetPort() int {
 // DiscoverCastDNSEntries will return a channel with any cast dns entries
 // found.
 func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan CastEntry, error) {
-	resolver, err := zeroconf.NewResolver(zeroconf.SelectIfaces([]net.Interface{*iface}))
+	var opts = []zeroconf.ClientOption{}
+	if iface != nil {
+		opts = append(opts, zeroconf.SelectIfaces([]net.Interface{*iface}))
+	}
+	resolver, err := zeroconf.NewResolver(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new zeroconf resolver: %w", err)
 	}
