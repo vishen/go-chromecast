@@ -1,18 +1,26 @@
 package main
 
 import (
+	"crypto/tls"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/miekg/dns"
+
+	pb "github.com/vishen/go-chromecast/cast/proto"
 )
+
+//go:generate openssl req -new -nodes -x509 -out certs/server.pem -keyout certs/server.key -days 1 -subj "/C=DE/ST=NRW/L=Earth/O=Chromecast/OU=IT/CN=chromecast/emailAddress=chromecast"
 
 const (
 	mdnsAddr             = "224.0.0.251:5353"
 	chromecastLookupName = "_googlecast._tcp.local."
 	simulatorType        = "ChromecastSimulator"
-	simulatorName        = "chromcast-simulator-test"
+	simulatorName        = "chromecast-simulator-test"
 	simulatorID          = "abcdef0123456789"
 	// Google-Home-Mini-b87d86bed423a6feb8b91a7d2778b55c._googlecast._tcp.local.
 	simulatorDNS = simulatorType + "-" + simulatorID + "." + chromecastLookupName
@@ -74,7 +82,13 @@ func main() {
 }
 
 func startTCPServer() (addr net.Addr, err error) {
-	ln, err := net.Listen("tcp4", "")
+	cert, err := tls.LoadX509KeyPair("certs/server.pem", "certs/server.key")
+	if err != nil {
+		return addr, err
+	}
+
+	config := tls.Config{Certificates: []tls.Certificate{cert}}
+	ln, err := tls.Listen("tcp4", "", &config)
 	if err != nil {
 		return addr, err
 	}
@@ -84,8 +98,35 @@ func startTCPServer() (addr net.Addr, err error) {
 			conn, err := ln.Accept()
 			if err != nil {
 				log.Printf("error: unable to accept connection: %v", err)
+				continue
 			}
 			fmt.Printf("listener conn: %#v\n", conn)
+			for {
+				var length uint32
+				if err := binary.Read(conn, binary.BigEndian, &length); err != nil {
+					fmt.Printf("unable to binary read payload: %v", err)
+					break
+				}
+
+				if length == 0 {
+					continue
+				}
+
+				payload := make([]byte, length)
+				if _, err := io.ReadFull(conn, payload); err != nil {
+					fmt.Printf("unable to read payload: %v", err)
+					break
+				}
+
+				message := &pb.CastMessage{}
+				if err := proto.Unmarshal(payload, message); err != nil {
+					log.Printf("unable to umarshal proto cast message: %v", err)
+					continue
+				}
+				fmt.Printf("Read proto message: %v\n", message)
+			}
+			conn.Write([]byte("chromecast-simulator"))
+			conn.Close()
 		}
 	}()
 	return ln.Addr(), nil
