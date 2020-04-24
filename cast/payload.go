@@ -64,12 +64,14 @@ type Volume struct {
 	Muted bool    `json:"muted"`
 }
 
+type ReceiverStatus struct {
+	Applications []Application `json:"applications"`
+	Volume       Volume        `json:"volume"`
+}
+
 type ReceiverStatusResponse struct {
 	PayloadHeader
-	Status struct {
-		Applications []Application `json:"applications"`
-		Volume       Volume        `json:"volume"`
-	} `json:"status"`
+	Status ReceiverStatus `json:"status"`
 }
 
 type Application struct {

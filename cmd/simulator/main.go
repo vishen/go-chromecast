@@ -3,14 +3,17 @@ package main
 import (
 	"crypto/tls"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 
+	"github.com/buger/jsonparser"
 	"github.com/gogo/protobuf/proto"
 	"github.com/miekg/dns"
 
+	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 )
 
@@ -81,6 +84,126 @@ func main() {
 	done <- struct{}{}
 }
 
+func handleCastConn(conn net.Conn) {
+	/*
+		time="2020-04-24T08:22:27-04:00" level=debug msg="(1)sender-0 -> receiver-0 [urn:x-cast:com.google.cast.tp.connection]: {\"type\":\"CONNECT\",\"requestId\":1}" package=cast
+		time="2020-04-24T08:22:27-04:00" level=debug msg="(2)sender-0 -> receiver-0 [urn:x-cast:com.google.cast.receiver]: {\"type\":\"GET_STATUS\",\"requestId\":2}" package=cast
+		time="2020-04-24T08:22:27-04:00" level=debug msg="(2)sender-0 <- receiver-0 [urn:x-cast:com.google.cast.receiver]: {\"requestId\":2,\"status\":{\"applications\":[{\"appId\":\"E8C28D3C\",\"displayName\":\"Backdrop\",\"iconUrl\":\"\",\"isIdleScreen\":true,\"launchedFromCloud\":false,\"namespaces\":[{\"name\":\"urn:x-cast:com.google.cast.debugoverlay\"},{\"name\":\"urn:x-cast:com.google.cast.cac\"},{\"name\":\"urn:x-cast:com.google.cast.sse\"},{\"name\":\"urn:x-cast:com.google.cast.remotecontrol\"}],\"sessionId\":\"45141f7e-ace1-4eec-b4cf-a5ca7ee88d49\",\"statusText\":\"\",\"transportId\":\"45141f7e-ace1-4eec-b4cf-a5ca7ee88d49\"}],\"userEq\":{},\"volume\":{\"controlType\":\"attenuation\",\"level\":0.75,\"muted\":false,\"stepInterval\":0.05000000074505806}},\"type\":\"RECEIVER_STATUS\"}" package=cast
+	*/
+
+	defer conn.Close()
+
+	// Application to be used for the connection
+	sessionID := "aaaaaaaa-bbbb-1111-2222-333333333333" // TODO: Should this be randomized?
+	castApp := cast.Application{
+		AppId:        "CastSimulator",
+		DisplayName:  "Testing",
+		IsIdleScreen: false,
+		StatusText:   "status text",
+		SessionId:    sessionID,
+		TransportId:  sessionID,
+	}
+	castVolume := cast.Volume{0.4, false}
+
+	for {
+		var length uint32
+		if err := binary.Read(conn, binary.BigEndian, &length); err != nil {
+			fmt.Printf("unable to binary read payload: %v", err)
+			break
+		}
+
+		if length == 0 {
+			continue
+		}
+
+		payload := make([]byte, length)
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			fmt.Printf("unable to read payload: %v", err)
+			break
+		}
+
+		msg := &pb.CastMessage{}
+		if err := proto.Unmarshal(payload, msg); err != nil {
+			log.Printf("unable to umarshal proto cast message: %v", err)
+			continue
+		}
+		/*
+			sourceid=sender-0 destid=receiver-0 namespace=urn:x-cast:com.google.cast.tp.connection payload={"type":"CONNECT","requestId":1}
+			sourceid=sender-0 destid=receiver-0 namespace=urn:x-cast:com.google.cast.receiver payload={"type":"GET_STATUS","requestId":2}
+		*/
+		fmt.Printf(
+			"sourceid=%s destid=%s namespace=%s payload=%s\n",
+			msg.GetSourceId(),
+			msg.GetDestinationId(),
+			msg.GetNamespace(),
+			msg.GetPayloadUtf8(),
+		)
+
+		messageType, err := jsonparser.GetString([]byte(msg.GetPayloadUtf8()), "type")
+		if err != nil {
+			fmt.Printf("unable to get message type: %v\n", err)
+			break
+		}
+
+		requestID, err := jsonparser.GetInt([]byte(msg.GetPayloadUtf8()), "requestId")
+		if err != nil {
+			fmt.Printf("unable to get requestId: %v\n", err)
+			break
+		}
+
+		payloadHeader := cast.PayloadHeader{
+			Type:      messageType,
+			RequestId: int(requestID),
+		}
+
+		switch messageType {
+		case "PING":
+			// Handle
+		case "CONNECT":
+			// What to do here?
+		case "GET_STATUS":
+			if err := sendResponse(conn, msg, &cast.ReceiverStatusResponse{
+				PayloadHeader: payloadHeader,
+				Status: cast.ReceiverStatus{
+					Applications: []cast.Application{castApp},
+					Volume:       castVolume,
+				},
+			}); err != nil {
+				break
+			}
+		}
+	}
+}
+
+func sendResponse(conn net.Conn, msg *pb.CastMessage, payload cast.Payload) error {
+	payloadJson, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	payloadUtf8 := string(payloadJson)
+	message := &pb.CastMessage{
+		ProtocolVersion: pb.CastMessage_CASTV2_1_0.Enum(),
+		SourceId:        msg.SourceId,
+		DestinationId:   msg.DestinationId,
+		Namespace:       msg.Namespace,
+		PayloadType:     pb.CastMessage_STRING.Enum(),
+		PayloadUtf8:     &payloadUtf8,
+	}
+	proto.SetDefaults(message)
+	data, err := proto.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	if err := binary.Write(conn, binary.BigEndian, uint32(len(data))); err != nil {
+		return err
+	}
+	if _, err := conn.Write(data); err != nil {
+		return err
+	}
+	return nil
+}
+
 func startTCPServer() (addr net.Addr, err error) {
 	cert, err := tls.LoadX509KeyPair("certs/server.pem", "certs/server.key")
 	if err != nil {
@@ -101,32 +224,7 @@ func startTCPServer() (addr net.Addr, err error) {
 				continue
 			}
 			fmt.Printf("listener conn: %#v\n", conn)
-			for {
-				var length uint32
-				if err := binary.Read(conn, binary.BigEndian, &length); err != nil {
-					fmt.Printf("unable to binary read payload: %v", err)
-					break
-				}
-
-				if length == 0 {
-					continue
-				}
-
-				payload := make([]byte, length)
-				if _, err := io.ReadFull(conn, payload); err != nil {
-					fmt.Printf("unable to read payload: %v", err)
-					break
-				}
-
-				message := &pb.CastMessage{}
-				if err := proto.Unmarshal(payload, message); err != nil {
-					log.Printf("unable to umarshal proto cast message: %v", err)
-					continue
-				}
-				fmt.Printf("Read proto message: %v\n", message)
-			}
-			conn.Write([]byte("chromecast-simulator"))
-			conn.Close()
+			go handleCastConn(conn)
 		}
 	}()
 	return ln.Addr(), nil

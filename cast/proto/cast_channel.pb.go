@@ -17,9 +17,13 @@ It has these top-level messages:
 */
 package api
 
-import proto "github.com/gogo/protobuf/proto"
-import json "encoding/json"
-import math "math"
+import (
+	json "encoding/json"
+
+	proto "github.com/gogo/protobuf/proto"
+
+	math "math"
+)
 
 // Reference proto, json, and math imports to suppress error if they are not otherwise used.
 var _ = proto.Marshal
