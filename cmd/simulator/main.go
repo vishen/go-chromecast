@@ -29,6 +29,17 @@ const (
 	simulatorDNS = simulatorType + "-" + simulatorID + "." + chromecastLookupName
 )
 
+type State string
+
+const (
+	State_IDLE          = "IDLE"
+	State_MEDIA_RUNNING = "MEDIA_RUNNING"
+)
+
+var (
+	currentState State = State_MEDIA_RUNNING
+)
+
 func main() {
 	fmt.Printf("serving %q...\n", simulatorDNS)
 	ifaces, err := net.Interfaces()
@@ -80,17 +91,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// TODO: Change this to use a cancellable context
 	done := make(chan struct{})
 	done <- struct{}{}
 }
 
 func handleCastConn(conn net.Conn) {
-	/*
-		time="2020-04-24T08:22:27-04:00" level=debug msg="(1)sender-0 -> receiver-0 [urn:x-cast:com.google.cast.tp.connection]: {\"type\":\"CONNECT\",\"requestId\":1}" package=cast
-		time="2020-04-24T08:22:27-04:00" level=debug msg="(2)sender-0 -> receiver-0 [urn:x-cast:com.google.cast.receiver]: {\"type\":\"GET_STATUS\",\"requestId\":2}" package=cast
-		time="2020-04-24T08:22:27-04:00" level=debug msg="(2)sender-0 <- receiver-0 [urn:x-cast:com.google.cast.receiver]: {\"requestId\":2,\"status\":{\"applications\":[{\"appId\":\"E8C28D3C\",\"displayName\":\"Backdrop\",\"iconUrl\":\"\",\"isIdleScreen\":true,\"launchedFromCloud\":false,\"namespaces\":[{\"name\":\"urn:x-cast:com.google.cast.debugoverlay\"},{\"name\":\"urn:x-cast:com.google.cast.cac\"},{\"name\":\"urn:x-cast:com.google.cast.sse\"},{\"name\":\"urn:x-cast:com.google.cast.remotecontrol\"}],\"sessionId\":\"45141f7e-ace1-4eec-b4cf-a5ca7ee88d49\",\"statusText\":\"\",\"transportId\":\"45141f7e-ace1-4eec-b4cf-a5ca7ee88d49\"}],\"userEq\":{},\"volume\":{\"controlType\":\"attenuation\",\"level\":0.75,\"muted\":false,\"stepInterval\":0.05000000074505806}},\"type\":\"RECEIVER_STATUS\"}" package=cast
-	*/
-
+	// Close the connection on exit
 	defer conn.Close()
 
 	// Application to be used for the connection
@@ -98,12 +105,19 @@ func handleCastConn(conn net.Conn) {
 	castApp := cast.Application{
 		AppId:        "CastSimulator",
 		DisplayName:  "Testing",
-		IsIdleScreen: false,
-		StatusText:   "status text",
+		IsIdleScreen: true, // NOTE: Needs to start off as true.
 		SessionId:    sessionID,
 		TransportId:  sessionID,
 	}
 	castVolume := cast.Volume{0.4, false}
+
+	switch currentState {
+	case State_IDLE:
+		castApp.IsIdleScreen = true
+	case State_MEDIA_RUNNING:
+		// TODO:
+		castApp.IsIdleScreen = false
+	}
 
 	for {
 		var length uint32
@@ -127,10 +141,7 @@ func handleCastConn(conn net.Conn) {
 			log.Printf("unable to umarshal proto cast message: %v", err)
 			continue
 		}
-		/*
-			sourceid=sender-0 destid=receiver-0 namespace=urn:x-cast:com.google.cast.tp.connection payload={"type":"CONNECT","requestId":1}
-			sourceid=sender-0 destid=receiver-0 namespace=urn:x-cast:com.google.cast.receiver payload={"type":"GET_STATUS","requestId":2}
-		*/
+
 		fmt.Printf(
 			"sourceid=%s destid=%s namespace=%s payload=%s\n",
 			msg.GetSourceId(),
@@ -152,7 +163,6 @@ func handleCastConn(conn net.Conn) {
 		}
 
 		payloadHeader := cast.PayloadHeader{
-			Type:      messageType,
 			RequestId: int(requestID),
 		}
 
@@ -162,6 +172,7 @@ func handleCastConn(conn net.Conn) {
 		case "CONNECT":
 			// What to do here?
 		case "GET_STATUS":
+			payloadHeader.Type = "RECEIVER_STATUS"
 			if err := sendResponse(conn, msg, &cast.ReceiverStatusResponse{
 				PayloadHeader: payloadHeader,
 				Status: cast.ReceiverStatus{
@@ -183,8 +194,8 @@ func sendResponse(conn net.Conn, msg *pb.CastMessage, payload cast.Payload) erro
 	payloadUtf8 := string(payloadJson)
 	message := &pb.CastMessage{
 		ProtocolVersion: pb.CastMessage_CASTV2_1_0.Enum(),
-		SourceId:        msg.SourceId,
-		DestinationId:   msg.DestinationId,
+		SourceId:        msg.DestinationId,
+		DestinationId:   msg.SourceId,
 		Namespace:       msg.Namespace,
 		PayloadType:     pb.CastMessage_STRING.Enum(),
 		PayloadUtf8:     &payloadUtf8,
