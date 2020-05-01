@@ -117,6 +117,9 @@ func NewApplication(iface *net.Interface, debug, cacheDisabled bool) *Applicatio
 	return a
 }
 
+func (a *Application) Application() *cast.Application { return a.application }
+func (a *Application) Media() *cast.Media             { return a.media }
+
 func (a *Application) AddMessageFunc(f CastMessageFunc) {
 	a.messageMu.Lock()
 	defer a.messageMu.Unlock()
