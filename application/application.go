@@ -90,25 +90,56 @@ type Application struct {
 	playedItems   map[string]PlayedItem
 	cacheDisabled bool
 	cache         *storage.Storage
+
+	// Number of connection retries to try before returning
+	// and error.
+	connectionRetries int
 }
 
-func NewApplication(iface *net.Interface, debug, cacheDisabled bool) *Application {
-	// TODO(vishen): make cast.Connection an interface, most likely will just need
-	// the Send method
-	// Channel to receive messages from the cast connecttion. 5 is a randomly
-	// chosen number.
+type ApplicationOption func(*Application)
+
+func WithIface(iface *net.Interface) ApplicationOption {
+	return func(a *Application) {
+		a.iface = iface
+	}
+}
+
+func WithDebug(debug bool) ApplicationOption {
+	return func(a *Application) {
+		a.debug = debug
+		a.conn.SetDebug(debug)
+	}
+}
+
+func WithCacheDisabled(cacheDisabled bool) ApplicationOption {
+	return func(a *Application) {
+		a.cacheDisabled = cacheDisabled
+	}
+}
+
+func WithConnectionRetries(connectionRetries int) ApplicationOption {
+	return func(a *Application) {
+		a.connectionRetries = connectionRetries
+	}
+}
+
+func NewApplication(opts ...ApplicationOption) *Application {
 	recvMsgChan := make(chan *pb.CastMessage, 5)
 	a := &Application{
-		recvMsgChan:   recvMsgChan,
-		resultChanMap: map[int]chan *pb.CastMessage{},
-		messageChan:   make(chan *pb.CastMessage),
-		conn:          cast.NewConnection(recvMsgChan, debug),
-		debug:         debug,
-		cacheDisabled: cacheDisabled,
-		playedItems:   map[string]PlayedItem{},
-		cache:         storage.NewStorage(),
-		iface:         iface,
+		recvMsgChan:       recvMsgChan,
+		resultChanMap:     map[int]chan *pb.CastMessage{},
+		messageChan:       make(chan *pb.CastMessage),
+		conn:              cast.NewConnection(recvMsgChan),
+		playedItems:       map[string]PlayedItem{},
+		cache:             storage.NewStorage(),
+		connectionRetries: 5,
 	}
+
+	// Apply options
+	for _, o := range opts {
+		o(a)
+	}
+
 	// Kick off the listener for asynchronous messages received from the
 	// cast connection.
 	go a.recvMessages()
@@ -119,6 +150,7 @@ func NewApplication(iface *net.Interface, debug, cacheDisabled bool) *Applicatio
 
 func (a *Application) Application() *cast.Application { return a.application }
 func (a *Application) Media() *cast.Media             { return a.media }
+func (a *Application) Volume() *cast.Volume           { return a.volumeReceiver }
 
 func (a *Application) AddMessageFunc(f CastMessageFunc) {
 	a.messageMu.Lock()
@@ -236,7 +268,10 @@ func (a *Application) Update() error {
 	var err error
 	// Simple retry. We need this for when the device isn't currently
 	// available, but it is likely that it will come up soon.
-	for i := 0; i < 5; i++ {
+	// TODO: This seems to happen when changing media on the cast device,
+	// not sure how to fix but there might be some way of knowing from the
+	// payload?
+	for i := 0; i < a.connectionRetries; i++ {
 		recvStatus, err = a.getReceiverStatus()
 		if err == nil {
 			break

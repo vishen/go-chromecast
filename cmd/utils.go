@@ -65,6 +65,11 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 	useFirstDevice, _ := cmd.Flags().GetBool("first")
 
+	applicationOptions := []application.ApplicationOption{
+		application.WithDebug(debug),
+		application.WithCacheDisabled(disableCache),
+	}
+
 	// If we need to look on a specific network interface for mdns or
 	// for finding a network ip to host from, ensure that the network
 	// interface exists.
@@ -74,6 +79,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		if iface, err = net.InterfaceByName(ifaceName); err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("unable to find interface %q", ifaceName))
 		}
+		applicationOptions = append(applicationOptions, application.WithIface(iface))
 	}
 
 	var entry castdns.CastDNSEntry
@@ -116,7 +122,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 			Port: p,
 		}
 	}
-	app := application.NewApplication(iface, debug, disableCache)
+	app := application.NewApplication(applicationOptions...)
 	if err := app.Start(entry); err != nil {
 		// NOTE: currently we delete the dns cache every time we get
 		// an error, this is to make sure that if the device gets a new

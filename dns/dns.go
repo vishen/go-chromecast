@@ -54,6 +54,22 @@ func (e CastEntry) GetPort() int {
 	return e.Port
 }
 
+// DiscoverCastDNSEntryByName returns the first cast dns device
+// found that matches the name.
+func DiscoverCastDNSEntryByName(ctx context.Context, iface *net.Interface, name string) (CastEntry, error) {
+	castEntryChan, err := DiscoverCastDNSEntries(ctx, iface)
+	if err != nil {
+		return CastEntry{}, err
+	}
+
+	for d := range castEntryChan {
+		if d.DeviceName == name {
+			return d, nil
+		}
+	}
+	return CastEntry{}, fmt.Errorf("No cast device found with name %q", name)
+}
+
 // DiscoverCastDNSEntries will return a channel with any cast dns entries
 // found.
 func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan CastEntry, error) {

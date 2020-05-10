@@ -32,10 +32,9 @@ type Connection struct {
 	connected bool
 }
 
-func NewConnection(recvMsgChan chan *pb.CastMessage, debug bool) *Connection {
+func NewConnection(recvMsgChan chan *pb.CastMessage) *Connection {
 	c := &Connection{
 		recvMsgChan: recvMsgChan,
-		debug:       debug,
 		connected:   false,
 	}
 	return c
