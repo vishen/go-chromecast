@@ -60,9 +60,11 @@ func main() {
 		}
 		for _, addr := range addrs {
 			if netIP, ok := addr.(*net.IPNet); ok {
-				localIP = netIP.IP.String()
-				fmt.Printf("using iface=%s\n", iface.Name)
-				break
+				if ipv4 := netIP.IP.To4(); ipv4 != nil {
+					localIP = ipv4.String()
+					fmt.Printf("using iface=%q, ip=%q\n", iface.Name, localIP)
+					break
+				}
 			}
 		}
 		if localIP != "" {
@@ -249,10 +251,10 @@ func startMDNSServer(ip string, port int) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("listening for mdns on %s\n", mdnsAddr)
 
 	ipv4IP := net.ParseIP(ip)
 
-	log.Printf("listening for mdns on %s\n", mdnsAddr)
 	go func() {
 		defer pc.Close()
 		for {
@@ -268,6 +270,8 @@ func startMDNSServer(ip string, port int) error {
 				log.Printf("error: unable to unpack packet: %v", err)
 				continue
 			}
+
+			fmt.Printf("msg=%#v\n", msg)
 
 			for _, q := range msg.Question {
 				if q.Name != chromecastLookupName {
