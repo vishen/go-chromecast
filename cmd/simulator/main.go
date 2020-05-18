@@ -9,6 +9,8 @@ import (
 	"log"
 	"net"
 
+	"golang.org/x/net/ipv4"
+
 	"github.com/buger/jsonparser"
 	"github.com/gogo/protobuf/proto"
 	"github.com/miekg/dns"
@@ -49,9 +51,13 @@ func main() {
 
 	// Get Local IP
 	var localIP string
+	var interfaces []net.Interface
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagLoopback == net.FlagLoopback {
 			continue
+		}
+		if (iface.Flags&net.FlagUp > 0) && (iface.Flags&net.FlagMulticast > 0) {
+			interfaces = append(interfaces, iface)
 		}
 		addrs, err := iface.Addrs()
 		if err != nil {
@@ -89,7 +95,7 @@ func main() {
 	}
 	listenerAddrPort = tcpAddr.Port
 
-	if err := startMDNSServer(localIP, listenerAddrPort); err != nil {
+	if err := startMDNSServer(localIP, listenerAddrPort, interfaces); err != nil {
 		log.Fatal(err)
 	}
 
@@ -243,18 +249,26 @@ func startTCPServer() (addr net.Addr, err error) {
 	return ln.Addr(), nil
 }
 
-func startMDNSServer(ip string, port int) error {
+func startMDNSServer(ip string, port int, interfaces []net.Interface) error {
 	// https://en.wikipedia.org/wiki/Multicast_DNS
 	// https://github.com/grandcat/zeroconf/blob/master/server.go
 	// listen to incoming udp packets
-	pc, err := net.ListenPacket("udp", mdnsAddr)
+	pc, err := net.ListenPacket("udp4", mdnsAddr)
 	if err != nil {
 		return err
 	}
-	log.Printf("listening for mdns on %s\n", mdnsAddr)
+
+	log.Printf("listening for mdns on %s: %#v\n", mdnsAddr, pc)
+
+	// Join multicast groups to receive announcements
+	pkConn := ipv4.NewPacketConn(pc.(*net.UDPConn))
+	pkConn.SetControlMessage(ipv4.FlagInterface, true)
+
+	for _, iface := range interfaces {
+		pkConn.JoinGroup(&iface, &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251)})
+	}
 
 	ipv4IP := net.ParseIP(ip)
-
 	go func() {
 		defer pc.Close()
 		for {
@@ -271,12 +285,14 @@ func startMDNSServer(ip string, port int) error {
 				continue
 			}
 
-			fmt.Printf("msg=%#v\n", msg)
+			// fmt.Printf("msg=%#v\n", msg)
 
 			for _, q := range msg.Question {
 				if q.Name != chromecastLookupName {
 					continue
 				}
+
+				fmt.Printf("Replying to mdns q=%#v\n", q)
 
 				resp := dns.Msg{}
 				resp.SetReply(&msg)
@@ -341,6 +357,7 @@ func startMDNSServer(ip string, port int) error {
 
 				resp.Extra = []dns.RR{srv, a, txt}
 
+				fmt.Printf("writing %+v\n", resp)
 				packedAnswer, err := resp.Pack()
 				if err != nil {
 					log.Printf("error: unable to pack response: %v", err)
