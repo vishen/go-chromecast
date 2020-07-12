@@ -16,6 +16,7 @@ Available Commands:
   help        Help about any command
   load        Load and play media on the chromecast
   ls          List devices
+  mute        Mute the chromecast
   next        Play the next available media
   pause       Pause the currently playing media on the chromecast
   playlist    Load and play media on the chromecast
@@ -28,6 +29,7 @@ Available Commands:
   stop        Stop casting
   tts         text-to-speech
   ui          Run the UI
+  unmute      Unmute the chromecast
   unpause     Unpause the currently playing media on the chromecast
   volume      Get or set volume
   watch       Watch all events sent from a chromecast device

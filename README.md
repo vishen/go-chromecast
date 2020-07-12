@@ -55,6 +55,7 @@ Available Commands:
   help        Help about any command
   load        Load and play media on the chromecast
   ls          List devices
+  mute        Mute the chromecast
   next        Play the next available media
   pause       Pause the currently playing media on the chromecast
   playlist    Load and play media on the chromecast
@@ -67,6 +68,7 @@ Available Commands:
   stop        Stop casting
   tts         text-to-speech
   ui          Run the UI
+  unmute      Unmute the chromecast
   unpause     Unpause the currently playing media on the chromecast
   volume      Get or set volume
   watch       Watch all events sent from a chromecast device
@@ -78,6 +80,7 @@ Flags:
   -n, --device-name string   chromecast device name
       --disable-cache        disable the cache
       --dns-timeout int      Multicast DNS timeout in seconds when searching for chromecast DNS entries (default 3)
+      --first                Use first cast device found
   -h, --help                 help for go-chromecast
   -i, --iface string         Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
