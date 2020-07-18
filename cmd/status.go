@@ -39,11 +39,16 @@ var statusCmd = &cobra.Command{
 			fmt.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else {
 			metadata := "unknown"
+			var usefulID string
+			switch castMedia.Media.ContentType {
+			case "x-youtube/video":
+				usefulID = fmt.Sprintf("[%s] ", castMedia.Media.ContentId)
+			}
 			if castMedia.Media.Metadata.Title != "" {
 				md := castMedia.Media.Metadata
 				metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
 			}
-			fmt.Printf("%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+			fmt.Printf("%s%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", usefulID, castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 		}
 		return
 	},

@@ -442,6 +442,19 @@ func (a *Application) SeekFromStart(value int) error {
 	})
 }
 
+func (a *Application) SeekToTime(value float32) error {
+	if a.media == nil {
+		return ErrMediaNotYetInitialised
+	}
+
+	return a.sendMediaRecv(&cast.MediaHeader{
+		PayloadHeader:  cast.SeekHeader,
+		MediaSessionId: a.media.MediaSessionId,
+		CurrentTime:    value,
+		ResumeState:    "PLAYBACK_START",
+	})
+}
+
 func (a *Application) SetVolume(value float32) error {
 	if value > 1 || value < 0 {
 		return ErrVolumeOutOfRange

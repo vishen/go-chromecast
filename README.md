@@ -63,6 +63,7 @@ Available Commands:
   restart     Restart the currently playing media
   rewind      Rewind by seconds the currently playing media
   seek        Seek by seconds into the currently playing media
+  seek-to     Seek to the <timestamp_in_seconds> in the currently playing media
   slideshow   Play a slideshow of photos
   status      Current chromecast status
   stop        Stop casting
@@ -90,6 +91,7 @@ Flags:
 
 Use "go-chromecast [command] --help" for more information about a command.
 ```
+
 
 ## Usage
 ```
