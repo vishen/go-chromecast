@@ -169,6 +169,28 @@ func (a *Application) messageChanHandler() {
 	}
 }
 
+// TODO: Clean-up: these Media* methods are a hack around trying
+// to use the mediaFinished channel when it hasn't been properly
+// set up. This is happening because there is some instances where we don't
+// have any running media ('watch' command) but yet the 'mediaFinished'
+// is littered throughout the codebase since. This needs a redesign now that
+// we do things other than just loading and playing media files.
+func (a *Application) MediaStart() {
+	a.mediaFinished = make(chan bool, 1)
+}
+
+func (a *Application) MediaWait() {
+	<-a.mediaFinished
+	a.mediaFinished = nil
+}
+
+func (a *Application) MediaFinished() {
+	if a.mediaFinished == nil {
+		return
+	}
+	a.mediaFinished <- true
+}
+
 func (a *Application) recvMessages() {
 	for msg := range a.recvMsgChan {
 		requestID, err := jsonparser.GetInt([]byte(*msg.PayloadUtf8), "requestId")
@@ -186,7 +208,7 @@ func (a *Application) recvMessages() {
 		messageType, _ := jsonparser.GetString(messageBytes, "type")
 		switch messageType {
 		case "LOAD_FAILED":
-			a.mediaFinished <- true
+			a.MediaFinished()
 		case "MEDIA_STATUS":
 			resp := cast.MediaStatusResponse{}
 			if err := json.Unmarshal(messageBytes, &resp); err == nil {
@@ -194,11 +216,11 @@ func (a *Application) recvMessages() {
 					// The LoadingItemId is only set when there is a playlist and there
 					// is an item being loaded to play next.
 					if status.IdleReason == "FINISHED" && status.LoadingItemId == 0 {
-						a.mediaFinished <- true
+						a.MediaFinished()
 					} else if status.IdleReason == "INTERRUPTED" && status.Media.ContentId == "" {
 						// This can happen when we go "next" in a playlist when it
 						// is playing the last track.
-						a.mediaFinished <- true
+						a.MediaFinished()
 					}
 				}
 			}
@@ -214,7 +236,7 @@ func (a *Application) recvMessages() {
 				// it because that currently isn't possible.
 				for _, app := range resp.Status.Applications {
 					if app.AppId != a.application.AppId {
-						a.mediaFinished <- true
+						a.MediaFinished()
 					}
 					a.application = &app
 				}
@@ -276,6 +298,7 @@ func (a *Application) Update() error {
 		if err == nil {
 			break
 		}
+		a.log("error getting receiever status: %v", err)
 		a.log("unable to get status from device; attempt %d/5, retrying...", i+1)
 		time.Sleep(time.Second * 2)
 	}
@@ -608,7 +631,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach 
 	}
 
 	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
-	a.mediaFinished = make(chan bool, 1)
+	a.MediaStart()
 
 	// Send the command to the chromecast
 	a.sendMediaRecv(&cast.LoadMediaCommand{
@@ -629,7 +652,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach 
 	}
 
 	// Wait until we have been notified that the media has finished playing
-	<-a.mediaFinished
+	a.MediaWait()
 	return nil
 }
 
@@ -667,7 +690,9 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 	})
 
 	// Wait until we have been notified that the media has finished playing
-	<-a.mediaFinished
+	// TODO: This does nothing. This hasn't been initialised and just blocks
+	// forever.
+	a.MediaWait()
 	return nil
 }
 
@@ -752,7 +777,9 @@ func (a *Application) Slideshow(filenames []string, duration int, repeat bool) e
 			if err := a.Next(); err != nil {
 				return err
 			}
-		// Media has finished playing
+		// Media has finished playing.
+		// TODO: Hack, how to ensure this is always possible
+		// to wait on.
 		case <-a.mediaFinished:
 			return nil
 		}
