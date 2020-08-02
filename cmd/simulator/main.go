@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"path/filepath"
 
 	"golang.org/x/net/ipv4"
 
@@ -42,7 +44,14 @@ var (
 	currentState State = State_MEDIA_RUNNING
 )
 
+// Flags
+
+var (
+	certsFolder = flag.String("certs", "certs/", "certs folder location")
+)
+
 func main() {
+	flag.Parse()
 	fmt.Printf("serving %q...\n", simulatorDNS)
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -82,7 +91,7 @@ func main() {
 		log.Fatal("unable to find a non-local ip address")
 	}
 
-	listenerAddr, err := startTCPServer()
+	listenerAddr, err := startTCPServer(*certsFolder)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -223,8 +232,10 @@ func sendResponse(conn net.Conn, msg *pb.CastMessage, payload cast.Payload) erro
 	return nil
 }
 
-func startTCPServer() (addr net.Addr, err error) {
-	cert, err := tls.LoadX509KeyPair("certs/server.pem", "certs/server.key")
+func startTCPServer(certsFolder string) (addr net.Addr, err error) {
+	pem := filepath.Join(certsFolder, "server.pem")
+	key := filepath.Join(certsFolder, "server.key")
+	cert, err := tls.LoadX509KeyPair(pem, key)
 	if err != nil {
 		return addr, err
 	}
