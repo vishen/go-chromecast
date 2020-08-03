@@ -30,7 +30,6 @@ var statusCmd = &cobra.Command{
 			fmt.Printf("unable to get cast application: %v\n", err)
 			return
 		}
-		fmt.Println("WHATAHJAHTA")
 		castApplication, castMedia, castVolume := app.Status()
 		if castApplication == nil {
 			fmt.Printf("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)

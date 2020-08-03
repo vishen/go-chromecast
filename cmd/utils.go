@@ -54,6 +54,7 @@ func (e CachedDNSEntry) GetPort() int {
 }
 
 func castApplication(cmd *cobra.Command, args []string) (*application.Application, error) {
+	// HERE BE DRAGONS
 	deviceName, _ := cmd.Flags().GetString("device-name")
 	deviceUuid, _ := cmd.Flags().GetString("uuid")
 	device, _ := cmd.Flags().GetString("device")
@@ -76,56 +77,62 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		}
 	}
 
-	var entry castdns.CastDNSEntry
-	// If no address was specified, attempt to determine the address of any
-	// local chromecast devices.
-	if addr == "" {
-		// If a device name or uuid was specified, check the cache for the ip+port
-		found := false
-		if !disableCache && (deviceName != "" || deviceUuid != "") {
-			entry = findCachedCastDNS(deviceName, deviceUuid)
-			found = entry.GetAddr() != ""
-		}
-		if !found {
-			var err error
-			if entry, err = findCastDNS(iface, dnsTimeoutSeconds, device, deviceName, deviceUuid, useFirstDevice); err != nil {
-				return nil, errors.Wrap(err, "unable to find cast dns entry")
+	// Retry once if we are unable to connect to the chromecast since
+	// this might be because the cache was invalid.
+	var err error
+	for i := 0; i < 2; i++ {
+		var entry castdns.CastDNSEntry
+		// If no address was specified, attempt to determine the address of any
+		// local chromecast devices.
+		if addr == "" {
+			// If a device name or uuid was specified, check the cache for the ip+port
+			found := false
+			if !disableCache && (deviceName != "" || deviceUuid != "") {
+				entry = findCachedCastDNS(deviceName, deviceUuid)
+				found = entry.GetAddr() != ""
+			}
+			if !found {
+				var err error
+				if entry, err = findCastDNS(iface, dnsTimeoutSeconds, device, deviceName, deviceUuid, useFirstDevice); err != nil {
+					return nil, errors.Wrap(err, "unable to find cast dns entry")
+				}
+			}
+			if !disableCache {
+				cachedEntry := CachedDNSEntry{
+					UUID: entry.GetUUID(),
+					Name: entry.GetName(),
+					Addr: entry.GetAddr(),
+					Port: entry.GetPort(),
+				}
+				cachedEntryJson, _ := json.Marshal(cachedEntry)
+				cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson)
+				cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson)
+			}
+			if debug {
+				fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+			}
+		} else {
+			p, err := strconv.Atoi(port)
+			if err != nil {
+				return nil, errors.Wrap(err, "port needs to be a number")
+			}
+			entry = CachedDNSEntry{
+				Addr: addr,
+				Port: p,
 			}
 		}
-		if !disableCache {
-			cachedEntry := CachedDNSEntry{
-				UUID: entry.GetUUID(),
-				Name: entry.GetName(),
-				Addr: entry.GetAddr(),
-				Port: entry.GetPort(),
-			}
-			cachedEntryJson, _ := json.Marshal(cachedEntry)
-			cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson)
-			cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson)
+		app := application.NewApplication(iface, debug, disableCache)
+		if err = app.Start(entry); err != nil {
+			// NOTE: currently we delete the dns cache every time we get
+			// an error, this is to make sure that if the device gets a new
+			// ipaddress we will invalidate the cache.
+			cache.Save(getCacheKey(entry.GetUUID()), []byte{})
+			cache.Save(getCacheKey(entry.GetName()), []byte{})
+			continue
 		}
-		if debug {
-			fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
-		}
-	} else {
-		p, err := strconv.Atoi(port)
-		if err != nil {
-			return nil, errors.Wrap(err, "port needs to be a number")
-		}
-		entry = CachedDNSEntry{
-			Addr: addr,
-			Port: p,
-		}
+		return app, nil
 	}
-	app := application.NewApplication(iface, debug, disableCache)
-	if err := app.Start(entry); err != nil {
-		// NOTE: currently we delete the dns cache every time we get
-		// an error, this is to make sure that if the device gets a new
-		// ipaddress we will invalidate the cache.
-		cache.Save(getCacheKey(entry.GetUUID()), []byte{})
-		cache.Save(getCacheKey(entry.GetName()), []byte{})
-		return nil, err
-	}
-	return app, nil
+	return nil, err
 }
 
 func getCacheKey(suffix string) string {

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
+	"github.com/vishen/go-chromecast/cmd/simulator/simulator"
 )
 
 //go:generate openssl req -new -nodes -x509 -out certs/server.pem -keyout certs/server.key -days 1 -subj "/C=DE/ST=NRW/L=Earth/O=Chromecast/OU=IT/CN=chromecast/emailAddress=chromecast"
@@ -33,26 +33,35 @@ const (
 	simulatorDNS = simulatorType + "-" + simulatorID + "." + chromecastLookupName
 )
 
-type State string
-
-const (
-	State_IDLE          = "IDLE"
-	State_MEDIA_RUNNING = "MEDIA_RUNNING"
-)
-
-var (
-	currentState State = State_MEDIA_RUNNING
-)
-
 // Flags
-
 var (
-	certsFolder = flag.String("certs", "certs/", "certs folder location")
+	certsFolder    = flag.String("certs", "certs/", "certs folder location")
+	initialState   = flag.String("state", "playing", "initial state of the chromecast simulator: idle or playing")
+	printVerbose   = flag.Bool("verbose", true, "verbose logging")
+	verbosityLevel = flag.Int("verbosity-level", 2, "verbosity level 1-3")
+)
+
+// Global Variables
+var (
+	chromecast *simulator.Chromecast
 )
 
 func main() {
 	flag.Parse()
-	fmt.Printf("serving %q...\n", simulatorDNS)
+
+	var state simulator.State
+	switch s := *initialState; s {
+	case "idle":
+		state = simulator.State_IDLE
+	case "playing":
+		state = simulator.State_PLAYING
+	default:
+		log.Fatalf("%q is not a valid 'state'", s)
+	}
+
+	chromecast = simulator.NewChromecast(state)
+
+	verbose(1, "serving %q...", simulatorDNS)
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		log.Fatal(err)
@@ -70,14 +79,14 @@ func main() {
 		}
 		addrs, err := iface.Addrs()
 		if err != nil {
-			log.Printf("unable to get addresses for interface %q: %v", iface.Name, err)
+			verbose(1, "unable to get addresses for interface %q: %v", iface.Name, err)
 			continue
 		}
 		for _, addr := range addrs {
 			if netIP, ok := addr.(*net.IPNet); ok {
 				if ipv4 := netIP.IP.To4(); ipv4 != nil {
 					localIP = ipv4.String()
-					fmt.Printf("using iface=%q, ip=%q\n", iface.Name, localIP)
+					verbose(1, "using iface=%q, ip=%q", iface.Name, localIP)
 					break
 				}
 			}
@@ -91,55 +100,39 @@ func main() {
 		log.Fatal("unable to find a non-local ip address")
 	}
 
-	listenerAddr, err := startTCPServer(*certsFolder)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Get port from listener
-	var listenerAddrPort int
-	tcpAddr, ok := listenerAddr.(*net.TCPAddr)
-	if !ok {
-		log.Printf("unable to get port from tcp address")
-		return
-	}
-	listenerAddrPort = tcpAddr.Port
+	go func() {
+		listenerAddr, err := startTCPServer(*certsFolder)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// Get port from listener
+		var listenerAddrPort int
+		tcpAddr, ok := listenerAddr.(*net.TCPAddr)
+		if !ok {
+			log.Fatal("unable to get port from tcp address")
+		}
+		listenerAddrPort = tcpAddr.Port
 
-	if err := startMDNSServer(localIP, listenerAddrPort, interfaces); err != nil {
-		log.Fatal(err)
-	}
+		verbose(1, "simulator listening on %s:%d", localIP, listenerAddrPort)
 
-	// TODO: Change this to use a cancellable context
-	done := make(chan struct{})
-	done <- struct{}{}
+		if err := startMDNSServer(localIP, listenerAddrPort, interfaces); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	chromecast.Wait()
+}
+
+func verbose(level int, msg string, args ...interface{}) {
+	if *printVerbose && level <= *verbosityLevel {
+		log.Printf(msg, args...)
+	}
 }
 
 func handleCastConn(conn net.Conn) {
-	// Close the connection on exit
-	defer conn.Close()
-
-	// Application to be used for the connection
-	sessionID := "aaaaaaaa-bbbb-1111-2222-333333333333" // TODO: Should this be randomized?
-	castApp := cast.Application{
-		AppId:        "CastSimulator",
-		DisplayName:  "Testing",
-		IsIdleScreen: true, // NOTE: Needs to start off as true.
-		SessionId:    sessionID,
-		TransportId:  sessionID,
-	}
-	castVolume := cast.Volume{0.4, false}
-
-	switch currentState {
-	case State_IDLE:
-		castApp.IsIdleScreen = true
-	case State_MEDIA_RUNNING:
-		// TODO:
-		castApp.IsIdleScreen = false
-	}
-
 	for {
 		var length uint32
 		if err := binary.Read(conn, binary.BigEndian, &length); err != nil {
-			fmt.Printf("unable to binary read payload: %v", err)
 			break
 		}
 
@@ -149,7 +142,6 @@ func handleCastConn(conn net.Conn) {
 
 		payload := make([]byte, length)
 		if _, err := io.ReadFull(conn, payload); err != nil {
-			fmt.Printf("unable to read payload: %v", err)
 			break
 		}
 
@@ -159,8 +151,8 @@ func handleCastConn(conn net.Conn) {
 			continue
 		}
 
-		fmt.Printf(
-			"sourceid=%s destid=%s namespace=%s payload=%s\n",
+		verbose(2,
+			"RECEIVED: sourceid=%s destid=%s namespace=%s payload=%s",
 			msg.GetSourceId(),
 			msg.GetDestinationId(),
 			msg.GetNamespace(),
@@ -169,13 +161,13 @@ func handleCastConn(conn net.Conn) {
 
 		messageType, err := jsonparser.GetString([]byte(msg.GetPayloadUtf8()), "type")
 		if err != nil {
-			fmt.Printf("unable to get message type: %v\n", err)
+			verbose(1, "unable to get message type: %v", err)
 			break
 		}
 
 		requestID, err := jsonparser.GetInt([]byte(msg.GetPayloadUtf8()), "requestId")
 		if err != nil {
-			fmt.Printf("unable to get requestId: %v\n", err)
+			verbose(1, "unable to get requestId: %v", err)
 			break
 		}
 
@@ -188,17 +180,45 @@ func handleCastConn(conn net.Conn) {
 			// Handle
 		case "CONNECT":
 			// What to do here?
+		case "STOP":
+			chromecast.Stop()
 		case "GET_STATUS":
-			payloadHeader.Type = "RECEIVER_STATUS"
-			if err := sendResponse(conn, msg, &cast.ReceiverStatusResponse{
-				PayloadHeader: payloadHeader,
-				Status: cast.ReceiverStatus{
-					Applications: []cast.Application{castApp},
-					Volume:       castVolume,
-				},
-			}); err != nil {
+			chromecast.Update()
+			switch *msg.Namespace {
+			case "urn:x-cast:com.google.cast.receiver":
+				payloadHeader.Type = "RECEIVER_STATUS"
+				if err := sendResponse(conn, msg, &cast.ReceiverStatusResponse{
+					PayloadHeader: payloadHeader,
+					Status: cast.ReceiverStatus{
+						Applications: []cast.Application{chromecast.Application()},
+						Volume:       chromecast.Volume(),
+					},
+				}); err != nil {
+					break
+				}
+			case "urn:x-cast:com.google.cast.media":
+				payloadHeader.Type = "RECEIVER_STATUS"
+				if err := sendResponse(conn, msg, &cast.MediaStatusResponse{
+					PayloadHeader: payloadHeader,
+					Status:        []cast.Media{chromecast.Media()},
+				}); err != nil {
+					break
+				}
+			}
+		case "SET_VOLUME":
+			// RECEIVED: sourceid=sender-0 destid=receiver-0 namespace=urn:x-cast:com.google.cast.receiver payload={"type":"SET_VOLUME","requestId":5,"volume":{"level":0.5,"muted":false}}
+			// TODO: This might be faster to parse into a struct rather than doing it twice?
+			volumeLevel, err := jsonparser.GetFloat([]byte(msg.GetPayloadUtf8()), "volume", "level")
+			if err != nil {
+				verbose(1, "unable to get volume level: %v", err)
 				break
 			}
+			volumeMuted, err := jsonparser.GetBoolean([]byte(msg.GetPayloadUtf8()), "volume", "muted")
+			if err != nil {
+				verbose(1, "unable to get volume muted: %v", err)
+				break
+			}
+			chromecast.SetVolume(float32(volumeLevel), volumeMuted)
 		}
 	}
 }
@@ -217,6 +237,13 @@ func sendResponse(conn net.Conn, msg *pb.CastMessage, payload cast.Payload) erro
 		PayloadType:     pb.CastMessage_STRING.Enum(),
 		PayloadUtf8:     &payloadUtf8,
 	}
+	verbose(2,
+		"SENDIND: sourceid=%s destid=%s namespace=%s payload=%s",
+		message.GetSourceId(),
+		message.GetDestinationId(),
+		message.GetNamespace(),
+		message.GetPayloadUtf8(),
+	)
 	proto.SetDefaults(message)
 	data, err := proto.Marshal(message)
 	if err != nil {
@@ -250,11 +277,13 @@ func startTCPServer(certsFolder string) (addr net.Addr, err error) {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				log.Printf("error: unable to accept connection: %v", err)
+				verbose(1, "error: unable to accept connection: %v", err)
 				continue
 			}
-			fmt.Printf("listener conn: %#v\n", conn)
-			go handleCastConn(conn)
+			go func() {
+				handleCastConn(conn)
+				conn.Close()
+			}()
 		}
 	}()
 	return ln.Addr(), nil
@@ -269,7 +298,7 @@ func startMDNSServer(ip string, port int, interfaces []net.Interface) error {
 		return err
 	}
 
-	log.Printf("listening for mdns on %s: %#v\n", mdnsAddr, pc)
+	verbose(2, "listening for mdns on %s: %#v", mdnsAddr, pc)
 
 	// Join multicast groups to receive announcements
 	pkConn := ipv4.NewPacketConn(pc.(*net.UDPConn))
@@ -287,23 +316,19 @@ func startMDNSServer(ip string, port int, interfaces []net.Interface) error {
 			buf := make([]byte, 1024)
 			_, addr, err := pc.ReadFrom(buf)
 			if err != nil {
-				log.Printf("error: unable to read packet: %v", err)
 				continue
 			}
 			var msg dns.Msg
 			if err := msg.Unpack(buf); err != nil {
-				log.Printf("error: unable to unpack packet: %v", err)
 				continue
 			}
-
-			// fmt.Printf("msg=%#v\n", msg)
 
 			for _, q := range msg.Question {
 				if q.Name != chromecastLookupName {
 					continue
 				}
 
-				fmt.Printf("Replying to mdns q=%#v\n", q)
+				verbose(3, "mdns: query: %#v", q)
 
 				resp := dns.Msg{}
 				resp.SetReply(&msg)
@@ -368,10 +393,10 @@ func startMDNSServer(ip string, port int, interfaces []net.Interface) error {
 
 				resp.Extra = []dns.RR{srv, a, txt}
 
-				fmt.Printf("writing %+v\n", resp)
+				verbose(3, "mdns: replying: %+v", resp)
 				packedAnswer, err := resp.Pack()
 				if err != nil {
-					log.Printf("error: unable to pack response: %v", err)
+					verbose(1, "error: unable to pack response: %v", err)
 					continue
 				}
 				pc.WriteTo(packedAnswer, addr)

@@ -1,0 +1,8 @@
+# Volume
+
+exec simulator -certs=/tmp -state=playing --verbose=false &
+go-chromecast -n chromecast-simulator-test volume 0.50
+stdout '0.50\n'
+! stderr .
+go-chromecast -n chromecast-simulator-test stop
+! stderr .
