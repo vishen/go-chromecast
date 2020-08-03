@@ -1073,3 +1073,124 @@ func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessag
 	}
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
 }
+
+func (a *Application) startTranscodingServer(command string) error {
+	if a.httpServer != nil {
+		return nil
+	}
+	a.log("trying to find available port to start transcoding server on")
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return errors.Wrap(err, "unable to bind to local tcp address")
+	}
+
+	a.serverPort = listener.Addr().(*net.TCPAddr).Port
+	a.log("found available port :%d", a.serverPort)
+
+	a.httpServer = &http.Server{}
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Check to see if we have a 'filename' and if it is one of the ones that have
+		// already been validated and is useable.
+		filename := r.URL.Query().Get("media_file")
+		canServe := false
+		for _, fn := range a.mediaFilenames {
+			if fn == filename {
+				canServe = true
+			}
+		}
+
+		a.playedItems[filename] = PlayedItem{ContentID: filename, Started: time.Now().Unix()}
+		a.writePlayedItems()
+
+		a.log("canServe=%t, liveStreaming=%t, filename=%s", canServe, true, filename)
+		if canServe {
+			args := strings.Split(command, " ")
+			cmd := exec.Command(args[0], args[1:]...)
+
+			cmd.Stdout = w
+			if a.debug {
+				cmd.Stderr = os.Stderr
+			}
+
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Transfer-Encoding", "chunked")
+
+			if err := cmd.Run(); err != nil {
+				log.WithField("package", "application").WithFields(logrus.Fields{
+					"filename": filename,
+				}).WithError(err).Error("error transcoding")
+			}
+		} else {
+			http.Error(w, "Invalid file", 400)
+		}
+		a.log("method=%s, headers=%v, reponse_headers=%v", r.Method, r.Header, w.Header())
+		pi := a.playedItems[filename]
+
+		// TODO(vishen): make this a pointer?
+		pi.Finished = time.Now().Unix()
+		a.playedItems[filename] = pi
+		a.writePlayedItems()
+	})
+
+	go func() {
+		a.log("media server listening on %d", a.serverPort)
+		if err := a.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			log.WithField("package", "application").WithError(err).Fatal("error serving HTTP")
+		}
+	}()
+
+	return nil
+}
+
+func (a *Application) Transcode(command string, contentType string) error {
+
+	if command == "" || contentType == "" {
+		return errors.New("command and content-type flags needs to be set when transcoding")
+	}
+
+	filename := "pipe_output"
+	// Add the filename to the list of filenames that go-chromecast will serve.
+	a.mediaFilenames = append(a.mediaFilenames, filename)
+
+	localIP, err := a.getLocalIP()
+	if err != nil {
+		return err
+	}
+	a.log("local IP address: %s", localIP)
+
+	a.log("starting transcoding server...")
+	// Start server to serve the media
+	if err := a.startTranscodingServer(command); err != nil {
+		return errors.Wrap(err, "unable to start transcoding server")
+	}
+	a.log("started transcoding server")
+
+	// We can only set the content url after the server has started, otherwise we have
+	// no way to know the port used.
+	contentURL := fmt.Sprintf("http://%s:%d?media_file=%s", localIP, a.serverPort, filename)
+
+	if err := a.ensureIsDefaultMediaReceiver(); err != nil {
+		return err
+	}
+
+	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
+	a.MediaStart()
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(&cast.LoadMediaCommand{
+		PayloadHeader: cast.LoadHeader,
+		CurrentTime:   0,
+		Autoplay:      true,
+		Media: cast.MediaItem{
+			ContentId:   contentURL,
+			StreamType:  "BUFFERED",
+			ContentType: contentType,
+		},
+	})
+
+	// Wait until we have been notified that the media has finished playing
+	a.MediaWait()
+	return nil
+}
