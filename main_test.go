@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -26,21 +25,13 @@ func TestMain(m *testing.M) {
 		}
 	}
 	if os.Getenv("TESTSCRIPT_COMMAND") == "" {
-		{
-			binDir, err := filepath.Abs(".cache")
-			if err != nil {
-				panic(err)
-			}
-			os.Setenv("GOBIN", binDir)
-			os.Setenv("PATH", binDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
-			cmd := exec.Command("go", "build",
-				"-o", filepath.Join(binDir, "simulator"),
-				"./cmd/simulator",
-			)
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				panic(err)
-			}
+		cmd := exec.Command("go", "build",
+			"-o", "/tmp/simulator",
+			"./cmd/simulator",
+		)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			panic(err)
 		}
 	}
 	os.Exit(testscript.RunMain(m, map[string]func() int{
