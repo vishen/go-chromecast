@@ -28,6 +28,7 @@ Available Commands:
   slideshow   Play a slideshow of photos
   status      Current chromecast status
   stop        Stop casting
+  transcode   Transcode and play media on the chromecast
   tts         text-to-speech
   ui          Run the UI
   unmute      Unmute the chromecast
