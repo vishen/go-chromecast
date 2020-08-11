@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	dialerTimeout   = time.Second * 30
+	dialerTimeout   = time.Second * 3
 	dialerKeepAlive = time.Second * 30
 )
 
