@@ -435,6 +435,19 @@ func (a *Application) Seek(value int) error {
 		return ErrMediaNotYetInitialised
 	}
 
+	// TODO: find a better way to handle when chromecast
+	// apps don't handle certain commands.
+	appsSeekTo := []string{
+		"9AC194DC", // Plex
+	}
+
+	for _, app := range appsSeekTo {
+		if app == a.application.AppId {
+			absolute := a.media.CurrentTime + float32(value)
+			return a.SeekToTime(absolute)
+		}
+	}
+
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.SeekHeader,
 		MediaSessionId: a.media.MediaSessionId,
