@@ -23,6 +23,8 @@ builds:
   - 7
   ignore:
   - goos: darwin
+    goarch: 386
+  - goos: darwin
     goarch: arm
     goarm: 6
   - goos: windows
