@@ -14,6 +14,7 @@ Usage:
 
 Available Commands:
   help        Help about any command
+  httpserver  Start the HTTP server
   load        Load and play media on the chromecast
   ls          List devices
   mute        Mute the chromecast
@@ -48,6 +49,7 @@ Flags:
   -i, --iface string         Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
+      --verbose              verbose logging
       --version              display command version
       --with-ui              run with a UI
 

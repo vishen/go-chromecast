@@ -1,6 +1,7 @@
 package cast
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
@@ -30,6 +31,8 @@ type Connection struct {
 
 	debug     bool
 	connected bool
+
+	cancel context.CancelFunc
 }
 
 func NewConnection(recvMsgChan chan *pb.CastMessage) *Connection {
@@ -46,10 +49,21 @@ func (c *Connection) Start(addr string, port int) error {
 		if err != nil {
 			return err
 		}
-		defer func() { go c.receiveLoop() }()
-		return nil
+		var ctx context.Context
+		// TODO: Recieve context through function params?
+		ctx, c.cancel = context.WithCancel(context.Background())
+		go c.receiveLoop(ctx)
 	}
 	return nil
+}
+
+func (c *Connection) Close() error {
+	// TODO: nothing here is concurrent safe, fix?
+	c.connected = false
+	if c.cancel != nil {
+		c.cancel()
+	}
+	return c.conn.Close()
 }
 
 func (c *Connection) SetDebug(debug bool) { c.debug = debug }
@@ -114,8 +128,14 @@ func (c *Connection) Send(requestID int, payload Payload, sourceID, destinationI
 	return nil
 }
 
-func (c *Connection) receiveLoop() {
+func (c *Connection) receiveLoop(ctx context.Context) {
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// Fallthrough if not done
+		}
 		var length uint32
 		if c.conn == nil {
 			continue

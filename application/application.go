@@ -21,7 +21,6 @@ import (
 
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
-	castdns "github.com/vishen/go-chromecast/dns"
 	"github.com/vishen/go-chromecast/storage"
 )
 
@@ -69,7 +68,7 @@ type Application struct {
 	messageFuncs []CastMessageFunc
 
 	// Current values from the chromecast.
-	application *cast.Application // It is possible that there is no current application, can happen for goole home.
+	application *cast.Application // It is possible that there is no current application, can happen for google home.
 	media       *cast.Media
 	// There seems to be two different volumes returned from the chromecast,
 	// one for the receiever and one for the playing media. It looks we update
@@ -173,7 +172,7 @@ func (a *Application) messageChanHandler() {
 // to use the mediaFinished channel when it hasn't been properly
 // set up. This is happening because there is some instances where we don't
 // have any running media ('watch' command) but yet the 'mediaFinished'
-// is littered throughout the codebase since. This needs a redesign now that
+// is littered throughout the codebase. This needs a redesign now that
 // we do things other than just loading and playing media files.
 func (a *Application) MediaStart() {
 	a.mediaFinished = make(chan bool, 1)
@@ -250,12 +249,12 @@ func (a *Application) recvMessages() {
 
 func (a *Application) SetDebug(debug bool) { a.debug = debug; a.conn.SetDebug(debug) }
 
-func (a *Application) Start(entry castdns.CastDNSEntry) error {
+func (a *Application) Start(addr string, port int) error {
 	if err := a.loadPlayedItems(); err != nil {
 		a.log("unable to load played items: %v", err)
 	}
 
-	if err := a.conn.Start(entry.GetAddr(), entry.GetPort()); err != nil {
+	if err := a.conn.Start(addr, port); err != nil {
 		return err
 	}
 	if err := a.sendDefaultConn(&cast.ConnectHeader); err != nil {
@@ -341,9 +340,12 @@ func (a *Application) updateMediaStatus() error {
 	return nil
 }
 
-func (a *Application) Close() {
-	a.sendMediaConn(&cast.CloseHeader)
-	a.sendDefaultConn(&cast.CloseHeader)
+func (a *Application) Close(stopMedia bool) error {
+	if stopMedia {
+		a.sendMediaConn(&cast.CloseHeader)
+		a.sendDefaultConn(&cast.CloseHeader)
+	}
+	return a.conn.Close()
 }
 
 func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
@@ -439,6 +441,7 @@ func (a *Application) Seek(value int) error {
 	// apps don't handle certain commands.
 	appsSeekTo := []string{
 		"9AC194DC", // Plex
+		"CC1AD845", // Default media
 	}
 
 	for _, app := range appsSeekTo {
@@ -607,7 +610,7 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 	return a.playedItems
 }
 
-func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach bool) error {
+func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error {
 	var mi mediaItem
 	isExternalMedia := false
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
@@ -635,7 +638,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach 
 		mi = mediaItems[0]
 	}
 
-	if !isExternalMedia && detach {
+	if !forceDetach && !isExternalMedia && detach {
 		return fmt.Errorf("unable to detach from locally playing media content")
 	}
 
@@ -660,7 +663,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach 
 
 	// If we should detach from waiting for media to finish playing
 	// and this is a url loaded external media, then we can exit early.
-	if detach && isExternalMedia {
+	if (detach && isExternalMedia) || forceDetach {
 		return nil
 	}
 
