@@ -1,10 +1,10 @@
 # Chromecast
 
-Implements a basic number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them sorted by numerically. It also lets you play a slideshow of images with the `slideshow` command.
+Implements a small number of the google chromecast commands. Other than the basic commands, it also allows you to play media files from your computer either individually or in a playlist; the `playlist` command will look at all the files in a folder and play them sorted by numerically. It also lets you play a slideshow of images with the `slideshow` command.
 
-## Media Content Playable
+## Playable Media Content
 
-Can load a local media file or a file hosted on the internet on your chromecast.
+Can load a local media file or a file hosted on the internet on your chromecast with the following format:
 
 ```
 Supported Media formats:
@@ -32,8 +32,9 @@ device uuid, `-u <uuid>`, the results will be cached and it will connect to the 
 
 ## Installing
 
-### Install binaries
+### Install release binaries
 https://github.com/vishen/go-chromecast/releases
+
 
 ### Install the usual Go way:
 
@@ -53,6 +54,7 @@ Usage:
 
 Available Commands:
   help        Help about any command
+  httpserver  Start the HTTP server
   load        Load and play media on the chromecast
   ls          List devices
   mute        Mute the chromecast
@@ -67,6 +69,7 @@ Available Commands:
   slideshow   Play a slideshow of photos
   status      Current chromecast status
   stop        Stop casting
+  transcode   Transcode and play media on the chromecast
   tts         text-to-speech
   ui          Run the UI
   unmute      Unmute the chromecast
@@ -86,6 +89,7 @@ Flags:
   -i, --iface string         Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
+      --verbose              verbose logging
       --version              display command version
       --with-ui              run with a UI
 
@@ -231,6 +235,44 @@ Use the UI in combination with the `load` command (detailed above):
 
 ```
 $ go-chromecast --with-ui load /path/to/file.flac
+```
+
+## HTTP API Server
+
+There is a HTTP API server provided that has the following api:
+
+```
+GET /devices
+POST /connect?uuid=<device_uuid>&addr=<device_addr>&port=<device_port>
+POST /disconnect?uuid=<device_uuid>
+POST /disconnect-all
+POST /status?uuid=<device_uuid>
+POST /pause?uuid=<device_uuid>
+POST /unpause?uuid=<device_uuid>
+POST /mute?uuid=<device_uuid>
+POST /unmute?uuid=<device_uuid>
+POST /stop?uuid=<device_uuid>
+GET /volume?uuid=<device_uuid>
+POST /volume?uuid=<device_uuid>&volume=<float>
+POST /rewind?uuid=<device_uuid>&seconds=<int>
+POST /seek?uuid=<device_uuid>&seconds=<int>
+POST /seek-to?uuid=<device_uuid>&seconds=<float>
+POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>
+```
+
+```
+$ go-chromecast httpserver
+
+Start the HTTP server which provides an HTTP
+api to control chromecast devices on a network.
+
+Usage:
+  go-chromecast httpserver [flags]
+
+Flags:
+  -h, --help               help for httpserver
+      --http-addr string   addr for the http server to listen on (default "0.0.0.0")
+      --http-port string   port for the http server to listen on (default "8011")
 ```
 
 ## Playlist

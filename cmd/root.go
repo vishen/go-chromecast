@@ -65,7 +65,10 @@ func Execute(version, commit, date string) int {
 
 func init() {
 	rootCmd.PersistentFlags().Bool("version", false, "display command version")
+	// TODO: clean up shortened "v" for debug and move to verbose, and ensure
+	// verbose is used appropriately as debug.
 	rootCmd.PersistentFlags().BoolP("debug", "v", false, "debug logging")
+	rootCmd.PersistentFlags().Bool("verbose", false, "verbose logging")
 	rootCmd.PersistentFlags().Bool("disable-cache", false, "disable the cache")
 	rootCmd.PersistentFlags().Bool("with-ui", false, "run with a UI")
 	rootCmd.PersistentFlags().StringP("device", "d", "", "chromecast device, ie: 'Chromecast' or 'Google Home Mini'")

@@ -76,7 +76,7 @@ var ttsCmd = &cobra.Command{
 			return
 		}
 
-		if err := app.Load(f.Name(), "audio/mp3", false, false); err != nil {
+		if err := app.Load(f.Name(), "audio/mp3", false, false, false); err != nil {
 			fmt.Printf("unable to load media to device: %v\n", err)
 			return
 		}

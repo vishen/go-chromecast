@@ -52,7 +52,7 @@ that ffmpeg is installed.`,
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
 		if runWithUI {
 			go func() {
-				if err := app.Load(args[0], contentType, transcode, detach); err != nil {
+				if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
 					logrus.WithError(err).Fatal("unable to load media")
 				}
 			}()
@@ -65,7 +65,7 @@ that ffmpeg is installed.`,
 		}
 
 		// Otherwise just run in CLI mode:
-		if err := app.Load(args[0], contentType, transcode, detach); err != nil {
+		if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
 			fmt.Printf("unable to load media: %v\n", err)
 			return nil
 		}
