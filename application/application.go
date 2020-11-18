@@ -554,6 +554,60 @@ func (a *Application) PlayableMediaType(filename string) bool {
 	return false
 }
 
+func (a *Application) allowContentType(ct string) bool {
+	var allowlist = [13]string{
+		"image/jpeg",
+		"image/gif",
+		"image/bmp",
+		"image/png",
+		"image/webp",
+		"audio/mp4",
+		"audio/mp3",
+		"audio/mpeg",
+		"audio/flac",
+		"audio/wav",
+		"video/mp4",
+		"video/webm",
+		"application/x-mpegURL",
+	}
+	for _, s := range allowlist {
+		if s == ct {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *Application) httpContentType(url string) (string, error) {
+	httpres, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	httpct := httpres.Header.Get("content-type")
+	if a.allowContentType(httpct) {
+		return httpct, nil
+	}
+	return "", fmt.Errorf("unknown file extension %q", httpct)
+}
+
+func (a *Application) fileContentType(file string) (string, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	buffer := make([]byte, 512)
+	_, err1 := f.Read(buffer)
+	if err1 != nil {
+		return "", err1
+	}
+	filect := http.DetectContentType(buffer)
+	if a.allowContentType(filect) {
+		return filect, nil
+	}
+	return "", fmt.Errorf("unknown file extension %q", filect)
+}
+
 func (a *Application) possibleContentType(filename string) (string, error) {
 	// TODO(vishen): Inspect the file for known headers?
 	// Currently we just check the file extension
@@ -617,7 +671,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach,
 		isExternalMedia = true
 		if contentType == "" {
 			var err error
-			contentType, err = a.possibleContentType(filenameOrUrl)
+			contentType, err = a.httpContentType(filenameOrUrl)
 			if err != nil {
 				return err
 			}
