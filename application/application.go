@@ -555,7 +555,7 @@ func (a *Application) PlayableMediaType(filename string) bool {
 }
 
 func (a *Application) allowContentType(ct string) bool {
-	var allowlist = [13]string{
+	var allowlist = [15]string{
 		"image/jpeg",
 		"image/gif",
 		"image/bmp",
@@ -566,6 +566,8 @@ func (a *Application) allowContentType(ct string) bool {
 		"audio/mpeg",
 		"audio/flac",
 		"audio/wav",
+		"audio/wave",
+		"audio/x-wav",
 		"video/mp4",
 		"video/webm",
 		"application/x-mpegURL",
@@ -579,33 +581,42 @@ func (a *Application) allowContentType(ct string) bool {
 }
 
 func (a *Application) httpContentType(url string) (string, error) {
+	// detect content-type from http header.
+	// call allowContentType func to filter out content-type that not supported.
+	// fallback to possibleContentType func in case
+	// MIME misconfig at remote webserver
+	// or misdetection by this method, e.g. some flac.
 	httpres, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("failed to connect %q", url)
 	}
 	httpct := httpres.Header.Get("content-type")
 	if a.allowContentType(httpct) {
 		return httpct, nil
 	}
-	return "", fmt.Errorf("unknown file extension %q", httpct)
+	return a.possibleContentType(url)
 }
 
 func (a *Application) fileContentType(file string) (string, error) {
+	// detect content-type by parse file header.
+	// call allowContentType func to filter out content-type that not supported.
+	// fallback to possibleContentType func in case
+	// misdetection by this method, e.g. some flac.
 	f, err := os.Open(file)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to open %q", file)
 	}
 	defer f.Close()
 	buffer := make([]byte, 512)
 	_, err1 := f.Read(buffer)
 	if err1 != nil {
-		return "", err1
+		return "", fmt.Errorf("failed to parse %q", file)
 	}
 	filect := http.DetectContentType(buffer)
 	if a.allowContentType(filect) {
 		return filect, nil
 	}
-	return "", fmt.Errorf("unknown file extension %q", filect)
+	return a.possibleContentType(file)
 }
 
 func (a *Application) possibleContentType(filename string) (string, error) {
@@ -654,7 +665,7 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 }
 
 func (a *Application) knownFileType(filename string) bool {
-	if ct, _ := a.possibleContentType(filename); ct != "" {
+	if ct, _ := a.fileContentType(filename); ct != "" {
 		return true
 	}
 	return false
@@ -891,7 +902,7 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 		} else if knownFileType {
 			// If this is a media file we know the chromecast can play,
 			// then we don't need to transcode it.
-			contentTypeToUse, _ = a.possibleContentType(filename)
+			contentTypeToUse, _ = a.fileContentType(filename)
 			transcodeFile = false
 		} else if transcodeFile {
 			contentTypeToUse = "video/mp4"
