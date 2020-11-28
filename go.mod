@@ -7,6 +7,7 @@ require (
 	github.com/buger/jsonparser v1.0.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/h2non/filetype v1.1.0
 	github.com/jroimartin/gocui v0.4.0
 	github.com/miekg/dns v1.1.35 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
