@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/types"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 
@@ -555,47 +557,28 @@ func (a *Application) PlayableMediaType(filename string) bool {
 }
 
 func (a *Application) possibleContentType(filename string) (string, error) {
-	// TODO(vishen): Inspect the file for known headers?
-	// Currently we just check the file extension
-
-	// Can use the following from the Go std library
-	// mime.TypesByExtenstion(filepath.Ext(filename))
-	// fs.DetectContentType(data []byte) // needs opened(ish) file
-
-	// URL's can contain url parameters, and path.Ext doesn't
-	// handle it nicely (`.jpg?xxxx....` isn't the extension).
-	// Split the URL by ? and use the left side for extension.
-	if strings.Contains(filename, "://") && strings.Contains(filename, "?") {
-		parts := strings.Split(filename, "?")
-		filename = parts[0]
-	}
-
-	// https://developers.google.com/cast/docs/media
-	switch ext := strings.ToLower(path.Ext(filename)); ext {
-	case ".jpg", ".jpeg":
-		return "image/jpeg", nil
-	case ".gif":
-		return "image/gif", nil
-	case ".bmp":
-		return "image/bmp", nil
-	case ".png":
-		return "image/png", nil
-	case ".webp":
-		return "image/webp", nil
-	case ".mp4", ".m4a", ".m4p":
-		return "video/mp4", nil
-	case ".webm":
-		return "video/webm", nil
-	case ".mp3":
-		return "audio/mp3", nil
-	case ".flac":
-		return "audio/flac", nil
-	case ".wav":
-		return "audio/wav", nil
-	case ".m3u8":
-		return "application/x-mpegURL", nil
-	default:
-		return "", fmt.Errorf("unknown file extension %q", ext)
+	//If filename is an URL returns the content-type from the HEAD response headers
+	//Otherwise returns the content-type thanks to filetype package
+	if strings.Contains(filename, "://") {
+		req, err := http.NewRequest("HEAD", filename, nil)
+		if err != nil {
+			return "", errors.Wrap(err, "NewRequest failed")
+		}
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			return "", errors.Wrap(err, "do request failed")
+		}
+		return res.Header.Get("Content-Type"), nil
+	} else {
+		match, err := filetype.MatchFile(filename)
+		if err != nil {
+			return "", errors.Wrap(err, "match failed")
+		}
+		if match.MIME == types.Unknown.MIME {
+			return "", errors.Wrap(err, "unknown content-type")
+		}
+		return match.MIME.Value, nil
 	}
 }
 
