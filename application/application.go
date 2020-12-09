@@ -556,8 +556,8 @@ func (a *Application) PlayableMediaType(filename string) bool {
 }
 
 func (a *Application) possibleContentType(filename string) (string, error) {
-	//If filename is an URL returns the content-type from the HEAD response headers
-	//Otherwise returns the content-type thanks to filetype package
+	// If filename is an URL returns the content-type from the HEAD response headers
+	// Otherwise returns the content-type thanks to filetype package
 	var contentType string
 
 	if strings.Contains(filename, "://") {
@@ -584,7 +584,6 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 			filename = parts[0]
 		}
 
-		// https://developers.google.com/cast/docs/media
 		switch ext := strings.ToLower(path.Ext(filename)); ext {
 		case ".jpg", ".jpeg":
 			return "image/jpeg", nil
@@ -619,6 +618,20 @@ func (a *Application) knownFileType(filename string) bool {
 	if ct, _ := a.possibleContentType(filename); ct != "" {
 		return true
 	}
+	return false
+}
+
+func (a *Application) castPlayableContentType(contentType string) bool {
+	// https://developers.google.com/cast/docs/media
+	switch contentType {
+	case "image/apng", "image/bmp", "image/gif", "image/jpeg", "image/png", "image/webp":
+		return true
+	case "audio/mp2t", "audio/mp3", "audio/mp4", "audio/ogg", "audio/wav", "audio/webm":
+		return true
+	case "video/mp4", "video/webm":
+		return true
+	}
+
 	return false
 }
 
@@ -854,7 +867,9 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 			// If this is a media file we know the chromecast can play,
 			// then we don't need to transcode it.
 			contentTypeToUse, _ = a.possibleContentType(filename)
-			transcodeFile = false
+			if a.castPlayableContentType(contentTypeToUse) {
+				transcodeFile = false
+			}
 		} else if transcodeFile {
 			contentTypeToUse = "video/mp4"
 		}
