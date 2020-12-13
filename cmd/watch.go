@@ -55,7 +55,11 @@ var watchCmd = &cobra.Command{
 						md := castMedia.Media.Metadata
 						metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
 					}
-					fmt.Printf(">> %s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+					switch castMedia.Media.ContentType {
+					case "x-youtube/video":
+						metadata = fmt.Sprintf("id=\"%s\", %s", castMedia.Media.ContentId, metadata)
+					}
+					fmt.Printf(">> %s (%s), %s, time remaining=%.2fs/%.2fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 				}
 				time.Sleep(time.Millisecond * time.Duration(interval * 1000))
 			}
