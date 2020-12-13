@@ -28,6 +28,9 @@ func init() {
 
 var (
 	cache = storage.NewStorage()
+
+	// Set up a global dns entry so we can attempt reconnects
+	entry castdns.CastDNSEntry
 )
 
 type CachedDNSEntry struct {
@@ -65,6 +68,12 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 	useFirstDevice, _ := cmd.Flags().GetBool("first")
 
+	// Used to try and reconnect
+	if deviceUuid == "" && entry != nil {
+		deviceUuid = entry.GetUUID()
+		entry = nil
+	}
+
 	applicationOptions := []application.ApplicationOption{
 		application.WithDebug(debug),
 		application.WithCacheDisabled(disableCache),
@@ -82,7 +91,6 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		applicationOptions = append(applicationOptions, application.WithIface(iface))
 	}
 
-	var entry castdns.CastDNSEntry
 	// If no address was specified, attempt to determine the address of any
 	// local chromecast devices.
 	if addr == "" {
@@ -132,6 +140,16 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		return nil, err
 	}
 	return app, nil
+}
+
+// reconnect will attempt to reconnect to the cast device
+// TODO: This is all very hacky, currently a global dns entry is set which
+// contains the device UUID, and this is then used to reconnect. This should
+// be handled much nicer and we shouldn't need to pass around the cmd and args everywhere
+// just to reconnect. This might require adding something that wraps the application and
+// dns?
+func reconnect(cmd *cobra.Command, args []string) (*application.Application, error) {
+	return castApplication(cmd, args)
 }
 
 func getCacheKey(suffix string) string {

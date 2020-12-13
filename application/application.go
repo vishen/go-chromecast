@@ -289,10 +289,8 @@ func (a *Application) Update() error {
 	var recvStatus *cast.ReceiverStatusResponse
 	var err error
 	// Simple retry. We need this for when the device isn't currently
-	// available, but it is likely that it will come up soon.
-	// TODO: This seems to happen when changing media on the cast device,
-	// not sure how to fix but there might be some way of knowing from the
-	// payload?
+	// available, but it is likely that it will come up soon. If the device
+	// has switch network addresses the caller is expected to handle that situation.
 	for i := 0; i < a.connectionRetries; i++ {
 		recvStatus, err = a.getReceiverStatus()
 		if err == nil {
