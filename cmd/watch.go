@@ -24,6 +24,8 @@ import (
 	pb "github.com/vishen/go-chromecast/cast/proto"
 )
 
+var interval float32
+
 // watchCmd represents the watch command
 var watchCmd = &cobra.Command{
 	Use:   "watch",
@@ -55,7 +57,7 @@ var watchCmd = &cobra.Command{
 					}
 					fmt.Printf(">> %s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 				}
-				time.Sleep(time.Second * 10)
+				time.Sleep(time.Millisecond * time.Duration(interval * 1000))
 			}
 		}()
 
@@ -84,5 +86,6 @@ var watchCmd = &cobra.Command{
 }
 
 func init() {
+	watchCmd.Flags().Float32Var(&interval, "interval", 10, "interval between status poll in seconds")
 	rootCmd.AddCommand(watchCmd)
 }
