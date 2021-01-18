@@ -311,5 +311,5 @@ For non en-US languages
 
 ```
 $ go-chromecast tts <message_to_say> --google-service-account=/path/to/service/account.json \
-  --voice-name pl-PL-Wavenet-A
+  --voice-name en-US-Wavenet-G
 ```
