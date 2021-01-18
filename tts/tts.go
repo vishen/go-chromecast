@@ -29,12 +29,12 @@ func Create(sentence string, serviceAccountKey []byte, voiceName string) ([]byte
 			InputSource: &texttospeechpb.SynthesisInput_Text{Text: sentence},
 		},
 		Voice: &texttospeechpb.VoiceSelectionParams{
-			Name: voiceName
+			Name: voiceName,
 		},
 		AudioConfig: &texttospeechpb.AudioConfig{
 			AudioEncoding: texttospeechpb.AudioEncoding_MP3,
 			SpeakingRate: 1.0,
-			Pitch: 1.0
+			Pitch: 1.0,
 		},
 	}
 
