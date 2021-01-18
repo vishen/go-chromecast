@@ -88,5 +88,5 @@ var ttsCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(ttsCmd)
 	ttsCmd.Flags().String("google-service-account", "", "google service account JSON file")
-	ttsCmd.Flags().String("voice-name", "pl-PL", "text-to-speech Voice (pl-PL-Wavenet-A, pl-PL-Wavenet-B, pl-PL-Wavenet-C, pl-PL-Wavenet-D, pl-PL-Wavenet-E)")
+	ttsCmd.Flags().String("voice-name", "en-US", "text-to-speech Voice (en-US-Wavenet-G, pl-PL-Wavenet-A, pl-PL-Wavenet-B, de-DE-Wavenet-A)")
 }
