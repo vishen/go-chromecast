@@ -39,8 +39,11 @@ var ttsCmd = &cobra.Command{
 			fmt.Printf("--google-service-account is required\n")
 			return
 		}
-
+		
+		languageCode, _ := cmd.Flags().GetString("language-code")
 		voiceName, _ := cmd.Flags().GetString("voice-name")
+		speakingRate, _ := cmd.Flags().GetFloat32("speaking-rate") 
+		pitch, _ := cmd.Flags().GetFloat32("pitch") 
 
 		b, err := ioutil.ReadFile(googleServiceAccount)
 		if err != nil {
@@ -54,7 +57,7 @@ var ttsCmd = &cobra.Command{
 			return
 		}
 
-		data, err := tts.Create(args[0], b, voiceName)
+		data, err := tts.Create(args[0], b, languageCode, voiceName, speakingRate, pitch)
 		if err != nil {
 			fmt.Printf("%v\n", err)
 			return
@@ -88,5 +91,8 @@ var ttsCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(ttsCmd)
 	ttsCmd.Flags().String("google-service-account", "", "google service account JSON file")
-	ttsCmd.Flags().String("voice-name", "en-US", "text-to-speech Voice (en-US-Wavenet-G, pl-PL-Wavenet-A, pl-PL-Wavenet-B, de-DE-Wavenet-A)")
+	ttsCmd.Flags().String("language-code", "en-US", "text-to-speech Language Code (de-DE, ja-JP,...)")
+	ttsCmd.Flags().String("voice-name", "en-US-Wavenet-G", "text-to-speech Voice (en-US-Wavenet-G, pl-PL-Wavenet-A, pl-PL-Wavenet-B, de-DE-Wavenet-A)")
+	ttsCmd.Flags().Float32("speaking-rate", 1.0, "speaking rate")
+	ttsCmd.Flags().Float32("pitch", 1.0, "pitch")
 }

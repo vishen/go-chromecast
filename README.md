@@ -33,8 +33,10 @@ device uuid, `-u <uuid>`, the results will be cached and it will connect to the 
 ## Installing
 
 ### Install release binaries
+
 https://github.com/vishen/go-chromecast/releases
-* If using Linux: Download the latest release, unzip using `tar -xzf go-chromecast.tar.gz`, and install using `sudo install ./go-chromecast /usr/bin/`
+
+- If using Linux: Download the latest release, unzip using `tar -xzf go-chromecast.tar.gz`, and install using `sudo install ./go-chromecast /usr/bin/`
 
 ### Install the usual Go way:
 
@@ -96,8 +98,8 @@ Flags:
 Use "go-chromecast [command] --help" for more information about a command.
 ```
 
-
 ## Usage
+
 ```
 # View available cast devices.
 $ go-chromecast ls
@@ -203,13 +205,14 @@ $ go-chromecast ui
 ![User-interface example](go-chromecast-ui.png "User-interface example")
 
 A basic terminal user-interface is provided, that supports the following controls:
-* Quit: "q"
-* Play/Pause: SPACE
-* Volume: - / +
-* Mute/Unmute: "m"
-* Seek (15s): <- / ->
-* Previous/Next: PgUp / PgDn
-* Stop: "s"
+
+- Quit: "q"
+- Play/Pause: SPACE
+- Volume: - / +
+- Mute/Unmute: "m"
+- Seek (15s): <- / ->
+- Previous/Next: PgUp / PgDn
+- Stop: "s"
 
 It can be run in the following ways:
 
@@ -311,5 +314,7 @@ For non en-US languages
 
 ```
 $ go-chromecast tts <message_to_say> --google-service-account=/path/to/service/account.json \
-  --voice-name en-US-Wavenet-G
+  --voice-name en-US-Wavenet-G --speaking-rate 1.05 --pitch 0.9
 ```
+
+List of available voices (voice-name) can be found here: https://cloud.google.com/text-to-speech/
