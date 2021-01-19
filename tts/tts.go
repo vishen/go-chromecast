@@ -15,7 +15,7 @@ const (
 	timeout = time.Second * 10
 )
 
-func Create(sentence string, serviceAccountKey []byte, voiceName string) ([]byte, error) {
+func Create(sentence string, serviceAccountKey []byte, languageCode string, voiceName string, speakingRate float32, pitch float32) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -29,12 +29,14 @@ func Create(sentence string, serviceAccountKey []byte, voiceName string) ([]byte
 			InputSource: &texttospeechpb.SynthesisInput_Text{Text: sentence},
 		},
 		Voice: &texttospeechpb.VoiceSelectionParams{
-			Name: voiceName,
+			LanguageCode: languageCode,
+			Name:         voiceName,
+			SsmlGender:   texttospeechpb.SsmlVoiceGender_NEUTRAL,
 		},
 		AudioConfig: &texttospeechpb.AudioConfig{
 			AudioEncoding: texttospeechpb.AudioEncoding_MP3,
-			SpeakingRate: 1.0,
-			Pitch: 1.0,
+			SpeakingRate: float64(speakingRate),
+			Pitch: float64(pitch),
 		},
 	}
 
