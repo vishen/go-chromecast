@@ -1,4 +1,4 @@
-// Copyright © 2018 Jonathan Pentecost <pentecostjonathan@gmail.com>
+// Copyright © 2021 Jonathan Pentecost <pentecostjonathan@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,20 +23,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// loadCmd represents the load command
-var loadCmd = &cobra.Command{
-	Use:   "load <filename_or_url>",
-	Short: "Load and play media on the chromecast",
-	Long: `Load and play media files on the chromecast, this will
-start a HTTP server locally and will stream the media file to the
-chromecast if it is a local file, otherwise it will load the url.
-
-If the media file is an unplayable media type by the chromecast, this
-will attempt to transcode the media file to mp4 using ffmpeg. This requires
-that ffmpeg is installed.`,
+// loadAppCmd represents the load command
+var loadAppCmd = &cobra.Command{
+	Use:   "load-app <app-id> <content-id>",
+	Short: "Load and play content on a chromecast app",
+	Long: `Load and play content on a chromecast app. This requires
+the chromecast receiver app to be specified. An older list can be found 
+here https://gist.github.com/jloutsenhizer/8855258.
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) != 1 {
-			return fmt.Errorf("requires exactly one argument, should be the media file to load")
+		if len(args) != 2 {
+			return fmt.Errorf("requires exactly two arguments")
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
@@ -44,15 +41,11 @@ that ffmpeg is installed.`,
 			return nil
 		}
 
-		contentType, _ := cmd.Flags().GetString("content-type")
-		transcode, _ := cmd.Flags().GetBool("transcode")
-		detach, _ := cmd.Flags().GetBool("detach")
-
 		// Optionally run a UI when playing this media:
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
 		if runWithUI {
 			go func() {
-				if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
+				if err := app.LoadApp(args[0], args[1]); err != nil {
 					logrus.WithError(err).Fatal("unable to load media")
 				}
 			}()
@@ -65,7 +58,7 @@ that ffmpeg is installed.`,
 		}
 
 		// Otherwise just run in CLI mode:
-		if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
+		if err := app.LoadApp(args[0], args[1]); err != nil {
 			fmt.Printf("unable to load media: %v\n", err)
 			return nil
 		}
@@ -74,8 +67,5 @@ that ffmpeg is installed.`,
 }
 
 func init() {
-	rootCmd.AddCommand(loadCmd)
-	loadCmd.Flags().Bool("transcode", true, "transcode the media to mp4 if media type is unrecognised")
-	loadCmd.Flags().Bool("detach", false, "detach from waiting until media finished. Only works with url loaded external media")
-	loadCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
+	rootCmd.AddCommand(loadAppCmd)
 }
