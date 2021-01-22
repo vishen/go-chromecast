@@ -33,8 +33,7 @@ var (
 const (
 	// 'CC1AD845' seems to be a predefined app; check link
 	// https://gist.github.com/jloutsenhizer/8855258
-	// https://github.com/thibauts/node-castv2
-	defaultChromecastAppId = "CC1AD845"
+	defaultChromecastAppID = "CC1AD845"
 
 	defaultSender = "sender-0"
 	defaultRecv   = "receiver-0"
@@ -699,6 +698,32 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach,
 	return nil
 }
 
+func (a *Application) LoadApp(appID, contentID string) error {
+	// old list https://gist.github.com/jloutsenhizer/8855258.
+	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
+	a.MediaStart()
+
+	if err := a.ensureIsAppID(appID); err != nil {
+		return errors.Wrapf(err, "unable to change chromecast app")
+	}
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(&cast.LoadMediaCommand{
+		PayloadHeader: cast.LoadHeader,
+		CurrentTime:   0,
+		Autoplay:      true,
+		Media: cast.MediaItem{
+			ContentId:  contentID,
+			StreamType: "BUFFERED",
+		},
+	})
+
+	// Wait until we have been notified that the media has finished playing
+	a.MediaWait()
+
+	return nil
+}
+
 func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
 
 	mediaItems, err := a.loadAndServeFiles(filenames, contentType, transcode)
@@ -742,14 +767,18 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 func (a *Application) ensureIsDefaultMediaReceiver() error {
 	// If the current chromecast application isn't the Default Media Receiver
 	// we need to change it.
-	if a.application == nil || a.application.AppId != defaultChromecastAppId {
+	return a.ensureIsAppID(defaultChromecastAppID)
+}
+
+func (a *Application) ensureIsAppID(appID string) error {
+	if a.application == nil || a.application.AppId != appID {
 		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
 			PayloadHeader: cast.LaunchHeader,
-			AppId:         defaultChromecastAppId,
+			AppId:         appID,
 		})
 
 		if err != nil {
-			return errors.Wrap(err, "unable to change to default media receiver")
+			return errors.Wrapf(err, "unable to change to appID %q", appID)
 		}
 		// Update the 'application' and 'media' field on the 'CastApplication'
 		return a.Update()

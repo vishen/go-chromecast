@@ -58,6 +58,7 @@ Available Commands:
   help        Help about any command
   httpserver  Start the HTTP server
   load        Load and play media on the chromecast
+  load-app    Load and play content on a chromecast app
   ls          List devices
   mute        Mute the chromecast
   next        Play the next available media
