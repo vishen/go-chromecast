@@ -103,11 +103,13 @@ func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
 
 	h.log("found %d devices", len(devices))
 
+	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(devices); err != nil {
 		h.log("error encoding json: %v", err)
 		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
 		return
 	}
+
 }
 
 func (h *Handler) app(uuid string) (*application.Application, bool) {
@@ -189,11 +191,13 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 	h.apps[deviceUUID] = app
 	h.mu.Unlock()
 
+	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(connectResponse{DeviceUUID: deviceUUID}); err != nil {
 		h.log("error encoding json: %v", err)
 		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
 		return
 	}
+
 }
 
 func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
@@ -254,6 +258,7 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		castVolume,
 	)
 
+	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(statusResponse); err != nil {
 		h.log("error encoding json: %v", err)
 		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
@@ -340,6 +345,8 @@ func (h *Handler) volume(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		h.log("getting volume for device")
 		_, _, volume := app.Status()
+
+		w.Header().Add("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(volumeResponse{Level: volume.Level, Muted: volume.Muted}); err != nil {
 			h.log("error encoding json: %v", err)
 			httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
@@ -512,6 +519,7 @@ func (h *Handler) logAlways(msg string, args ...interface{}) {
 }
 
 func httpError(w http.ResponseWriter, err error) {
+	w.Header().Add("Content-Type", "text/plain")
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
