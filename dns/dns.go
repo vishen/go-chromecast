@@ -44,9 +44,13 @@ func (e CastEntry) GetName() string {
 	return e.DeviceName
 }
 
-// GetAddr returns the IPV4 of a cast entry.
+// GetAddr returns the IPV4 of a cast entry if it is not nil otherwise the IPV6.
 func (e CastEntry) GetAddr() string {
-	return fmt.Sprintf("%s", e.AddrV4)
+	if e.AddrV4 != nil {
+		return e.AddrV4.String()
+	} else {
+		return fmt.Sprintf("[%s]", e.AddrV6.String())
+	}
 }
 
 // GetPort returns the port of a cast entry.
