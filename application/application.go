@@ -642,11 +642,9 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach,
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
 		isExternalMedia = true
 		if contentType == "" {
-			var err error
-			contentType, err = a.possibleContentType(filenameOrUrl)
-			if err != nil {
-				return err
-			}
+			// Try and determine the content type, but if we can't,
+			// let the chromecast try and handle the media file anyway.
+			contentType, _ = a.possibleContentType(filenameOrUrl)
 		}
 		mi = mediaItem{
 			contentURL:  filenameOrUrl,
