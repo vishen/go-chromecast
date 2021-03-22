@@ -77,7 +77,7 @@ type Application struct {
 	volumeMedia    *cast.Volume
 	volumeReceiver *cast.Volume
 
-	httpServer *http.Server
+	httpServer *http.ServeMux
 	serverPort int
 	localIP    string
 	iface      *net.Interface
@@ -974,9 +974,9 @@ func (a *Application) startStreamingServer() error {
 	a.serverPort = listener.Addr().(*net.TCPAddr).Port
 	a.log("found available port :%d", a.serverPort)
 
-	a.httpServer = &http.Server{}
+	a.httpServer = http.NewServeMux()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	a.httpServer.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Check to see if we have a 'filename' and if it is one of the ones that have
 		// already been validated and is useable.
 		filename := r.URL.Query().Get("media_file")
@@ -1019,7 +1019,7 @@ func (a *Application) startStreamingServer() error {
 
 	go func() {
 		a.log("media server listening on %d", a.serverPort)
-		if err := a.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := http.Serve(listener, a.httpServer); err != nil && err != http.ErrServerClosed {
 			log.WithField("package", "application").WithError(err).Fatal("error serving HTTP")
 		}
 	}()
@@ -1160,9 +1160,9 @@ func (a *Application) startTranscodingServer(command string) error {
 	a.serverPort = listener.Addr().(*net.TCPAddr).Port
 	a.log("found available port :%d", a.serverPort)
 
-	a.httpServer = &http.Server{}
+	a.httpServer = http.NewServeMux()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	a.httpServer.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Check to see if we have a 'filename' and if it is one of the ones that have
 		// already been validated and is useable.
 		filename := r.URL.Query().Get("media_file")
@@ -1208,7 +1208,7 @@ func (a *Application) startTranscodingServer(command string) error {
 
 	go func() {
 		a.log("media server listening on %d", a.serverPort)
-		if err := a.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := http.Serve(listener, a.httpServer); err != nil && err != http.ErrServerClosed {
 			log.WithField("package", "application").WithError(err).Fatal("error serving HTTP")
 		}
 	}()
