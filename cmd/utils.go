@@ -65,6 +65,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	addr, _ := cmd.Flags().GetString("addr")
 	port, _ := cmd.Flags().GetString("port")
 	ifaceName, _ := cmd.Flags().GetString("iface")
+	serverPort, _ := cmd.Flags().GetInt("server-port")
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 	useFirstDevice, _ := cmd.Flags().GetBool("first")
 
@@ -75,6 +76,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 	}
 
 	applicationOptions := []application.ApplicationOption{
+		application.WithServerPort(serverPort),
 		application.WithDebug(debug),
 		application.WithCacheDisabled(disableCache),
 	}

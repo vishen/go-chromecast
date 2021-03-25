@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -100,6 +101,12 @@ type ApplicationOption func(*Application)
 func WithIface(iface *net.Interface) ApplicationOption {
 	return func(a *Application) {
 		a.iface = iface
+	}
+}
+
+func WithServerPort(port int) ApplicationOption {
+	return func(a *Application) {
+		a.serverPort = port
 	}
 }
 
@@ -966,7 +973,7 @@ func (a *Application) startStreamingServer() error {
 	}
 	a.log("trying to find available port to start streaming server on")
 
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", ":"+strconv.Itoa(a.serverPort))
 	if err != nil {
 		return errors.Wrap(err, "unable to bind to local tcp address")
 	}

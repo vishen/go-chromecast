@@ -77,6 +77,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("addr", "a", "", "Address of the chromecast device")
 	rootCmd.PersistentFlags().StringP("port", "p", "8009", "Port of the chromecast device if 'addr' is specified")
 	rootCmd.PersistentFlags().StringP("iface", "i", "", "Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery")
+	rootCmd.PersistentFlags().IntP("server-port", "s", 0, "Listening port for the http server")
 	rootCmd.PersistentFlags().Int("dns-timeout", 3, "Multicast DNS timeout in seconds when searching for chromecast DNS entries")
 	rootCmd.PersistentFlags().Bool("first", false, "Use first cast device found")
 }
