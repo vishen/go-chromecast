@@ -15,8 +15,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/ui"
@@ -33,7 +31,7 @@ The transcoded media content-type is required as well`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			logrus.Printf("unable to get cast application: %v\n", err)
 			return nil
 		}
 
@@ -56,7 +54,7 @@ The transcoded media content-type is required as well`,
 		}
 
 		if err := app.Transcode(command, contentType); err != nil {
-			fmt.Printf("unable to transcode media: %v\n", err)
+			logrus.Printf("unable to transcode media: %v\n", err)
 			return nil
 		}
 		return nil

@@ -19,7 +19,7 @@ import (
 
 	"github.com/vishen/go-chromecast/ui"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +37,7 @@ here https://gist.github.com/jloutsenhizer/8855258.
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Info("unable to get cast application")
 			return nil
 		}
 
@@ -46,20 +46,20 @@ here https://gist.github.com/jloutsenhizer/8855258.
 		if runWithUI {
 			go func() {
 				if err := app.LoadApp(args[0], args[1]); err != nil {
-					logrus.WithError(err).Fatal("unable to load media")
+					log.WithError(err).Fatal("unable to load media")
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				logrus.WithError(err).Fatal("unable to prepare a new user-interface")
+				log.WithError(err).Fatal("unable to prepare a new user-interface")
 			}
 			return ccui.Run()
 		}
 
 		// Otherwise just run in CLI mode:
 		if err := app.LoadApp(args[0], args[1]); err != nil {
-			fmt.Printf("unable to load media: %v\n", err)
+			log.WithError(err).Info("unable to load media")
 			return nil
 		}
 		return nil

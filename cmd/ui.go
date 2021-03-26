@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/ui"
 
 	"github.com/spf13/cobra"
@@ -29,20 +28,18 @@ var uiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			logrus.Printf("unable to get cast application: %v\n", err)
 			return
 		}
 
 		ccui, err := ui.NewUserInterface(app)
 		if err != nil {
-			fmt.Printf("unable to prepare a new user-interface: %v\n", err)
+			logrus.Printf("unable to prepare a new user-interface: %v\n", err)
 		}
 
 		if err := ccui.Run(); err != nil {
-			fmt.Printf("unable to start the user-interface: %v\n", err)
-			return
+			logrus.Printf("unable to start the user-interface: %v\n", err)
 		}
-		return
 	},
 }
 

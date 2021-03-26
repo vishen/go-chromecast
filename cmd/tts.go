@@ -15,10 +15,10 @@
 package cmd
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/tts"
 )
@@ -30,13 +30,13 @@ var ttsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) != 1 || args[0] == "" {
-			fmt.Printf("expected exactly one argument to convert to speech\n")
+			logrus.Printf("expected exactly one argument to convert to speech\n")
 			return
 		}
 
 		googleServiceAccount, _ := cmd.Flags().GetString("google-service-account")
 		if googleServiceAccount == "" {
-			fmt.Printf("--google-service-account is required\n")
+			logrus.Printf("--google-service-account is required\n")
 			return
 		}
 		
@@ -47,44 +47,41 @@ var ttsCmd = &cobra.Command{
 
 		b, err := ioutil.ReadFile(googleServiceAccount)
 		if err != nil {
-			fmt.Printf("unable to open google service account file: %v\n", err)
+			logrus.Printf("unable to open google service account file: %v\n", err)
 			return
 		}
 
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			logrus.Printf("unable to get cast application: %v\n", err)
 			return
 		}
 
 		data, err := tts.Create(args[0], b, languageCode, voiceName, speakingRate, pitch)
 		if err != nil {
-			fmt.Printf("%v\n", err)
+			logrus.Println(err)
 			return
 		}
 
 		f, err := ioutil.TempFile("", "go-chromecast-tts")
 		if err != nil {
-			fmt.Printf("unable to create temp file: %v", err)
+			logrus.Printf("unable to create temp file: %v", err)
 			return
 		}
 		defer os.Remove(f.Name())
 
 		if _, err := f.Write(data); err != nil {
-			fmt.Printf("unable to write to temp file: %v\n", err)
+			logrus.Printf("unable to write to temp file: %v\n", err)
 			return
 		}
 		if err := f.Close(); err != nil {
-			fmt.Printf("unable to close temp file: %v\n", err)
+			logrus.Printf("unable to close temp file: %v\n", err)
 			return
 		}
 
 		if err := app.Load(f.Name(), "audio/mp3", false, false, false); err != nil {
-			fmt.Printf("unable to load media to device: %v\n", err)
-			return
+			logrus.Printf("unable to load media to device: %v\n", err)
 		}
-
-		return
 	},
 }
 

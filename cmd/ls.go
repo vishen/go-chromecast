@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
@@ -42,13 +41,17 @@ var lsCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(dnsTimeoutSeconds))
 		defer cancel()
 		castEntryChan, err := castdns.DiscoverCastDNSEntries(ctx, iface)
+		if err != nil {
+			log.WithError(err).Error("unable to discover chromecast devices")
+			return nil
+		}
 		i := 1
 		for d := range castEntryChan {
-			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+			log.Infof("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 			i++
 		}
 		if i == 1 {
-			fmt.Printf("no cast devices found on network\n")
+			log.Error("no cast devices found on network\n")
 		}
 		return nil
 	},

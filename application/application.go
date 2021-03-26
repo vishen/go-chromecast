@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/h2non/filetype"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/buger/jsonparser"
@@ -1057,7 +1056,7 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Transfer-Encoding", "chunked")
 
 	if err := cmd.Run(); err != nil {
-		log.WithField("package", "application").WithFields(logrus.Fields{
+		log.WithField("package", "application").WithFields(log.Fields{
 			"filename": filename,
 		}).WithError(err).Error("error transcoding")
 	}
@@ -1197,7 +1196,7 @@ func (a *Application) startTranscodingServer(command string) error {
 			w.Header().Set("Transfer-Encoding", "chunked")
 
 			if err := cmd.Run(); err != nil {
-				log.WithField("package", "application").WithFields(logrus.Fields{
+				log.WithField("package", "application").WithFields(log.Fields{
 					"filename": filename,
 				}).WithError(err).Error("error transcoding")
 			}

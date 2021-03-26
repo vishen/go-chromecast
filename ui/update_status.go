@@ -38,7 +38,9 @@ func (ui *UserInterface) updateStatus(sleepTime time.Duration) {
 
 		// Update the "status" view:
 		ui.gui.Update(func(*gocui.Gui) error { return nil })
-		ui.app.Update()
+		if err := ui.app.Update(); err != nil {
+			logrus.WithError(err).Debug("Unable to update the app")
+		}
 		viewStatus.Clear()
 		castApplication, castMedia, castVolume := ui.app.Status()
 

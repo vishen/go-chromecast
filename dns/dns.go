@@ -3,11 +3,11 @@ package dns
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 
 	"github.com/grandcat/zeroconf"
+	log "github.com/sirupsen/logrus"
 )
 
 // CastDNSEntry is the interface that satisfies a Cast type.

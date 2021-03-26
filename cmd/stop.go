@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,14 +26,12 @@ var stopCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			log.Printf("unable to get cast application: %v\n", err)
 			return
 		}
 		if err := app.Stop(); err != nil {
-			fmt.Printf("unable to stop casting: %v\n", err)
-			return
+			log.Printf("unable to stop casting: %v\n", err)
 		}
-		return
 	},
 }
 

@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,14 +26,12 @@ var previousCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			logrus.Printf("unable to get cast application: %v\n", err)
 			return
 		}
 		if err := app.Previous(); err != nil {
-			fmt.Printf("unable to play previous media: %v\n", err)
-			return
+			logrus.Printf("unable to play previous media: %v\n", err)
 		}
-		return
 	},
 }
 
