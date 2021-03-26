@@ -116,11 +116,15 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 				Port: entry.GetPort(),
 			}
 			cachedEntryJson, _ := json.Marshal(cachedEntry)
-			cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson)
-			cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson)
+			if err := cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson); err != nil {
+				log.Debug("Failed to save UUID cache entry")
+			}
+			if err := cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson); err != nil {
+				log.Debug("Failed to save name cache entry")
+			}
 		}
 		if debug {
-			fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+			log.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
 		}
 	} else {
 		p, err := strconv.Atoi(port)
@@ -137,8 +141,12 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		// NOTE: currently we delete the dns cache every time we get
 		// an error, this is to make sure that if the device gets a new
 		// ipaddress we will invalidate the cache.
-		cache.Save(getCacheKey(entry.GetUUID()), []byte{})
-		cache.Save(getCacheKey(entry.GetName()), []byte{})
+		if err := cache.Save(getCacheKey(entry.GetUUID()), []byte{}); err != nil {
+			log.Debug("Failed to save UUID cache entry")
+		}
+		if err := cache.Save(getCacheKey(entry.GetName()), []byte{}); err != nil {
+			log.Debug("Failed to save name cache entry")
+		}
 		return nil, err
 	}
 	return app, nil
@@ -194,16 +202,16 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 	// Always return entries in deterministic order.
 	sort.Slice(foundEntries, func(i, j int) bool { return foundEntries[i].DeviceName < foundEntries[j].DeviceName })
 
-	fmt.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
+	log.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
 	for i, d := range foundEntries {
-		fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+		log.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 	}
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Printf("Enter selection: ")
+		log.Printf("Enter selection: ")
 		text, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("error reading console: %v\n", err)
+			log.Printf("error reading console: %v\n", err)
 			continue
 		}
 		i, err := strconv.Atoi(strings.TrimSpace(text))

@@ -2,10 +2,6 @@ package http
 
 import "github.com/vishen/go-chromecast/cast"
 
-type listDevicesResponse struct {
-	Devices []device `json:"devices"`
-}
-
 type connectResponse struct {
 	DeviceUUID string `json:"device_uuid"`
 }
@@ -27,10 +23,10 @@ type statusResponse struct {
 	CurrentItemID int     `json:"current_item_id"`
 	LoadingItemID int     `json:"loading_item_id"`
 
-	ContentID   string  `json: "content_id"`
-	ContentType string  `json: "content_type"`
-	StreamType  string  `json: "stream_type"`
-	Duration    float32 `json: "duration"`
+	ContentID   string  `json:"content_id"`
+	ContentType string  `json:"content_type"`
+	StreamType  string  `json:"stream_type"`
+	Duration    float32 `json:"duration"`
 
 	Artist   string `json:"artist"`
 	Title    string `json:"title"`

@@ -115,7 +115,7 @@ type MediaItem struct {
 }
 
 type MediaMetadata struct {
-	MetadataType int     `json:"metadataType`
+	MetadataType int     `json:"metadataType"`
 	Artist       string  `json:"artist"`
 	Title        string  `json:"title"`
 	Subtitle     string  `json:"subtitle"`

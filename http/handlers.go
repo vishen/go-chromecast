@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/dns"
 )
@@ -503,19 +503,21 @@ func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (*applic
 		return nil, false
 	}
 
-	app.Update()
+	if err := app.Update(); err != nil {
+		return nil, false
+	}
 
 	return app, true
 }
 
 func (h *Handler) log(msg string, args ...interface{}) {
 	if h.verbose {
-		log.Printf(fmt.Sprintf(msg, args...))
+		logrus.Printf(msg, args...)
 	}
 }
 
 func (h *Handler) logAlways(msg string, args ...interface{}) {
-	log.Printf(fmt.Sprintf(msg, args...))
+	logrus.Printf(msg, args...)
 }
 
 func httpError(w http.ResponseWriter, err error) {

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -64,7 +63,6 @@ func (ui *UserInterface) Run() error {
 	ui.wg.Add(1)
 	go func() {
 		if err := ui.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
-			fmt.Printf("Error from gocui: %v\n", err)
 			logrus.WithError(err).Error("Error from gocui")
 		}
 		ui.wg.Done()

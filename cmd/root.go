@@ -15,9 +15,9 @@
 package cmd
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -39,11 +39,10 @@ command line.`,
 			if len(Version) > 0 && Version[0] != 'v' && Version != "dev" {
 				Version = "v" + Version
 			}
-			fmt.Printf("go-chromecast %s (%s) %s\n", Version, Commit, Date)
+			logrus.Printf("go-chromecast %s (%s) %s\n", Version, Commit, Date)
 			return nil
 		}
-		cmd.Help()
-		return nil
+		return cmd.Help()
 	},
 }
 

@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,15 +26,13 @@ var restartCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			logrus.Printf("unable to get cast application: %v\n", err)
 			return
 		}
 		// TODO(): THIS DOES NOT WORK
 		if err := app.SeekFromStart(0); err != nil {
-			fmt.Printf("unable to restart media: %v\n", err)
-			return
+			logrus.Printf("unable to restart media: %v\n", err)
 		}
-		return
 	},
 }
 

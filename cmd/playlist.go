@@ -51,15 +51,15 @@ that ffmpeg is installed.`,
 			return fmt.Errorf("requires exactly one argument, should be the folder to play media from")
 		}
 		if fileInfo, err := os.Stat(args[0]); err != nil {
-			fmt.Printf("unable to find %q: %v\n", args[0], err)
+			logrus.Printf("unable to find %q: %v\n", args[0], err)
 			return nil
 		} else if !fileInfo.Mode().IsDir() {
-			fmt.Printf("%q is not a directory\n", args[0])
+			logrus.Printf("%q is not a directory\n", args[0])
 			return nil
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			fmt.Printf("unable to get cast application: %v\n", err)
+			logrus.Printf("unable to get cast application: %v\n", err)
 			return nil
 		}
 
@@ -70,7 +70,7 @@ that ffmpeg is installed.`,
 		selection, _ := cmd.Flags().GetBool("select")
 		files, err := ioutil.ReadDir(args[0])
 		if err != nil {
-			fmt.Printf("unable to list files from %q: %v", args[0], err)
+			logrus.Printf("unable to list files from %q: %v", args[0], err)
 			return nil
 		}
 		filesToPlay := make([]mediaFile, 0, len(files))
@@ -144,21 +144,21 @@ that ffmpeg is installed.`,
 
 		indexToPlayFrom := 0
 		if selection {
-			fmt.Println("Will play the following items, select where to start from:")
+			logrus.Println("Will play the following items, select where to start from:")
 			for i, f := range filenames {
 				lastPlayed := "never"
 				if lp, ok := app.PlayedItems()[f]; ok {
 					t := time.Unix(lp.Started, 0)
 					lastPlayed = t.String()
 				}
-				fmt.Printf("%d) %s: last played %q\n", i+1, f, lastPlayed)
+				logrus.Printf("%d) %s: last played %q\n", i+1, f, lastPlayed)
 			}
 			reader := bufio.NewReader(os.Stdin)
 			for {
-				fmt.Printf("Enter selection: ")
+				logrus.Printf("Enter selection: ")
 				text, err := reader.ReadString('\n')
 				if err != nil {
-					fmt.Printf("error reading console: %v\n", err)
+					logrus.Printf("error reading console: %v\n", err)
 					continue
 				}
 				i, err := strconv.Atoi(strings.TrimSpace(text))
@@ -195,10 +195,11 @@ that ffmpeg is installed.`,
 			indexToPlayFrom = lastPlayedIndex
 		}
 
-		fmt.Println("Attemping to play the following media:")
+		s := "Attemping to play the following media:"
 		for _, f := range filenames[indexToPlayFrom:] {
-			fmt.Printf("- %s\n", f)
+			s += "- " + f + "\n"
 		}
+		logrus.Print(s)
 
 		// Optionally run a UI when playing this media:
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
@@ -217,7 +218,7 @@ that ffmpeg is installed.`,
 		}
 
 		if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-			fmt.Printf("unable to play playlist on cast application: %v\n", err)
+			logrus.Printf("unable to play playlist on cast application: %v\n", err)
 			return nil
 		}
 		return nil
