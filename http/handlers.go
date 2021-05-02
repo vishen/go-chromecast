@@ -222,8 +222,6 @@ func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
 	stopMedia := false
 	if err := app.Close(stopMedia); err != nil {
 		h.log("unable to close application: %v", err)
-		httpError(w, fmt.Errorf("unable to disconnect from device: %w", err))
-		return
 	}
 
 	h.mu.Lock()
