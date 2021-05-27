@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -78,21 +79,32 @@ func (h *Handler) registerHandlers() {
 	h.mux.HandleFunc("/load", h.load)
 }
 
-func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
-	h.log("listing chromecast devices")
+func (h *Handler) discoverDnsEntries(ctx context.Context, iface string, waitq string) (devices []device) {
+	wait := 3
+	if n, err := strconv.Atoi(waitq); err == nil {
+		wait = n
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	devices = []device{}
+	var interf *net.Interface
+	if iface != "" {
+		var err error
+		interf, err = net.InterfaceByName(iface)
+		if err != nil {
+			h.log("error discovering entries: %v", err)
+			return
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(wait)*time.Second)
 	defer cancel()
 
-	// TODO: Get iface from query params
-	devicesChan, err := dns.DiscoverCastDNSEntries(ctx, nil)
+	devicesChan, err := dns.DiscoverCastDNSEntries(ctx, interf)
 	if err != nil {
 		h.log("error discovering entries: %v", err)
-		httpError(w, fmt.Errorf("unable to discover cast dns entries: %v", err))
 		return
 	}
 
-	devices := []device{}
 	for d := range devicesChan {
 		devices = append(devices, device{
 			Addr:       d.AddrV4.String(),
@@ -107,6 +119,17 @@ func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	return
+}
+
+func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
+	h.log("listing chromecast devices")
+
+	q := r.URL.Query()
+	iface := q.Get("interface")
+	wait := q.Get("wait")
+
+	devices := h.discoverDnsEntries(context.Background(), iface, wait)
 	h.log("found %d devices", len(devices))
 
 	w.Header().Add("Content-Type", "application/json")
@@ -143,24 +166,17 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 
 	deviceAddr := q.Get("addr")
 	devicePort := q.Get("port")
+	iface := q.Get("interface")
+	wait := q.Get("wait")
 
 	if deviceAddr == "" || devicePort == "" {
 		h.log("device addr and/or port are missing, trying to lookup address for uuid %q", deviceUUID)
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-		defer cancel()
-
-		devicesChan, err := dns.DiscoverCastDNSEntries(ctx, nil)
-		if err != nil {
-			h.log("error discovering entries: %v", err)
-			httpError(w, fmt.Errorf("unable to discover cast dns entries: %v", err))
-			return
-		}
-
-		for device := range devicesChan {
+		devices := h.discoverDnsEntries(context.Background(), iface, wait)
+		for _, device := range devices {
 			// TODO: Should there be a lookup by name as well?
 			if device.UUID == deviceUUID {
-				deviceAddr = device.AddrV4.String()
+				deviceAddr = device.Addr
 				// TODO: This is an unnessecary conversion since
 				// we cast back to int a bit later.
 				devicePort = strconv.Itoa(device.Port)
@@ -223,9 +239,7 @@ func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Stop media should be a url params? Update
-	// disconnectAll appropriately
-	stopMedia := false
+	stopMedia := q.Get("stop") == "true"
 	if err := app.Close(stopMedia); err != nil {
 		h.log("unable to close application: %v", err)
 	}
@@ -238,8 +252,9 @@ func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) disconnectAll(w http.ResponseWriter, r *http.Request) {
 	h.log("disconnecting all devices")
 	h.mu.Lock()
+	stopMedia := r.URL.Query().Get("stop") == "true"
 	for deviceUUID, app := range h.apps {
-		if err := app.Close(false); err != nil {
+		if err := app.Close(stopMedia); err != nil {
 			h.log("unable to close application %q: %v", deviceUUID, err)
 		}
 		delete(h.apps, deviceUUID)
@@ -255,7 +270,6 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	h.log("status for device")
 
 	castApplication, castMedia, castVolume := app.Status()
-
 	statusResponse := fromApplicationStatus(
 		castApplication,
 		castMedia,
