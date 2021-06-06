@@ -16,24 +16,30 @@ import (
 )
 
 type Handler struct {
-	mu   sync.Mutex
-	apps map[string]*application.Application
-
+	mu      sync.Mutex
+	apps    map[string]*application.Application
+	mux     *http.ServeMux
 	verbose bool
 }
 
 func NewHandler(verbose bool) *Handler {
-	return &Handler{
+	handler := &Handler{
 		verbose: verbose,
 		apps:    map[string]*application.Application{},
+		mux:     http.NewServeMux(),
 		mu:      sync.Mutex{},
 	}
+	handler.registerHandlers()
+	return handler
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
 }
 
 func (h *Handler) Serve(addr string) error {
 	h.logAlways("starting http server on %s", addr)
-	h.registerHandlers()
-	return http.ListenAndServe(addr, nil)
+	return http.ListenAndServe(addr, h)
 }
 
 func (h *Handler) registerHandlers() {
@@ -56,21 +62,21 @@ func (h *Handler) registerHandlers() {
 		POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>
 	*/
 
-	http.HandleFunc("/devices", h.listDevices)
-	http.HandleFunc("/connect", h.connect)
-	http.HandleFunc("/disconnect", h.disconnect)
-	http.HandleFunc("/disconnect-all", h.disconnectAll)
-	http.HandleFunc("/status", h.status)
-	http.HandleFunc("/pause", h.pause)
-	http.HandleFunc("/unpause", h.unpause)
-	http.HandleFunc("/mute", h.mute)
-	http.HandleFunc("/unmute", h.unmute)
-	http.HandleFunc("/stop", h.stop)
-	http.HandleFunc("/volume", h.volume)
-	http.HandleFunc("/rewind", h.rewind)
-	http.HandleFunc("/seek", h.seek)
-	http.HandleFunc("/seek-to", h.seekTo)
-	http.HandleFunc("/load", h.load)
+	h.mux.HandleFunc("/devices", h.listDevices)
+	h.mux.HandleFunc("/connect", h.connect)
+	h.mux.HandleFunc("/disconnect", h.disconnect)
+	h.mux.HandleFunc("/disconnect-all", h.disconnectAll)
+	h.mux.HandleFunc("/status", h.status)
+	h.mux.HandleFunc("/pause", h.pause)
+	h.mux.HandleFunc("/unpause", h.unpause)
+	h.mux.HandleFunc("/mute", h.mute)
+	h.mux.HandleFunc("/unmute", h.unmute)
+	h.mux.HandleFunc("/stop", h.stop)
+	h.mux.HandleFunc("/volume", h.volume)
+	h.mux.HandleFunc("/rewind", h.rewind)
+	h.mux.HandleFunc("/seek", h.seek)
+	h.mux.HandleFunc("/seek-to", h.seekTo)
+	h.mux.HandleFunc("/load", h.load)
 }
 
 func (h *Handler) discoverDnsEntries(ctx context.Context, iface string, waitq string) (devices []device) {
