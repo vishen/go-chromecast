@@ -51,7 +51,39 @@ type PlayedItem struct {
 
 type CastMessageFunc func(*pb.CastMessage)
 
-type Application struct {
+type Application interface {
+	SetIface(*net.Interface)
+	SetDebug(bool)
+	SetCacheDisabled(bool)
+	SetConnectionRetries(int)
+	SetServerPort(int)
+	Start(addr string, port int) error
+	Close(stopMedia bool) error
+	LoadApp(appID, contentID string) error
+	Status() (*cast.Application, *cast.Media, *cast.Volume)
+	Update() error
+	Pause() error
+	Unpause() error
+	Stop() error
+	StopMedia() error
+	Seek(value int) error
+	SeekFromStart(value int) error
+	SeekToTime(value float32) error
+	Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error
+	QueueLoad(filenames []string, contentType string, transcode bool) error
+	Transcode(command string, contentType string) error
+	Next() error
+	Previous() error
+	SetVolume(value float32) error
+	SetMuted(value bool) error
+	Slideshow(filenames []string, duration int, repeat bool) error
+	AddMessageFunc(f CastMessageFunc)
+
+	PlayedItems() map[string]PlayedItem
+	PlayableMediaType(filename string) bool
+}
+
+type application struct {
 	conn  *cast.Connection
 	debug bool
 
@@ -95,42 +127,41 @@ type Application struct {
 	connectionRetries int
 }
 
-type ApplicationOption func(*Application)
+type ApplicationOption func(Application)
 
 func WithIface(iface *net.Interface) ApplicationOption {
-	return func(a *Application) {
-		a.iface = iface
+	return func(a Application) {
+		a.SetIface(iface)
 	}
 }
 
 func WithServerPort(port int) ApplicationOption {
-	return func(a *Application) {
-		a.serverPort = port
+	return func(a Application) {
+		a.SetServerPort(port)
 	}
 }
 
 func WithDebug(debug bool) ApplicationOption {
-	return func(a *Application) {
-		a.debug = debug
-		a.conn.SetDebug(debug)
+	return func(a Application) {
+		a.SetDebug(debug)
 	}
 }
 
 func WithCacheDisabled(cacheDisabled bool) ApplicationOption {
-	return func(a *Application) {
-		a.cacheDisabled = cacheDisabled
+	return func(a Application) {
+		a.SetCacheDisabled(cacheDisabled)
 	}
 }
 
 func WithConnectionRetries(connectionRetries int) ApplicationOption {
-	return func(a *Application) {
-		a.connectionRetries = connectionRetries
+	return func(a Application) {
+		a.SetConnectionRetries(connectionRetries)
 	}
 }
 
-func NewApplication(opts ...ApplicationOption) *Application {
+func NewApplication(opts ...ApplicationOption) Application {
 	recvMsgChan := make(chan *pb.CastMessage, 5)
-	a := &Application{
+	a := &application{
 		recvMsgChan:       recvMsgChan,
 		resultChanMap:     map[int]chan *pb.CastMessage{},
 		messageChan:       make(chan *pb.CastMessage),
@@ -153,18 +184,25 @@ func NewApplication(opts ...ApplicationOption) *Application {
 	return a
 }
 
-func (a *Application) Application() *cast.Application { return a.application }
-func (a *Application) Media() *cast.Media             { return a.media }
-func (a *Application) Volume() *cast.Volume           { return a.volumeReceiver }
+func (a *application) SetServerPort(serverPort int) { a.serverPort = serverPort }
+func (a *application) SetConnectionRetries(connectionRetries int) {
+	a.connectionRetries = connectionRetries
+}
+func (a *application) SetCacheDisabled(cacheDisabled bool) { a.cacheDisabled = cacheDisabled }
+func (a *application) SetIface(iface *net.Interface)       { a.iface = iface }
 
-func (a *Application) AddMessageFunc(f CastMessageFunc) {
+func (a *application) Application() *cast.Application { return a.application }
+func (a *application) Media() *cast.Media             { return a.media }
+func (a *application) Volume() *cast.Volume           { return a.volumeReceiver }
+
+func (a *application) AddMessageFunc(f CastMessageFunc) {
 	a.messageMu.Lock()
 	defer a.messageMu.Unlock()
 
 	a.messageFuncs = append(a.messageFuncs, f)
 }
 
-func (a *Application) messageChanHandler() {
+func (a *application) messageChanHandler() {
 	for msg := range a.messageChan {
 		a.messageMu.Lock()
 		for _, f := range a.messageFuncs {
@@ -180,23 +218,23 @@ func (a *Application) messageChanHandler() {
 // have any running media ('watch' command) but yet the 'mediaFinished'
 // is littered throughout the codebase. This needs a redesign now that
 // we do things other than just loading and playing media files.
-func (a *Application) MediaStart() {
+func (a *application) MediaStart() {
 	a.mediaFinished = make(chan bool, 1)
 }
 
-func (a *Application) MediaWait() {
+func (a *application) MediaWait() {
 	<-a.mediaFinished
 	a.mediaFinished = nil
 }
 
-func (a *Application) MediaFinished() {
+func (a *application) MediaFinished() {
 	if a.mediaFinished == nil {
 		return
 	}
 	a.mediaFinished <- true
 }
 
-func (a *Application) recvMessages() {
+func (a *application) recvMessages() {
 	for msg := range a.recvMsgChan {
 		requestID, err := jsonparser.GetInt([]byte(*msg.PayloadUtf8), "requestId")
 		if err == nil {
@@ -253,9 +291,9 @@ func (a *Application) recvMessages() {
 	}
 }
 
-func (a *Application) SetDebug(debug bool) { a.debug = debug; a.conn.SetDebug(debug) }
+func (a *application) SetDebug(debug bool) { a.debug = debug; a.conn.SetDebug(debug) }
 
-func (a *Application) Start(addr string, port int) error {
+func (a *application) Start(addr string, port int) error {
 	if err := a.loadPlayedItems(); err != nil {
 		a.log("unable to load played items: %v", err)
 	}
@@ -269,7 +307,7 @@ func (a *Application) Start(addr string, port int) error {
 	return errors.Wrap(a.Update(), "unable to update application")
 }
 
-func (a *Application) loadPlayedItems() error {
+func (a *application) loadPlayedItems() error {
 	if a.cacheDisabled {
 		return nil
 	}
@@ -281,7 +319,7 @@ func (a *Application) loadPlayedItems() error {
 	return json.Unmarshal(b, &a.playedItems)
 }
 
-func (a *Application) writePlayedItems() error {
+func (a *application) writePlayedItems() error {
 	if a.cacheDisabled {
 		return nil
 	}
@@ -290,7 +328,7 @@ func (a *Application) writePlayedItems() error {
 	return a.cache.Save("application", playedItemsJson)
 }
 
-func (a *Application) Update() error {
+func (a *application) Update() error {
 	var recvStatus *cast.ReceiverStatusResponse
 	var err error
 	// Simple retry. We need this for when the device isn't currently
@@ -330,7 +368,7 @@ func (a *Application) Update() error {
 
 }
 
-func (a *Application) updateMediaStatus() error {
+func (a *application) updateMediaStatus() error {
 	a.sendMediaConn(&cast.ConnectHeader)
 
 	mediaStatus, err := a.getMediaStatus()
@@ -344,7 +382,7 @@ func (a *Application) updateMediaStatus() error {
 	return nil
 }
 
-func (a *Application) Close(stopMedia bool) error {
+func (a *application) Close(stopMedia bool) error {
 	if stopMedia {
 		a.sendMediaConn(&cast.CloseHeader)
 		a.sendDefaultConn(&cast.CloseHeader)
@@ -352,11 +390,11 @@ func (a *Application) Close(stopMedia bool) error {
 	return a.conn.Close()
 }
 
-func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
+func (a *application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
 	return a.application, a.media, a.volumeReceiver
 }
 
-func (a *Application) Pause() error {
+func (a *application) Pause() error {
 	if a.media == nil {
 		return ErrNoMediaPause
 	}
@@ -366,7 +404,7 @@ func (a *Application) Pause() error {
 	})
 }
 
-func (a *Application) Unpause() error {
+func (a *application) Unpause() error {
 	if a.media == nil {
 		return ErrNoMediaUnpause
 	}
@@ -376,7 +414,7 @@ func (a *Application) Unpause() error {
 	})
 }
 
-func (a *Application) StopMedia() error {
+func (a *application) StopMedia() error {
 	if a.media == nil {
 		return ErrNoMediaStop
 	}
@@ -386,11 +424,11 @@ func (a *Application) StopMedia() error {
 	})
 }
 
-func (a *Application) Stop() error {
+func (a *application) Stop() error {
 	return a.sendDefaultRecv(&cast.StopHeader)
 }
 
-func (a *Application) Next() error {
+func (a *application) Next() error {
 	if a.media == nil {
 		return ErrNoMediaNext
 	}
@@ -403,7 +441,7 @@ func (a *Application) Next() error {
 	})
 }
 
-func (a *Application) Previous() error {
+func (a *application) Previous() error {
 	if a.media == nil {
 		return ErrNoMediaPrevious
 	}
@@ -416,7 +454,7 @@ func (a *Application) Previous() error {
 	})
 }
 
-func (a *Application) Skip() error {
+func (a *application) Skip() error {
 
 	if a.media == nil {
 		return ErrNoMediaSkip
@@ -436,7 +474,7 @@ func (a *Application) Skip() error {
 	return a.Seek(int(v))
 }
 
-func (a *Application) Seek(value int) error {
+func (a *application) Seek(value int) error {
 	if a.media == nil {
 		return ErrMediaNotYetInitialised
 	}
@@ -463,7 +501,7 @@ func (a *Application) Seek(value int) error {
 	})
 }
 
-func (a *Application) SeekFromStart(value int) error {
+func (a *application) SeekFromStart(value int) error {
 	if a.media == nil {
 		return ErrMediaNotYetInitialised
 	}
@@ -485,7 +523,7 @@ func (a *Application) SeekFromStart(value int) error {
 	})
 }
 
-func (a *Application) SeekToTime(value float32) error {
+func (a *application) SeekToTime(value float32) error {
 	if a.media == nil {
 		return ErrMediaNotYetInitialised
 	}
@@ -498,7 +536,7 @@ func (a *Application) SeekToTime(value float32) error {
 	})
 }
 
-func (a *Application) SetVolume(value float32) error {
+func (a *application) SetVolume(value float32) error {
 	if value > 1 || value < 0 {
 		return ErrVolumeOutOfRange
 	}
@@ -511,7 +549,7 @@ func (a *Application) SetVolume(value float32) error {
 	})
 }
 
-func (a *Application) SetMuted(value bool) error {
+func (a *application) SetMuted(value bool) error {
 	return a.sendDefaultRecv(&cast.SetVolume{
 		PayloadHeader: cast.VolumeHeader,
 		Volume: cast.Volume{
@@ -520,7 +558,7 @@ func (a *Application) SetMuted(value bool) error {
 	})
 }
 
-func (a *Application) getMediaStatus() (*cast.MediaStatusResponse, error) {
+func (a *application) getMediaStatus() (*cast.MediaStatusResponse, error) {
 	apiMessage, err := a.sendAndWaitMediaRecv(&cast.GetStatusHeader)
 	if err != nil {
 		return nil, err
@@ -532,7 +570,7 @@ func (a *Application) getMediaStatus() (*cast.MediaStatusResponse, error) {
 	return &response, nil
 }
 
-func (a *Application) getReceiverStatus() (*cast.ReceiverStatusResponse, error) {
+func (a *application) getReceiverStatus() (*cast.ReceiverStatusResponse, error) {
 	apiMessage, err := a.sendAndWaitDefaultRecv(&cast.GetStatusHeader)
 	if err != nil {
 		return nil, err
@@ -545,7 +583,7 @@ func (a *Application) getReceiverStatus() (*cast.ReceiverStatusResponse, error) 
 
 }
 
-func (a *Application) PlayableMediaType(filename string) bool {
+func (a *application) PlayableMediaType(filename string) bool {
 	if a.knownFileType(filename) {
 		return true
 	}
@@ -558,7 +596,7 @@ func (a *Application) PlayableMediaType(filename string) bool {
 	return false
 }
 
-func (a *Application) possibleContentType(filename string) (string, error) {
+func (a *application) possibleContentType(filename string) (string, error) {
 	// If filename is an URL returns the content-type from the HEAD response headers
 	// Otherwise returns the content-type thanks to filetype package
 	var contentType string
@@ -617,14 +655,14 @@ func (a *Application) possibleContentType(filename string) (string, error) {
 	return contentType, nil
 }
 
-func (a *Application) knownFileType(filename string) bool {
+func (a *application) knownFileType(filename string) bool {
 	if ct, _ := a.possibleContentType(filename); ct != "" {
 		return true
 	}
 	return false
 }
 
-func (a *Application) castPlayableContentType(contentType string) bool {
+func (a *application) castPlayableContentType(contentType string) bool {
 	// https://developers.google.com/cast/docs/media
 	switch contentType {
 	case "image/apng", "image/bmp", "image/gif", "image/jpeg", "image/png", "image/webp":
@@ -638,11 +676,11 @@ func (a *Application) castPlayableContentType(contentType string) bool {
 	return false
 }
 
-func (a *Application) PlayedItems() map[string]PlayedItem {
+func (a *application) PlayedItems() map[string]PlayedItem {
 	return a.playedItems
 }
 
-func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error {
+func (a *application) Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error {
 	var mi mediaItem
 	isExternalMedia := false
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
@@ -702,7 +740,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach,
 	return nil
 }
 
-func (a *Application) LoadApp(appID, contentID string) error {
+func (a *application) LoadApp(appID, contentID string) error {
 	// old list https://gist.github.com/jloutsenhizer/8855258.
 	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
 	a.MediaStart()
@@ -728,7 +766,7 @@ func (a *Application) LoadApp(appID, contentID string) error {
 	return nil
 }
 
-func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
+func (a *application) QueueLoad(filenames []string, contentType string, transcode bool) error {
 
 	mediaItems, err := a.loadAndServeFiles(filenames, contentType, transcode)
 	if err != nil {
@@ -768,13 +806,13 @@ func (a *Application) QueueLoad(filenames []string, contentType string, transcod
 	return nil
 }
 
-func (a *Application) ensureIsDefaultMediaReceiver() error {
+func (a *application) ensureIsDefaultMediaReceiver() error {
 	// If the current chromecast application isn't the Default Media Receiver
 	// we need to change it.
 	return a.ensureIsAppID(defaultChromecastAppID)
 }
 
-func (a *Application) ensureIsAppID(appID string) error {
+func (a *application) ensureIsAppID(appID string) error {
 	if a.application == nil || a.application.AppId != appID {
 		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
 			PayloadHeader: cast.LaunchHeader,
@@ -790,7 +828,7 @@ func (a *Application) ensureIsAppID(appID string) error {
 	return nil
 }
 
-func (a *Application) Slideshow(filenames []string, duration int, repeat bool) error {
+func (a *application) Slideshow(filenames []string, duration int, repeat bool) error {
 	mediaItems, err := a.loadAndServeFiles(filenames, "", false)
 	if err != nil {
 		return errors.Wrap(err, "unable to load and serve files")
@@ -870,7 +908,7 @@ type mediaItem struct {
 	transcode   bool
 }
 
-func (a *Application) loadAndServeFiles(filenames []string, contentType string, transcode bool) ([]mediaItem, error) {
+func (a *application) loadAndServeFiles(filenames []string, contentType string, transcode bool) ([]mediaItem, error) {
 	mediaItems := make([]mediaItem, len(filenames))
 	for i, filename := range filenames {
 		transcodeFile := transcode
@@ -936,7 +974,7 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 	return mediaItems, nil
 }
 
-func (a *Application) getLocalIP() (string, error) {
+func (a *application) getLocalIP() (string, error) {
 	if a.localIP != "" {
 		return a.localIP, nil
 	}
@@ -966,7 +1004,7 @@ func (a *Application) getLocalIP() (string, error) {
 	return "", fmt.Errorf("Failed to get local ip address")
 }
 
-func (a *Application) startStreamingServer() error {
+func (a *application) startStreamingServer() error {
 	if a.httpServer != nil {
 		return nil
 	}
@@ -1033,7 +1071,7 @@ func (a *Application) startStreamingServer() error {
 	return nil
 }
 
-func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
+func (a *application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-re", // encode at 1x playback speed, to not burn the CPU
@@ -1062,13 +1100,13 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (a *Application) log(message string, args ...interface{}) {
+func (a *application) log(message string, args ...interface{}) {
 	if a.debug {
 		log.WithField("package", "application").Infof(message, args...)
 	}
 }
 
-func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) (int, error) {
+func (a *application) send(payload cast.Payload, sourceID, destinationID, namespace string) (int, error) {
 	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
 	// TODO(vishen): just make concurrent safe regardless of current flow
 	requestID += 1
@@ -1076,7 +1114,7 @@ func (a *Application) send(payload cast.Payload, sourceID, destinationID, namesp
 	return requestID, a.conn.Send(requestID, payload, sourceID, destinationID, namespace)
 }
 
-func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
+func (a *application) sendAndWait(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
 	requestID, err := a.send(payload, sourceID, destinationID, namespace)
 	if err != nil {
 		return nil, err
@@ -1104,17 +1142,17 @@ func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID,
 
 // TODO(vishen): needing send(AndWait)* method seems a bit clunky, is there a better approach?
 // Maybe having a struct that has send and sendAndWait, similar to before.
-func (a *Application) sendDefaultConn(payload cast.Payload) error {
+func (a *application) sendDefaultConn(payload cast.Payload) error {
 	_, err := a.send(payload, defaultSender, defaultRecv, namespaceConn)
 	return err
 }
 
-func (a *Application) sendDefaultRecv(payload cast.Payload) error {
+func (a *application) sendDefaultRecv(payload cast.Payload) error {
 	_, err := a.send(payload, defaultSender, defaultRecv, namespaceRecv)
 	return err
 }
 
-func (a *Application) sendMediaConn(payload cast.Payload) error {
+func (a *application) sendMediaConn(payload cast.Payload) error {
 	if a.application == nil {
 		return ErrApplicationNotSet
 	}
@@ -1122,7 +1160,7 @@ func (a *Application) sendMediaConn(payload cast.Payload) error {
 	return err
 }
 
-func (a *Application) sendMediaRecv(payload cast.Payload) error {
+func (a *application) sendMediaRecv(payload cast.Payload) error {
 	if a.application == nil {
 		return ErrApplicationNotSet
 	}
@@ -1130,29 +1168,29 @@ func (a *Application) sendMediaRecv(payload cast.Payload) error {
 	return err
 }
 
-func (a *Application) sendAndWaitDefaultConn(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *application) sendAndWaitDefaultConn(payload cast.Payload) (*pb.CastMessage, error) {
 	return a.sendAndWait(payload, defaultSender, defaultRecv, namespaceConn)
 }
 
-func (a *Application) sendAndWaitDefaultRecv(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *application) sendAndWaitDefaultRecv(payload cast.Payload) (*pb.CastMessage, error) {
 	return a.sendAndWait(payload, defaultSender, defaultRecv, namespaceRecv)
 }
 
-func (a *Application) sendAndWaitMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *application) sendAndWaitMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
 	if a.application == nil {
 		return nil, ErrApplicationNotSet
 	}
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceConn)
 }
 
-func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {
+func (a *application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {
 	if a.application == nil {
 		return nil, ErrApplicationNotSet
 	}
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
 }
 
-func (a *Application) startTranscodingServer(command string) error {
+func (a *application) startTranscodingServer(command string) error {
 	if a.httpServer != nil {
 		return nil
 	}
@@ -1222,7 +1260,7 @@ func (a *Application) startTranscodingServer(command string) error {
 	return nil
 }
 
-func (a *Application) Transcode(command string, contentType string) error {
+func (a *application) Transcode(command string, contentType string) error {
 
 	if command == "" || contentType == "" {
 		return errors.New("command and content-type flags needs to be set when transcoding")

@@ -13,7 +13,7 @@ import (
 
 // UserInterface is an alternaive way of running go-chromecast (based around a gocui GUI):
 type UserInterface struct {
-	app             *application.Application
+	app             application.Application
 	displayName     string
 	gui             *gocui.Gui
 	media           string
@@ -29,7 +29,7 @@ type UserInterface struct {
 }
 
 // NewUserInterface returns a new user-interface loaded with everything we need:
-func NewUserInterface(app *application.Application) (*UserInterface, error) {
+func NewUserInterface(app application.Application) (*UserInterface, error) {
 
 	// Use a GUI from gocui to handle the user-interface:
 	g, err := gocui.NewGui(gocui.OutputNormal)

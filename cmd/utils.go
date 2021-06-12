@@ -54,7 +54,7 @@ func (e CachedDNSEntry) GetPort() int {
 	return e.Port
 }
 
-func castApplication(cmd *cobra.Command, args []string) (*application.Application, error) {
+func castApplication(cmd *cobra.Command, args []string) (application.Application, error) {
 	deviceName, _ := cmd.Flags().GetString("device-name")
 	deviceUuid, _ := cmd.Flags().GetString("uuid")
 	device, _ := cmd.Flags().GetString("device")
@@ -156,7 +156,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 // be handled much nicer and we shouldn't need to pass around the cmd and args everywhere
 // just to reconnect. This might require adding something that wraps the application and
 // dns?
-func reconnect(cmd *cobra.Command, args []string) (*application.Application, error) {
+func reconnect(cmd *cobra.Command, args []string) (application.Application, error) {
 	return castApplication(cmd, args)
 }
 
