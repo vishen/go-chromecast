@@ -26,6 +26,7 @@ const (
 
 type Connection interface {
 	Start(addr string, port int) error
+	SetMsgChan(chan *pb.CastMessage)
 	Close() error
 	SetDebug(debug bool)
 	LocalAddr() (addr string, err error)
@@ -50,6 +51,8 @@ func NewConnection(recvMsgChan chan *pb.CastMessage) Connection {
 	}
 	return c
 }
+
+func (c *connection) SetMsgChan(recvMsgChan chan *pb.CastMessage) { c.recvMsgChan = recvMsgChan }
 
 func (c *connection) Start(addr string, port int) error {
 	if !c.connected {

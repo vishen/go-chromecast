@@ -190,7 +190,7 @@ func NewApplication(opts ...ApplicationOption) Application {
 	return a
 }
 
-func (a *application) SetConn(conn cast.Connection) { a.conn = conn }
+func (a *application) SetConn(conn cast.Connection) { a.conn = conn; a.conn.SetMsgChan(a.recvMsgChan) }
 func (a *application) SetServerPort(serverPort int) { a.serverPort = serverPort }
 func (a *application) SetConnectionRetries(connectionRetries int) {
 	a.connectionRetries = connectionRetries
