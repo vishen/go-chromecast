@@ -52,6 +52,7 @@ type PlayedItem struct {
 type CastMessageFunc func(*pb.CastMessage)
 
 type Application interface {
+	SetConn(conn cast.Connection)
 	SetIface(*net.Interface)
 	SetDebug(bool)
 	SetCacheDisabled(bool)
@@ -78,13 +79,12 @@ type Application interface {
 	SetMuted(value bool) error
 	Slideshow(filenames []string, duration int, repeat bool) error
 	AddMessageFunc(f CastMessageFunc)
-
 	PlayedItems() map[string]PlayedItem
 	PlayableMediaType(filename string) bool
 }
 
 type application struct {
-	conn  *cast.Connection
+	conn  cast.Connection
 	debug bool
 
 	// 'cast.Connection' will send receieved messages back on this channel.
@@ -153,6 +153,12 @@ func WithCacheDisabled(cacheDisabled bool) ApplicationOption {
 	}
 }
 
+func WithConnection(conn cast.Connection) ApplicationOption {
+	return func(a Application) {
+		a.SetConn(conn)
+	}
+}
+
 func WithConnectionRetries(connectionRetries int) ApplicationOption {
 	return func(a Application) {
 		a.SetConnectionRetries(connectionRetries)
@@ -184,6 +190,7 @@ func NewApplication(opts ...ApplicationOption) Application {
 	return a
 }
 
+func (a *application) SetConn(conn cast.Connection) { a.conn = conn }
 func (a *application) SetServerPort(serverPort int) { a.serverPort = serverPort }
 func (a *application) SetConnectionRetries(connectionRetries int) {
 	a.connectionRetries = connectionRetries
