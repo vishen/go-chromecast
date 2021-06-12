@@ -4,7 +4,7 @@ import (
 	"github.com/vishen/go-chromecast/application"
 
 	"github.com/jroimartin/gocui"
-	"github.com/sirupsen/logrus"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // setupKeyBindings binds keys to actions:
@@ -25,11 +25,11 @@ func (ui *UserInterface) setupKeyBindings() {
 // playPause tells the app to play / pause:
 func (ui *UserInterface) playPause(g *gocui.Gui, v *gocui.View) error {
 	if ui.paused {
-		logrus.Info("Play")
+		log.Info("Play")
 		ui.app.Unpause()
 		ui.paused = false
 	} else {
-		logrus.Info("Pause")
+		log.Info("Pause")
 		ui.app.Pause()
 		ui.paused = true
 	}
@@ -43,15 +43,15 @@ func (ui *UserInterface) seekBackwards(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrMediaNotYetInitialised:
-			logrus.Warn("Rewind (nothing playing)")
+			log.Warn("Rewind (nothing playing)")
 			return nil
 		default:
-			logrus.WithError(err).Error("Rewind")
+			log.WithError(err).Error("Rewind")
 			return nil
 		}
 	}
 
-	logrus.WithField("seconds", ui.seekRewind).Info("Rewind")
+	log.WithField("seconds", ui.seekRewind).Info("Rewind")
 	return nil
 }
 
@@ -61,15 +61,15 @@ func (ui *UserInterface) seekForwards(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrMediaNotYetInitialised:
-			logrus.Warn("Fastforward (nothing playing)")
+			log.Warn("Fastforward (nothing playing)")
 			return nil
 		default:
-			logrus.WithError(err).Error("Fastforward")
+			log.WithError(err).Error("Fastforward")
 			return nil
 		}
 	}
 
-	logrus.WithField("seconds", ui.seekFastforward).Info("Fastforward")
+	log.WithField("seconds", ui.seekFastforward).Info("Fastforward")
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (ui *UserInterface) volumeUp(g *gocui.Gui, v *gocui.View) error {
 
 	// Attempt to increment our version of the volume:
 	if ui.volume+5 > 100 {
-		logrus.Warn("Volume already at maximum")
+		log.Warn("Volume already at maximum")
 		return nil
 	}
 	ui.volume += 5
@@ -91,15 +91,15 @@ func (ui *UserInterface) volumeUp(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrVolumeOutOfRange:
-			logrus.WithError(err).WithField("volume", floatVolume).Warn("Volume up")
+			log.WithError(err).WithField("volume", floatVolume).Warn("Volume up")
 			return nil
 		default:
-			logrus.WithError(err).WithField("volume", floatVolume).Error("Volume up")
+			log.WithError(err).WithField("volume", floatVolume).Error("Volume up")
 			return nil
 		}
 	}
 
-	logrus.WithField("volume", floatVolume).Info("Volume up")
+	log.WithField("volume", floatVolume).Info("Volume up")
 	return nil
 }
 
@@ -110,7 +110,7 @@ func (ui *UserInterface) volumeDown(g *gocui.Gui, v *gocui.View) error {
 
 	// Attempt to decrement our version of the volume:
 	if ui.volume-5 < 0 {
-		logrus.Warn("Volume already at minimum")
+		log.Warn("Volume already at minimum")
 		return nil
 	}
 	ui.volume -= 5
@@ -121,15 +121,15 @@ func (ui *UserInterface) volumeDown(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrVolumeOutOfRange:
-			logrus.WithError(err).WithField("volume", floatVolume).Warn("Volume down")
+			log.WithError(err).WithField("volume", floatVolume).Warn("Volume down")
 			return nil
 		default:
-			logrus.WithError(err).WithField("volume", floatVolume).Error("Volume down")
+			log.WithError(err).WithField("volume", floatVolume).Error("Volume down")
 			return nil
 		}
 	}
 
-	logrus.WithField("volume", floatVolume).Info("Volume down")
+	log.WithField("volume", floatVolume).Info("Volume down")
 	return nil
 }
 
@@ -143,14 +143,14 @@ func (ui *UserInterface) volumeMute(g *gocui.Gui, v *gocui.View) error {
 
 	err := ui.app.SetMuted(ui.muted)
 	if err != nil {
-		logrus.WithError(err).WithField("muted", ui.muted).Error("Volume mute")
+		log.WithError(err).WithField("muted", ui.muted).Error("Volume mute")
 		return nil
 	}
 
 	if ui.muted {
-		logrus.Info("Volume muted")
+		log.Info("Volume muted")
 	} else {
-		logrus.Info("Volume unmuted")
+		log.Info("Volume unmuted")
 	}
 	return nil
 }
@@ -161,15 +161,15 @@ func (ui *UserInterface) stopMedia(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrNoMediaStop:
-			logrus.Warn("Stop (nothing playing)")
+			log.Warn("Stop (nothing playing)")
 			return nil
 		default:
-			logrus.WithError(err).Error("Stop")
+			log.WithError(err).Error("Stop")
 			return nil
 		}
 	}
 
-	logrus.Info("Stop")
+	log.Info("Stop")
 	return nil
 }
 
@@ -179,15 +179,15 @@ func (ui *UserInterface) nextMedia(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrNoMediaNext:
-			logrus.WithError(err).Warn("Next")
+			log.WithError(err).Warn("Next")
 			return nil
 		default:
-			logrus.WithError(err).Error("Next")
+			log.WithError(err).Error("Next")
 			return nil
 		}
 	}
 
-	logrus.Info("Next")
+	log.Info("Next")
 	return nil
 }
 
@@ -197,14 +197,14 @@ func (ui *UserInterface) previousMedia(g *gocui.Gui, v *gocui.View) error {
 	if err != nil {
 		switch err {
 		case application.ErrNoMediaPrevious:
-			logrus.WithError(err).Warn("Previous")
+			log.WithError(err).Warn("Previous")
 			return nil
 		default:
-			logrus.WithError(err).Error("Previous")
+			log.WithError(err).Error("Previous")
 			return nil
 		}
 	}
 
-	logrus.Info("Previous")
+	log.Info("Previous")
 	return nil
 }

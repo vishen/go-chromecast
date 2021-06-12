@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/h2non/filetype"
-	log "github.com/sirupsen/logrus"
+	"github.com/vishen/go-chromecast/log"
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"

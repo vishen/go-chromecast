@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/grandcat/zeroconf"
-	log "github.com/sirupsen/logrus"
+	log "github.com/vishen/go-chromecast/log"
 )
 
 // CastDNSEntry is the interface that satisfies a Cast type.

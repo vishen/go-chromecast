@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"sort"
@@ -17,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/application"
 	castdns "github.com/vishen/go-chromecast/dns"
+	"github.com/vishen/go-chromecast/log"
 	"github.com/vishen/go-chromecast/storage"
 )
 
@@ -245,10 +245,10 @@ const (
 func output(t outputLevel, msg string, args ...interface{}) {
 	switch t {
 	case output_Error:
-		fmt.Printf("%serror%s: ", RED, NC)
+		log.Printf("%serror%s: ", RED, NC)
 	}
 
-	fmt.Printf(msg, args...)
+	log.Printf(msg, args...)
 }
 
 const (

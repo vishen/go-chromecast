@@ -7,7 +7,8 @@ import (
 	"github.com/vishen/go-chromecast/application"
 
 	"github.com/jroimartin/gocui"
-	"github.com/sirupsen/logrus"
+
+	"github.com/vishen/go-chromecast/log"
 )
 
 // UserInterface is an alternaive way of running go-chromecast (based around a gocui GUI):
@@ -63,7 +64,7 @@ func (ui *UserInterface) Run() error {
 	ui.wg.Add(1)
 	go func() {
 		if err := ui.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
-			logrus.WithError(err).Error("Error from gocui")
+			log.WithError(err).Error("Error from gocui")
 		}
 		ui.wg.Done()
 	}()

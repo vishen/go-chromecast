@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/jroimartin/gocui"
-	"github.com/sirupsen/logrus"
+	"github.com/vishen/go-chromecast/log"
 )
 
 const viewNameLog = "Log"
@@ -20,13 +20,14 @@ func (ui *UserInterface) viewLog(g *gocui.Gui) error {
 	v.Autoscroll = true
 
 	// Tell Logrus to log to this view:
-	logrus.SetOutput(v)
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:     true,
-		FullTimestamp:   true,
-		TimestampFormat: "15:04:05",
-	})
+	log.SetOutput(v)
+	log.SetLevel(log.DebugLevel)
+	// TODO
+	// log.SetFormatter(&log.TextFormatter{
+	// 	ForceColors:     true,
+	// 	FullTimestamp:   true,
+	// 	TimestampFormat: "15:04:05",
+	// })
 
 	return nil
 }

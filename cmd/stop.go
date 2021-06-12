@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // stopCmd represents the stop command

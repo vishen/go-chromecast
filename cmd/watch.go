@@ -26,6 +26,7 @@ import (
 
 	"github.com/vishen/go-chromecast/application"
 	pb "github.com/vishen/go-chromecast/cast/proto"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // watchCmd represents the watch command
