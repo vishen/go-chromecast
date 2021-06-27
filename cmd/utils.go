@@ -21,7 +21,8 @@ import (
 )
 
 func init() {
-	log.SetOutput(os.Stdout)
+	log.SetOutput(log.NewConsoleWriter(os.Stdout))
+	log.SetLevel(log.DebugLevel)
 }
 
 var (

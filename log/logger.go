@@ -1,155 +1,154 @@
 package log
 
 import (
-	"context"
 	"io"
-	"os"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 type Fields map[string]interface{}
 
-type Level uint32
+type Level int8
 
-var (
-	// PanicLevel level, highest level of severity. Logs and then calls panic with the
-	// message passed to Debug, Info, ...
-	PanicLevel = Level(logrus.PanicLevel)
-	// FatalLevel level. Logs and then calls `logger.Exit(1)`. It will exit even if the
-	// logging level is set to Panic.
-	FatalLevel = Level(logrus.FatalLevel)
-	// ErrorLevel level. Logs. Used for errors that should definitely be noted.
-	// Commonly used for hooks to send errors to an error tracking service.
-	ErrorLevel = Level(logrus.ErrorLevel)
-	// WarnLevel level. Non-critical entries that deserve eyes.
-	WarnLevel = Level(logrus.WarnLevel)
+const (
+	// DebugLevel level. Usually only enabled when debugging. Very verbose logging.
+	DebugLevel Level = iota
 	// InfoLevel level. General operational entries about what's going on inside the
 	// application.
-	InfoLevel = Level(logrus.InfoLevel)
-	// DebugLevel level. Usually only enabled when debugging. Very verbose logging.
-	DebugLevel = Level(logrus.DebugLevel)
+	InfoLevel
+	// WarnLevel level. Non-critical entries that deserve eyes.
+	WarnLevel
+	// ErrorLevel level. Logs. Used for errors that should definitely be noted.
+	// Commonly used for hooks to send errors to an error tracking service.
+	ErrorLevel
+	// FatalLevel level. Logs and then calls `os.Exit(1)`. It will exit even if the
+	// logging level is set to Panic.
+	FatalLevel
+	// PanicLevel level, highest level of severity. Logs and then calls panic with the
+	// message passed to Debug, Info, ...
+	PanicLevel
 )
 
-type LogEntry interface {
-	Logger
-	Fields() Fields
-}
-
 type Logger interface {
-	SetLevel(level Level)
-	GetLevel() Level
+	Level() Level
 	SetOutput(out io.Writer)
+	SetLevel(level Level)
+	WithField(key string, value interface{}) Logger
+	WithFields(fields Fields) Logger
+	WithError(err error) Logger
 
-	WithContext(ctx context.Context) LogEntry
-	WithField(key string, value interface{}) LogEntry
-	WithFields(fields Fields) LogEntry
-	WithError(err error) LogEntry
+	Debug(msg string)
+	Info(msg string)
+	Print(msg string)
+	Warn(msg string)
+	Error(msg string)
+	Fatal(msg string)
+	Panic(msg string)
 
 	Debugf(format string, args ...interface{})
 	Infof(format string, args ...interface{})
 	Printf(format string, args ...interface{})
 	Warnf(format string, args ...interface{})
-	Warningf(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...interface{})
 	Panicf(format string, args ...interface{})
+}
 
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Print(args ...interface{})
-	Warn(args ...interface{})
-	Warning(args ...interface{})
-	Error(args ...interface{})
-	Fatal(args ...interface{})
-	Panic(args ...interface{})
-
-	Debugln(args ...interface{})
-	Infoln(args ...interface{})
-	Println(args ...interface{})
-	Warnln(args ...interface{})
-	Warningln(args ...interface{})
-	Errorln(args ...interface{})
-	Fatalln(args ...interface{})
-	Panicln(args ...interface{})
+type wrapLogger struct {
+	zerolog.Logger
 }
 
 var _ Logger = &wrapLogger{}
 
-type wrapLogger struct {
-	*logrus.Logger
+func (wl *wrapLogger) Level() Level {
+	return Level(wl.Logger.GetLevel())
 }
 
-func (dl *wrapLogger) GetLevel() Level {
-	return Level(dl.Level)
+func (wl *wrapLogger) SetOutput(out io.Writer) {
+	wl.Logger = wl.Logger.Output(out)
 }
 
-func (dl *wrapLogger) SetLevel(level Level) {
-	dl.Logger.SetLevel(logrus.Level(level))
+func (wl *wrapLogger) SetLevel(level Level) {
+	wl.Logger = wl.Logger.Level(zerolog.Level(level))
 }
 
-func (dl *wrapLogger) WithContext(ctx context.Context) LogEntry {
-	return &wrapLogEntry{dl.Logger.WithContext(ctx)}
+func (wl *wrapLogger) WithField(key string, value interface{}) Logger {
+	wl.Logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Interface(key, value)
+	})
+	return wl
 }
 
-func (dl *wrapLogger) WithField(key string, value interface{}) LogEntry {
-	return &wrapLogEntry{dl.Logger.WithField(key, value)}
+func (wl *wrapLogger) WithFields(fields Fields) Logger {
+	wl.Logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Fields(fields)
+	})
+	return wl
 }
 
-func (dl *wrapLogger) WithFields(fields Fields) LogEntry {
-	return &wrapLogEntry{dl.Logger.WithFields(logrus.Fields(fields))}
+func (wl *wrapLogger) WithError(err error) Logger {
+	wl.Logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Err(err)
+	})
+	return wl
 }
 
-func (dl *wrapLogger) WithError(err error) LogEntry {
-	return &wrapLogEntry{dl.Logger.WithError(err)}
+func (wl *wrapLogger) Debugf(format string, args ...interface{}) {
+	wl.Logger.Debug().Msgf(format, args...)
 }
 
-var _ LogEntry = &wrapLogEntry{}
-
-type wrapLogEntry struct {
-	*logrus.Entry
+func (wl *wrapLogger) Infof(format string, args ...interface{}) {
+	wl.Logger.Info().Msgf(format, args...)
 }
 
-func (dle *wrapLogEntry) Fields() Fields {
-	return Fields(dle.Entry.Data)
+func (wl *wrapLogger) Printf(format string, args ...interface{}) {
+	wl.Logger.Printf(format, args...)
 }
 
-func (dle *wrapLogEntry) SetOutput(out io.Writer) {
-	dle.Logger.SetOutput(out)
+func (wl *wrapLogger) Warnf(format string, args ...interface{}) {
+	wl.Logger.Warn().Msgf(format, args...)
 }
 
-func (dle *wrapLogEntry) GetLevel() Level {
-	return Level(dle.Entry.Level)
+func (wl *wrapLogger) Errorf(format string, args ...interface{}) {
+	wl.Logger.Error().Msgf(format, args...)
 }
 
-func (dle *wrapLogEntry) SetLevel(level Level) {
-	dle.Logger.SetLevel(logrus.Level(level))
+func (wl *wrapLogger) Fatalf(format string, args ...interface{}) {
+	wl.Logger.Fatal().Msgf(format, args...)
 }
 
-func (dle *wrapLogEntry) WithContext(ctx context.Context) LogEntry {
-	return &wrapLogEntry{Entry: dle.Logger.WithContext(ctx)}
+func (wl *wrapLogger) Panicf(format string, args ...interface{}) {
+	wl.Logger.Panic().Msgf(format, args...)
 }
 
-func (dle *wrapLogEntry) WithField(key string, value interface{}) LogEntry {
-	return &wrapLogEntry{Entry: dle.Logger.WithField(key, value)}
+func (wl *wrapLogger) Debug(msg string) {
+	wl.Logger.Debug().Msg(msg)
 }
 
-func (dle *wrapLogEntry) WithFields(fields Fields) LogEntry {
-	return &wrapLogEntry{Entry: dle.Logger.WithFields(logrus.Fields(fields))}
+func (wl *wrapLogger) Info(msg string) {
+	wl.Logger.Info().Msg(msg)
 }
 
-func (dle *wrapLogEntry) WithError(err error) LogEntry {
-	return &wrapLogEntry{Entry: dle.Logger.WithError(err)}
+func (wl *wrapLogger) Print(msg string) {
+	wl.Logger.Printf(msg)
+}
+
+func (wl *wrapLogger) Warn(msg string) {
+	wl.Logger.Warn().Msg(msg)
+}
+
+func (wl *wrapLogger) Error(msg string) {
+	wl.Logger.Error().Msg(msg)
+}
+
+func (wl *wrapLogger) Fatal(msg string) {
+	wl.Logger.Fatal().Msg(msg)
+}
+
+func (wl *wrapLogger) Panic(msg string) {
+	wl.Logger.Panic().Msg(msg)
 }
 
 func New(out io.Writer) Logger {
-	l := &logrus.Logger{
-		Out:          out,
-		Formatter:    new(logrus.TextFormatter),
-		Hooks:        make(logrus.LevelHooks),
-		Level:        logrus.InfoLevel,
-		ExitFunc:     os.Exit,
-		ReportCaller: false,
-	}
-	return &wrapLogger{l}
+	return &wrapLogger{zerolog.New(out).With().Timestamp().Logger().Level(zerolog.InfoLevel)}
 }

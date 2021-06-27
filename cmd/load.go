@@ -18,7 +18,6 @@ import (
 	"github.com/vishen/go-chromecast/ui"
 
 	"github.com/spf13/cobra"
-	"github.com/vishen/go-chromecast/log"
 )
 
 // loadCmd represents the load command

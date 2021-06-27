@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/dns"
+	"github.com/vishen/go-chromecast/log"
 )
 
 type Handler struct {
@@ -531,12 +531,12 @@ func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (applica
 
 func (h *Handler) log(msg string, args ...interface{}) {
 	if h.verbose {
-		logrus.Printf(msg, args...)
+		log.Printf(msg, args...)
 	}
 }
 
 func (h *Handler) logAlways(msg string, args ...interface{}) {
-	logrus.Printf(msg, args...)
+	log.Printf(msg, args...)
 }
 
 func httpError(w http.ResponseWriter, err error) {
