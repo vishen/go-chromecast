@@ -123,7 +123,7 @@ func castApplication(cmd *cobra.Command, args []string) (application.Application
 			}
 		}
 		if debug {
-			fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+			log.Printf("using device name=%s addr=%s port=%d uuid=%s", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
 		}
 	} else {
 		p, err := strconv.Atoi(port)
@@ -201,9 +201,9 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 	// Always return entries in deterministic order.
 	sort.Slice(foundEntries, func(i, j int) bool { return foundEntries[i].DeviceName < foundEntries[j].DeviceName })
 
-	fmt.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
+	log.Printf("Found %d cast dns entries, select one:", len(foundEntries))
 	for i, d := range foundEntries {
-		fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+		log.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 	}
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -246,7 +246,7 @@ const (
 func output(t outputLevel, msg string, args ...interface{}) {
 	switch t {
 	case output_Error:
-		log.Printf("%serror%s: ", RED, NC)
+		log.Errorf("%serror%s: ", RED, NC)
 	}
 
 	log.Printf(msg, args...)

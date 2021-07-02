@@ -26,7 +26,6 @@ var unpauseCmd = &cobra.Command{
 		app, err := castApplication(cmd, args)
 		if err != nil {
 			exit("unable to get cast application: %v\n", err)
-			return
 		}
 		if err := app.Unpause(); err != nil {
 			exit("unable to pause cast application: %v\n", err)

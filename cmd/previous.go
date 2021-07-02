@@ -26,7 +26,6 @@ var previousCmd = &cobra.Command{
 		app, err := castApplication(cmd, args)
 		if err != nil {
 			exit("unable to get cast application: %v\n", err)
-			return
 		}
 		if err := app.Previous(); err != nil {
 			exit("unable to play previous media: %v\n", err)

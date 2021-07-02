@@ -39,7 +39,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Serve(addr string) error {
-	h.logAlways("starting http server on %s", addr)
+	log.Printf("starting http server on %s", addr)
 	return http.ListenAndServe(addr, h)
 }
 
@@ -533,10 +533,6 @@ func (h *Handler) log(msg string, args ...interface{}) {
 	if h.verbose {
 		log.Printf(msg, args...)
 	}
-}
-
-func (h *Handler) logAlways(msg string, args ...interface{}) {
-	log.Printf(msg, args...)
 }
 
 func httpError(w http.ResponseWriter, err error) {
