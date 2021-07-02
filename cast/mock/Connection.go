@@ -49,6 +49,22 @@ func (_m *Connection) LocalAddr() (string, error) {
 	return r0, r1
 }
 
+// MsgChan provides a mock function with given fields:
+func (_m *Connection) MsgChan() chan *api.CastMessage {
+	ret := _m.Called()
+
+	var r0 chan *api.CastMessage
+	if rf, ok := ret.Get(0).(func() chan *api.CastMessage); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chan *api.CastMessage)
+		}
+	}
+
+	return r0
+}
+
 // Send provides a mock function with given fields: requestID, payload, sourceID, destinationID, namespace
 func (_m *Connection) Send(requestID int, payload cast.Payload, sourceID string, destinationID string, namespace string) error {
 	ret := _m.Called(requestID, payload, sourceID, destinationID, namespace)
@@ -66,11 +82,6 @@ func (_m *Connection) Send(requestID int, payload cast.Payload, sourceID string,
 // SetDebug provides a mock function with given fields: debug
 func (_m *Connection) SetDebug(debug bool) {
 	_m.Called(debug)
-}
-
-// SetMsgChan provides a mock function with given fields: _a0
-func (_m *Connection) SetMsgChan(_a0 chan *api.CastMessage) {
-	_m.Called(_a0)
 }
 
 // Start provides a mock function with given fields: addr, port

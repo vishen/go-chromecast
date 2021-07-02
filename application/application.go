@@ -87,8 +87,6 @@ type application struct {
 	conn  cast.Connection
 	debug bool
 
-	// 'cast.Connection' will send receieved messages back on this channel.
-	recvMsgChan chan *pb.CastMessage
 	// Internal mapping of request id to result channel
 	resultChanMap map[int]chan *pb.CastMessage
 
@@ -166,12 +164,9 @@ func WithConnectionRetries(connectionRetries int) ApplicationOption {
 }
 
 func NewApplication(opts ...ApplicationOption) Application {
-	recvMsgChan := make(chan *pb.CastMessage, 5)
 	a := &application{
-		recvMsgChan:       recvMsgChan,
 		resultChanMap:     map[int]chan *pb.CastMessage{},
 		messageChan:       make(chan *pb.CastMessage),
-		conn:              cast.NewConnection(recvMsgChan),
 		playedItems:       map[string]PlayedItem{},
 		cache:             storage.NewStorage(),
 		connectionRetries: 5,
@@ -182,6 +177,10 @@ func NewApplication(opts ...ApplicationOption) Application {
 		o(a)
 	}
 
+	if a.conn == nil {
+		a.conn = cast.NewConnection()
+	}
+
 	// Kick off the listener for asynchronous messages received from the
 	// cast connection.
 	go a.recvMessages()
@@ -190,7 +189,7 @@ func NewApplication(opts ...ApplicationOption) Application {
 	return a
 }
 
-func (a *application) SetConn(conn cast.Connection) { a.conn = conn; a.conn.SetMsgChan(a.recvMsgChan) }
+func (a *application) SetConn(conn cast.Connection) { a.conn = conn }
 func (a *application) SetServerPort(serverPort int) { a.serverPort = serverPort }
 func (a *application) SetConnectionRetries(connectionRetries int) {
 	a.connectionRetries = connectionRetries
@@ -242,7 +241,7 @@ func (a *application) MediaFinished() {
 }
 
 func (a *application) recvMessages() {
-	for msg := range a.recvMsgChan {
+	for msg := range a.conn.MsgChan() {
 		requestID, err := jsonparser.GetInt([]byte(*msg.PayloadUtf8), "requestId")
 		if err == nil {
 			if resultChan, ok := a.resultChanMap[int(requestID)]; ok {

@@ -18,32 +18,27 @@ var mockPort = 42
 func TestApplicationStart(t *testing.T) {
 	assertions := require.New(t)
 
-	var recvChan chan *pb.CastMessage
+	recvChan := make(chan *pb.CastMessage, 5)
 	conn := &mockCast.Connection{}
-	conn.On("SetMsgChan", mock.Anything).Run(func(args mock.Arguments) {
-		argChan := args.Get(0).(chan *pb.CastMessage)
-		recvChan = argChan
-	})
-	conn.On("SetDebug", true)
+	conn.On("MsgChan").Return(recvChan)
 	conn.On("Start", mockAddr, mockPort).Return(nil)
-	conn.On("Send", mock.Anything, mock.IsType(&cast.PayloadHeader{}), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	conn.On("Send", mock.IsType(0), mock.IsType(&cast.PayloadHeader{}), mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			payload := cast.GetStatusHeader
+			payload.SetRequestId(args.Int(0))
+			payloadBytes, err := json.Marshal(&cast.ReceiverStatusResponse{PayloadHeader: payload})
+			assertions.NoError(err)
+			payloadString := string(payloadBytes)
+			protocolVersion := pb.CastMessage_CASTV2_1_0
+			payloadType := pb.CastMessage_STRING
+			recvChan <- &pb.CastMessage{
+				ProtocolVersion: &protocolVersion,
+				PayloadType:     &payloadType,
+				PayloadUtf8:     &payloadString,
+				PayloadBinary:   payloadBytes,
+			}
+		}).Return(nil)
 	conn.On("Send", mock.Anything, mock.IsType(&cast.ConnectHeader), mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	app := application.NewApplication(application.WithConnection(conn), application.WithDebug(true))
-	assertions.NotNil(recvChan)
-	go func() {
-		payload := cast.GetStatusHeader
-		payload.SetRequestId(2)
-		payloadBytes, err := json.Marshal(&cast.ReceiverStatusResponse{PayloadHeader: payload})
-		assertions.NoError(err)
-		payloadString := string(payloadBytes)
-		protocolVersion := pb.CastMessage_CASTV2_1_0
-		payloadType := pb.CastMessage_STRING
-		recvChan <- &pb.CastMessage{
-			ProtocolVersion: &protocolVersion,
-			PayloadType:     &payloadType,
-			PayloadUtf8:     &payloadString,
-			PayloadBinary:   payloadBytes,
-		}
-	}()
+	app := application.NewApplication(application.WithConnection(conn), application.WithConnectionRetries(1))
 	assertions.NoError(app.Start(mockAddr, mockPort))
 }
