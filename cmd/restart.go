@@ -15,8 +15,8 @@
 package cmd
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // restartCmd represents the restart command
@@ -26,12 +26,12 @@ var restartCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Error("unable to get cast application")
 			return
 		}
 		// TODO(): THIS DOES NOT WORK
 		if err := app.SeekFromStart(0); err != nil {
-			logrus.Printf("unable to restart media: %v\n", err)
+			log.WithError(err).Error("unable to restart media")
 		}
 	},
 }

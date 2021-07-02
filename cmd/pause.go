@@ -15,8 +15,8 @@
 package cmd
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // pauseCmd represents the pause command
@@ -26,11 +26,11 @@ var pauseCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Error("unable to get cast application")
 			return
 		}
 		if err := app.Pause(); err != nil {
-			logrus.Printf("unable to pause cast application: %v\n", err)
+			log.WithError(err).Error("unable to pause cast application")
 			return
 		}
 	},

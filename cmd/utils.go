@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/vishen/go-chromecast/log"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	log.SetOutput(os.Stdout)
+	log.SetOutput(log.NewConsoleWriter(os.Stdout))
 	log.SetLevel(log.DebugLevel)
 }
 
@@ -56,7 +56,7 @@ func (e CachedDNSEntry) GetPort() int {
 	return e.Port
 }
 
-func castApplication(cmd *cobra.Command, args []string) (*application.Application, error) {
+func castApplication(cmd *cobra.Command, args []string) (application.Application, error) {
 	deviceName, _ := cmd.Flags().GetString("device-name")
 	deviceUuid, _ := cmd.Flags().GetString("uuid")
 	device, _ := cmd.Flags().GetString("device")
@@ -124,7 +124,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 			}
 		}
 		if debug {
-			log.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+			log.Printf("using device name=%s addr=%s port=%d uuid=%s", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
 		}
 	} else {
 		p, err := strconv.Atoi(port)
@@ -158,7 +158,7 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 // be handled much nicer and we shouldn't need to pass around the cmd and args everywhere
 // just to reconnect. This might require adding something that wraps the application and
 // dns?
-func reconnect(cmd *cobra.Command, args []string) (*application.Application, error) {
+func reconnect(cmd *cobra.Command, args []string) (application.Application, error) {
 	return castApplication(cmd, args)
 }
 
@@ -202,16 +202,16 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 	// Always return entries in deterministic order.
 	sort.Slice(foundEntries, func(i, j int) bool { return foundEntries[i].DeviceName < foundEntries[j].DeviceName })
 
-	log.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
+	log.Printf("Found %d cast dns entries, select one:", len(foundEntries))
 	for i, d := range foundEntries {
-		log.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+		log.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 	}
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		log.Printf("Enter selection: ")
+		fmt.Printf("Enter selection: ")
 		text, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("error reading console: %v\n", err)
+			fmt.Printf("error reading console: %v", err)
 			continue
 		}
 		i, err := strconv.Atoi(strings.TrimSpace(text))

@@ -17,8 +17,8 @@ package cmd
 import (
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 var (
@@ -39,7 +39,7 @@ command line.`,
 			if len(Version) > 0 && Version[0] != 'v' && Version != "dev" {
 				Version = "v" + Version
 			}
-			logrus.Printf("go-chromecast %s (%s) %s\n", Version, Commit, Date)
+			log.Printf("go-chromecast %s (%s) %s", Version, Commit, Date)
 			return nil
 		}
 		return cmd.Help()

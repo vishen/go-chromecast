@@ -17,8 +17,8 @@ package cmd
 import (
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // volumeCmd represents the volume command
@@ -29,29 +29,29 @@ var volumeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Error("unable to get cast application")
 			return
 		}
 
 		if len(args) == 1 && args[0] != "" {
 			newVolume, err := strconv.ParseFloat(args[0], 32)
 			if err != nil {
-				logrus.Printf("invalid volume: %v\n", err)
+				log.WithError(err).Error("invalid volume")
 				return
 			}
 			if err = app.SetVolume(float32(newVolume)); err != nil {
-				logrus.Printf("failed to set volume: %v\n", err)
+				log.WithError(err).Error("failed to set volume")
 				return
 			}
 		}
 
 		if err = app.Update(); err != nil {
-			logrus.Printf("unable to update cast info: %v\n", err)
+			log.WithError(err).Error("unable to update cast info")
 			return
 		}
 		_, _, castVolume := app.Status()
 
-		logrus.Printf("%0.2f\n", castVolume.Level)
+		log.Printf("%0.2f", castVolume.Level)
 	},
 }
 

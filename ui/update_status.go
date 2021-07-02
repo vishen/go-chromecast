@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jroimartin/gocui"
-	"github.com/sirupsen/logrus"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // updateStatus polls the chromecast application for status info, and updates the UI:
@@ -18,28 +18,28 @@ func (ui *UserInterface) updateStatus(sleepTime time.Duration) {
 		// Get the "status" view:
 		viewStatus, err := ui.gui.View(viewNameStatus)
 		if err != nil {
-			logrus.WithError(err).Errorf("Unable to get gocui view (%s)", viewNameStatus)
+			log.WithError(err).Errorf("Unable to get gocui view (%s)", viewNameStatus)
 			continue
 		}
 
 		// Get the "progress" view:
 		viewProgress, err := ui.gui.View(viewNameProgress)
 		if err != nil {
-			logrus.WithError(err).Errorf("Unable to get gocui view (%s)", viewNameProgress)
+			log.WithError(err).Errorf("Unable to get gocui view (%s)", viewNameProgress)
 			continue
 		}
 
 		// Get the "volume" view:
 		viewVolume, err := ui.gui.View(viewNameVolume)
 		if err != nil {
-			logrus.WithError(err).Errorf("Unable to get gocui view (%s)", viewNameVolume)
+			log.WithError(err).Errorf("Unable to get gocui view (%s)", viewNameVolume)
 			continue
 		}
 
 		// Update the "status" view:
 		ui.gui.Update(func(*gocui.Gui) error { return nil })
 		if err := ui.app.Update(); err != nil {
-			logrus.WithError(err).Debug("Unable to update the app")
+			log.WithError(err).Debug("Unable to update the app")
 		}
 		viewStatus.Clear()
 		castApplication, castMedia, castVolume := ui.app.Status()

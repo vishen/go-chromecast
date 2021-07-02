@@ -18,8 +18,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 	"github.com/vishen/go-chromecast/tts"
 )
 
@@ -30,57 +30,57 @@ var ttsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) != 1 || args[0] == "" {
-			logrus.Printf("expected exactly one argument to convert to speech\n")
+			log.Errorf("expected exactly one argument to convert to speech")
 			return
 		}
 
 		googleServiceAccount, _ := cmd.Flags().GetString("google-service-account")
 		if googleServiceAccount == "" {
-			logrus.Printf("--google-service-account is required\n")
+			log.Errorf("--google-service-account is required")
 			return
 		}
-		
+
 		languageCode, _ := cmd.Flags().GetString("language-code")
 		voiceName, _ := cmd.Flags().GetString("voice-name")
-		speakingRate, _ := cmd.Flags().GetFloat32("speaking-rate") 
-		pitch, _ := cmd.Flags().GetFloat32("pitch") 
+		speakingRate, _ := cmd.Flags().GetFloat32("speaking-rate")
+		pitch, _ := cmd.Flags().GetFloat32("pitch")
 
 		b, err := ioutil.ReadFile(googleServiceAccount)
 		if err != nil {
-			logrus.Printf("unable to open google service account file: %v\n", err)
+			log.WithError(err).Error("unable to open google service account file")
 			return
 		}
 
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Error("unable to get cast application")
 			return
 		}
 
 		data, err := tts.Create(args[0], b, languageCode, voiceName, speakingRate, pitch)
 		if err != nil {
-			logrus.Println(err)
+			log.WithError(err).Error("unable to create tts instance")
 			return
 		}
 
 		f, err := ioutil.TempFile("", "go-chromecast-tts")
 		if err != nil {
-			logrus.Printf("unable to create temp file: %v", err)
+			log.WithError(err).Error("unable to create temp file")
 			return
 		}
 		defer os.Remove(f.Name())
 
 		if _, err := f.Write(data); err != nil {
-			logrus.Printf("unable to write to temp file: %v\n", err)
+			log.WithError(err).Error("unable to write to temp file")
 			return
 		}
 		if err := f.Close(); err != nil {
-			logrus.Printf("unable to close temp file: %v\n", err)
+			log.WithError(err).Error("unable to close temp file")
 			return
 		}
 
 		if err := app.Load(f.Name(), "audio/mp3", false, false, false); err != nil {
-			logrus.Printf("unable to load media to device: %v\n", err)
+			log.WithError(err).Error("unable to load media to device")
 		}
 	},
 }

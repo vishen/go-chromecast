@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // slideshowCmd represents the slideshow command
@@ -32,23 +32,23 @@ var slideshowCmd = &cobra.Command{
 		}
 		for _, arg := range args {
 			if fileInfo, err := os.Stat(arg); err != nil {
-				logrus.Printf("unable to find %q: %v\n", arg, err)
+				log.WithError(err).Errorf("unable to find %q", arg)
 				return nil
 			} else if fileInfo.Mode().IsDir() {
-				logrus.Printf("%q is a directory\n", arg)
+				log.Printf("%q is a directory", arg)
 				return nil
 			}
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Errorf("unable to get cast application")
 			return nil
 		}
 
 		duration, _ := cmd.Flags().GetInt("duration")
 		repeat, _ := cmd.Flags().GetBool("repeat")
 		if err := app.Slideshow(args, duration, repeat); err != nil {
-			logrus.Printf("unable to play slideshow on cast application: %v\n", err)
+			log.WithError(err).Errorf("unable to play slideshow on cast application")
 			return nil
 		}
 		return nil

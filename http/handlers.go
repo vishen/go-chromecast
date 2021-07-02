@@ -10,22 +10,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/dns"
+	"github.com/vishen/go-chromecast/log"
 )
 
 type Handler struct {
-	mu      sync.Mutex
-	apps    map[string]*application.Application
-	mux     *http.ServeMux
+	mu   sync.Mutex
+	apps map[string]application.Application
+	mux  *http.ServeMux
+
 	verbose bool
 }
 
 func NewHandler(verbose bool) *Handler {
 	handler := &Handler{
 		verbose: verbose,
-		apps:    map[string]*application.Application{},
+		apps:    map[string]application.Application{},
 		mux:     http.NewServeMux(),
 		mu:      sync.Mutex{},
 	}
@@ -38,7 +39,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Serve(addr string) error {
-	h.logAlways("starting http server on %s", addr)
+	log.Printf("starting http server on %s", addr)
 	return http.ListenAndServe(addr, h)
 }
 
@@ -141,7 +142,7 @@ func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h *Handler) app(uuid string) (*application.Application, bool) {
+func (h *Handler) app(uuid string) (application.Application, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -506,7 +507,7 @@ func (h *Handler) load(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (*application.Application, bool) {
+func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (application.Application, bool) {
 	q := r.URL.Query()
 
 	deviceUUID := q.Get("uuid")
@@ -530,12 +531,8 @@ func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (*applic
 
 func (h *Handler) log(msg string, args ...interface{}) {
 	if h.verbose {
-		logrus.Printf(msg, args...)
+		log.Printf(msg, args...)
 	}
-}
-
-func (h *Handler) logAlways(msg string, args ...interface{}) {
-	logrus.Printf(msg, args...)
 }
 
 func httpError(w http.ResponseWriter, err error) {

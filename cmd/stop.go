@@ -15,8 +15,8 @@
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // stopCmd represents the stop command
@@ -26,11 +26,11 @@ var stopCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			log.Printf("unable to get cast application: %v\n", err)
+			log.WithError(err).Errorf("unable to get cast application")
 			return
 		}
 		if err := app.Stop(); err != nil {
-			log.Printf("unable to stop casting: %v\n", err)
+			log.WithError(err).Errorf("unable to stop casting")
 		}
 	},
 }

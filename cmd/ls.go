@@ -16,12 +16,13 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	castdns "github.com/vishen/go-chromecast/dns"
+	"github.com/vishen/go-chromecast/log"
 )
 
 // lsCmd represents the ls command
@@ -47,11 +48,11 @@ var lsCmd = &cobra.Command{
 		}
 		i := 1
 		for d := range castEntryChan {
-			log.Infof("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+			fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 			i++
 		}
 		if i == 1 {
-			log.Error("no cast devices found on network\n")
+			log.Error("no cast devices found on network")
 		}
 		return nil
 	},
