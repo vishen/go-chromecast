@@ -165,6 +165,7 @@ func WithConnectionRetries(connectionRetries int) ApplicationOption {
 
 func NewApplication(opts ...ApplicationOption) Application {
 	a := &application{
+		conn:              cast.NewConnection(),
 		resultChanMap:     map[int]chan *pb.CastMessage{},
 		messageChan:       make(chan *pb.CastMessage),
 		playedItems:       map[string]PlayedItem{},
@@ -175,10 +176,6 @@ func NewApplication(opts ...ApplicationOption) Application {
 	// Apply options
 	for _, o := range opts {
 		o(a)
-	}
-
-	if a.conn == nil {
-		a.conn = cast.NewConnection()
 	}
 
 	// Kick off the listener for asynchronous messages received from the
@@ -297,7 +294,12 @@ func (a *application) recvMessages() {
 	}
 }
 
-func (a *application) SetDebug(debug bool) { a.debug = debug; a.conn.SetDebug(debug) }
+func (a *application) SetDebug(debug bool) {
+	a.debug = debug
+	if a.conn != nil {
+		a.conn.SetDebug(debug)
+	}
+}
 
 func (a *application) Start(addr string, port int) error {
 	if err := a.loadPlayedItems(); err != nil {
