@@ -13,6 +13,6 @@ type ApplicationOption struct {
 }
 
 // Execute provides a mock function with given fields: _a0
-func (_m *ApplicationOption) Execute(_a0 application.Application) {
+func (_m *ApplicationOption) Execute(_a0 application.App) {
 	_m.Called(_a0)
 }

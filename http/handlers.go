@@ -17,7 +17,7 @@ import (
 
 type Handler struct {
 	mu   sync.Mutex
-	apps map[string]application.Application
+	apps map[string]application.App
 	mux  *http.ServeMux
 
 	verbose bool
@@ -26,7 +26,7 @@ type Handler struct {
 func NewHandler(verbose bool) *Handler {
 	handler := &Handler{
 		verbose: verbose,
-		apps:    map[string]application.Application{},
+		apps:    map[string]application.App{},
 		mux:     http.NewServeMux(),
 		mu:      sync.Mutex{},
 	}
@@ -142,7 +142,7 @@ func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h *Handler) app(uuid string) (application.Application, bool) {
+func (h *Handler) app(uuid string) (application.App, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -507,7 +507,7 @@ func (h *Handler) load(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (application.Application, bool) {
+func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (application.App, bool) {
 	q := r.URL.Query()
 
 	deviceUUID := q.Get("uuid")

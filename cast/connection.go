@@ -24,7 +24,7 @@ const (
 	dialerKeepAlive = time.Second * 30
 )
 
-type Connection interface {
+type Conn interface {
 	Start(addr string, port int) error
 	MsgChan() chan *pb.CastMessage
 	Close() error
@@ -33,7 +33,7 @@ type Connection interface {
 	Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error
 }
 
-type connection struct {
+type Connection struct {
 	conn *tls.Conn
 
 	recvMsgChan chan *pb.CastMessage
@@ -44,17 +44,17 @@ type connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection() Connection {
-	c := &connection{
+func NewConnection() *Connection {
+	c := &Connection{
 		recvMsgChan: make(chan *pb.CastMessage, 5),
 		connected:   false,
 	}
 	return c
 }
 
-func (c *connection) MsgChan() chan *pb.CastMessage { return c.recvMsgChan }
+func (c *Connection) MsgChan() chan *pb.CastMessage { return c.recvMsgChan }
 
-func (c *connection) Start(addr string, port int) error {
+func (c *Connection) Start(addr string, port int) error {
 	if !c.connected {
 		err := c.connect(addr, port)
 		if err != nil {
@@ -68,7 +68,7 @@ func (c *connection) Start(addr string, port int) error {
 	return nil
 }
 
-func (c *connection) Close() error {
+func (c *Connection) Close() error {
 	// TODO: nothing here is concurrent safe, fix?
 	c.connected = false
 	if c.cancel != nil {
@@ -77,20 +77,20 @@ func (c *connection) Close() error {
 	return c.conn.Close()
 }
 
-func (c *connection) SetDebug(debug bool) { c.debug = debug }
+func (c *Connection) SetDebug(debug bool) { c.debug = debug }
 
-func (c *connection) LocalAddr() (addr string, err error) {
+func (c *Connection) LocalAddr() (addr string, err error) {
 	host, _, err := net.SplitHostPort(c.conn.LocalAddr().String())
 	return host, err
 }
 
-func (c *connection) log(message string, args ...interface{}) {
+func (c *Connection) log(message string, args ...interface{}) {
 	if c.debug {
 		log.WithField("package", "cast").Debugf(message, args...)
 	}
 }
 
-func (c *connection) connect(addr string, port int) error {
+func (c *Connection) connect(addr string, port int) error {
 	var err error
 	dialer := &net.Dialer{
 		Timeout:   dialerTimeout,
@@ -106,7 +106,7 @@ func (c *connection) connect(addr string, port int) error {
 	return nil
 }
 
-func (c *connection) Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error {
+func (c *Connection) Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error {
 
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
@@ -139,7 +139,7 @@ func (c *connection) Send(requestID int, payload Payload, sourceID, destinationI
 	return nil
 }
 
-func (c *connection) receiveLoop(ctx context.Context) {
+func (c *Connection) receiveLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -199,7 +199,7 @@ func (c *connection) receiveLoop(ctx context.Context) {
 	}
 }
 
-func (c *connection) handleMessage(requestID int, message *pb.CastMessage, headers *PayloadHeader) {
+func (c *Connection) handleMessage(requestID int, message *pb.CastMessage, headers *PayloadHeader) {
 
 	messageType, err := jsonparser.GetString([]byte(*message.PayloadUtf8), "type")
 	if err != nil {

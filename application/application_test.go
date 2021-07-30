@@ -19,10 +19,10 @@ func TestApplicationStart(t *testing.T) {
 	assertions := require.New(t)
 
 	recvChan := make(chan *pb.CastMessage, 5)
-	conn := &mockCast.Connection{}
+	conn := &mockCast.Conn{}
 	conn.On("MsgChan").Return(recvChan)
 	conn.On("Start", mockAddr, mockPort).Return(nil)
-	conn.On("Send", mock.IsType(0), mock.IsType(&cast.PayloadHeader{}), mock.Anything, mock.Anything, mock.Anything).
+	conn.On("Send", mock.IsType(0), mock.IsType(&cast.PayloadHeader{}), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Run(func(args mock.Arguments) {
 			payload := cast.GetStatusHeader
 			payload.SetRequestId(args.Int(0))
@@ -38,7 +38,7 @@ func TestApplicationStart(t *testing.T) {
 				PayloadBinary:   payloadBytes,
 			}
 		}).Return(nil)
-	conn.On("Send", mock.Anything, mock.IsType(&cast.ConnectHeader), mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	app := application.NewApplication(application.WithConnection(conn), application.WithConnectionRetries(1))
+	conn.On("Send", mock.IsType(0), mock.IsType(&cast.ConnectHeader), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	app := application.NewApplication(application.WithConnection(conn))
 	assertions.NoError(app.Start(mockAddr, mockPort))
 }

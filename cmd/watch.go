@@ -110,7 +110,7 @@ const (
 	outputJSON
 )
 
-func outputStatus(app application.Application, outputType outputType) {
+func outputStatus(app application.App, outputType outputType) {
 	castApplication, castMedia, castVolume := app.Status()
 
 	switch outputType {
