@@ -119,10 +119,10 @@ that ffmpeg is installed.`,
 				max = len(jNum)
 			}
 			for vi := 0; vi < max; vi++ {
-				if len(iNum) < vi {
+				if len(iNum) <= vi {
 					return false
 				}
-				if len(jNum) < vi {
+				if len(jNum) <= vi {
 					return true
 				}
 				if iNum[vi] == jNum[vi] {
