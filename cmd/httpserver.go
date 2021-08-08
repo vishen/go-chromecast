@@ -25,7 +25,7 @@ var httpserverCmd = &cobra.Command{
 	Short: "Start the HTTP server",
 	Long: `Start the HTTP server which provides an HTTP
 api to control chromecast devices on a network.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 
 		addr, _ := cmd.Flags().GetString("http-addr")
 		port, _ := cmd.Flags().GetString("http-port")
@@ -35,7 +35,9 @@ api to control chromecast devices on a network.`,
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		debug, _ := cmd.Flags().GetBool("debug")
 
-		return http.NewHandler(verbose || debug).Serve(addr + ":" + port)
+		if err := http.NewHandler(verbose || debug).Serve(addr + ":" + port); err != nil {
+			exit("unable to run http server: %v\n", err)
+		}
 	},
 }
 

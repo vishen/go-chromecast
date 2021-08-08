@@ -17,7 +17,6 @@ package cmd
 import (
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -29,29 +28,25 @@ var volumeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
-			return
+			exit("unable to get cast application: %v\n", err)
 		}
 
 		if len(args) == 1 && args[0] != "" {
 			newVolume, err := strconv.ParseFloat(args[0], 32)
 			if err != nil {
-				logrus.Printf("invalid volume: %v\n", err)
-				return
+				exit("invalid volume: %v\n", err)
 			}
 			if err = app.SetVolume(float32(newVolume)); err != nil {
-				logrus.Printf("failed to set volume: %v\n", err)
-				return
+				exit("failed to set volume: %v\n", err)
 			}
 		}
 
 		if err = app.Update(); err != nil {
-			logrus.Printf("unable to update cast info: %v\n", err)
-			return
+			exit("unable to update cast info: %v\n", err)
 		}
 		_, _, castVolume := app.Status()
 
-		logrus.Printf("%0.2f\n", castVolume.Level)
+		outputInfo("%0.2f\n", castVolume.Level)
 	},
 }
 

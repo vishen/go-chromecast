@@ -15,11 +15,8 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/vishen/go-chromecast/ui"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,14 +31,13 @@ chromecast if it is a local file, otherwise it will load the url.
 If the media file is an unplayable media type by the chromecast, this
 will attempt to transcode the media file to mp4 using ffmpeg. This requires
 that ffmpeg is installed.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			return fmt.Errorf("requires exactly one argument, should be the media file to load")
+			exit("requires exactly one argument, should be the media file to load\n")
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			log.WithError(err).Println("unable to get cast application")
-			return nil
+			exit("unable to get cast application: %v\n", err)
 		}
 
 		contentType, _ := cmd.Flags().GetString("content-type")
@@ -53,23 +49,23 @@ that ffmpeg is installed.`,
 		if runWithUI {
 			go func() {
 				if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
-					log.WithError(err).Fatal("unable to load media")
+					exit("unable to load media: %v\n", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				log.WithError(err).Fatal("unable to prepare a new user-interface")
+				exit("unable to prepare a new user-interface: %v\n", err)
 			}
-			return ccui.Run()
+			if err := ccui.Run(); err != nil {
+				exit("unable to run ui: %v\n", err)
+			}
 		}
 
 		// Otherwise just run in CLI mode:
 		if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
-			log.WithError(err).Println("unable to load media")
-			return nil
+			exit("unable to load media: %v\n", err)
 		}
-		return nil
 	},
 }
 

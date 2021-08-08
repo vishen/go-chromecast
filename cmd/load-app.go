@@ -15,11 +15,8 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/vishen/go-chromecast/ui"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -31,14 +28,13 @@ var loadAppCmd = &cobra.Command{
 the chromecast receiver app to be specified. An older list can be found 
 here https://gist.github.com/jloutsenhizer/8855258.
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 2 {
-			return fmt.Errorf("requires exactly two arguments")
+			exit("requires exactly two arguments\n")
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			log.WithError(err).Info("unable to get cast application")
-			return nil
+			exit("unable to get cast application: %v\n", err)
 		}
 
 		// Optionally run a UI when playing this media:
@@ -46,23 +42,23 @@ here https://gist.github.com/jloutsenhizer/8855258.
 		if runWithUI {
 			go func() {
 				if err := app.LoadApp(args[0], args[1]); err != nil {
-					log.WithError(err).Fatal("unable to load media")
+					exit("unable to load media: %v\n", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				log.WithError(err).Fatal("unable to prepare a new user-interface")
+				exit("unable to prepare a new user-interface: %v\n", err)
 			}
-			return ccui.Run()
+			if err := ccui.Run(); err != nil {
+				exit("unable to run ui: %v\n", err)
+			}
 		}
 
 		// Otherwise just run in CLI mode:
 		if err := app.LoadApp(args[0], args[1]); err != nil {
-			log.WithError(err).Info("unable to load media")
-			return nil
+			exit("unable to load media: %v\n", err)
 		}
-		return nil
 	},
 }
 

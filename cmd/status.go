@@ -17,7 +17,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -28,16 +27,15 @@ var statusCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
-			return
+			exit("unable to get cast application: %v\n", err)
 		}
 		castApplication, castMedia, castVolume := app.Status()
 		if castApplication == nil {
-			logrus.Printf("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
+			outputInfo("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
 		} else if castApplication.IsIdleScreen {
-			logrus.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+			outputInfo("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else if castMedia == nil {
-			logrus.Printf("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+			outputInfo("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else {
 			metadata := "unknown"
 			var usefulID string
@@ -49,7 +47,7 @@ var statusCmd = &cobra.Command{
 				md := castMedia.Media.Metadata
 				metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
 			}
-			logrus.Printf("%s%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", usefulID, castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+			outputInfo("%s%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t\n", usefulID, castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 		}
 	},
 }

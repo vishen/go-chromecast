@@ -17,8 +17,6 @@ package cmd
 import (
 	"strconv"
 
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -26,25 +24,21 @@ import (
 var seekToCmd = &cobra.Command{
 	Use:   "seek-to <timestamp_in_seconds>",
 	Short: "Seek to the <timestamp_in_seconds> in the currently playing media",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			return errors.New("one argument required")
+			exit("one argument required\n")
 		}
 		value, err := strconv.ParseFloat(args[0], 32)
 		if err != nil {
-			logrus.Printf("unable to parse %q to an integer\n", args[0])
-			return nil
+			exit("unable to parse %q to an integer\n", args[0])
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
-			return nil
+			exit("unable to get cast application: %v\n", err)
 		}
 		if err := app.SeekToTime(float32(value)); err != nil {
-			logrus.Printf("unable to seek to current media: %v\n", err)
-			return nil
+			exit("unable to seek to current media: %v\n", err)
 		}
-		return nil
 	},
 }
 
