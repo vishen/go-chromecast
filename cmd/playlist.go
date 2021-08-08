@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/ui"
 )
@@ -46,21 +44,18 @@ chromecast.
 If the media file is an unplayable media type by the chromecast, this
 will attempt to transcode the media file to mp4 using ffmpeg. This requires
 that ffmpeg is installed.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			return fmt.Errorf("requires exactly one argument, should be the folder to play media from")
+			exit("requires exactly one argument, should be the folder to play media from\n")
 		}
 		if fileInfo, err := os.Stat(args[0]); err != nil {
-			logrus.Printf("unable to find %q: %v\n", args[0], err)
-			return nil
+			exit("unable to find %q: %v\n", args[0], err)
 		} else if !fileInfo.Mode().IsDir() {
-			logrus.Printf("%q is not a directory\n", args[0])
-			return nil
+			exit("%q is not a directory\n", args[0])
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
-			return nil
+			exit("unable to get cast application: %v\n", err)
 		}
 
 		contentType, _ := cmd.Flags().GetString("content-type")
@@ -70,8 +65,7 @@ that ffmpeg is installed.`,
 		selection, _ := cmd.Flags().GetBool("select")
 		files, err := ioutil.ReadDir(args[0])
 		if err != nil {
-			logrus.Printf("unable to list files from %q: %v", args[0], err)
-			return nil
+			exit("unable to list files from %q: %v\n", args[0], err)
 		}
 		filesToPlay := make([]mediaFile, 0, len(files))
 		for _, f := range files {
@@ -144,21 +138,21 @@ that ffmpeg is installed.`,
 
 		indexToPlayFrom := 0
 		if selection {
-			logrus.Println("Will play the following items, select where to start from:")
+			outputInfo("Will play the following items, select where to start from:")
 			for i, f := range filenames {
 				lastPlayed := "never"
 				if lp, ok := app.PlayedItems()[f]; ok {
 					t := time.Unix(lp.Started, 0)
 					lastPlayed = t.String()
 				}
-				logrus.Printf("%d) %s: last played %q\n", i+1, f, lastPlayed)
+				outputInfo("%d) %s: last played %q\n", i+1, f, lastPlayed)
 			}
 			reader := bufio.NewReader(os.Stdin)
 			for {
-				logrus.Printf("Enter selection: ")
+				outputInfo("Enter selection: ")
 				text, err := reader.ReadString('\n')
 				if err != nil {
-					logrus.Printf("error reading console: %v\n", err)
+					outputError("reading console: %v\n", err)
 					continue
 				}
 				i, err := strconv.Atoi(strings.TrimSpace(text))
@@ -199,29 +193,29 @@ that ffmpeg is installed.`,
 		for _, f := range filenames[indexToPlayFrom:] {
 			s += "- " + f + "\n"
 		}
-		logrus.Print(s)
+		outputInfo(s)
 
 		// Optionally run a UI when playing this media:
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
 		if runWithUI {
 			go func() {
 				if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-					logrus.WithError(err).Fatal("unable to play playlist on cast application")
+					exit("unable to play playlist on cast application: %v\n", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				logrus.WithError(err).Fatal("unable to prepare a new user-interface")
+				exit("unable to prepare a new user-interface: %v\n", err)
 			}
-			return ccui.Run()
+			if err := ccui.Run(); err != nil {
+				exit("unable to run ui: %v\n", err)
+			}
 		}
 
 		if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-			logrus.Printf("unable to play playlist on cast application: %v\n", err)
-			return nil
+			exit("unable to play playlist on cast application: %v\n", err)
 		}
-		return nil
 	},
 }
 

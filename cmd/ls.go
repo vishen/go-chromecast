@@ -19,7 +19,6 @@ import (
 	"net"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	castdns "github.com/vishen/go-chromecast/dns"
 )
@@ -28,32 +27,30 @@ import (
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List devices",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ifaceName, _ := cmd.Flags().GetString("iface")
 		dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 		var iface *net.Interface
 		var err error
 		if ifaceName != "" {
 			if iface, err = net.InterfaceByName(ifaceName); err != nil {
-				log.Fatalf("unable to find interface %q: %v", ifaceName, err)
+				exit("unable to find interface %q: %v\n", ifaceName, err)
 			}
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(dnsTimeoutSeconds))
 		defer cancel()
 		castEntryChan, err := castdns.DiscoverCastDNSEntries(ctx, iface)
 		if err != nil {
-			log.WithError(err).Error("unable to discover chromecast devices")
-			return nil
+			exit("unable to discover chromecast devices: %v\n", err)
 		}
 		i := 1
 		for d := range castEntryChan {
-			log.Infof("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+			outputInfo("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 			i++
 		}
 		if i == 1 {
-			log.Error("no cast devices found on network\n")
+			outputError("no cast devices found on network\n")
 		}
-		return nil
 	},
 }
 

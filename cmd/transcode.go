@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/ui"
 )
@@ -28,11 +27,10 @@ var transcodeCmd = &cobra.Command{
 locally and serve the output of the transcoding operation to the chromecast. 
 This command requires the program or script to write the media content to stdout.
 The transcoded media content-type is required as well`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
-			return nil
+			exit("unable to get cast application: %v\n", err)
 		}
 
 		contentType, _ := cmd.Flags().GetString("content-type")
@@ -42,22 +40,22 @@ The transcoded media content-type is required as well`,
 		if runWithUI {
 			go func() {
 				if err := app.Transcode(command, contentType); err != nil {
-					logrus.WithError(err).Fatal("unable to load media")
+					exit("unable to load media: %v\n", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				logrus.WithError(err).Fatal("unable to prepare a new user-interface")
+				exit("unable to prepare a new user-interface: %v\n", err)
 			}
-			return ccui.Run()
+			if err := ccui.Run(); err != nil {
+				exit("unable to run ui: %v\n", err)
+			}
 		}
 
 		if err := app.Transcode(command, contentType); err != nil {
-			logrus.Printf("unable to transcode media: %v\n", err)
-			return nil
+			exit("unable to transcode media: %v\n", err)
 		}
-		return nil
 	},
 }
 

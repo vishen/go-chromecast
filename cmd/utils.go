@@ -5,14 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -23,7 +22,6 @@ import (
 
 func init() {
 	log.SetOutput(os.Stdout)
-	log.SetLevel(log.DebugLevel)
 }
 
 var (
@@ -117,14 +115,14 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 			}
 			cachedEntryJson, _ := json.Marshal(cachedEntry)
 			if err := cache.Save(getCacheKey(cachedEntry.UUID), cachedEntryJson); err != nil {
-				log.Debug("Failed to save UUID cache entry")
+				fmt.Printf("Failed to save UUID cache entry\n")
 			}
 			if err := cache.Save(getCacheKey(cachedEntry.Name), cachedEntryJson); err != nil {
-				log.Debug("Failed to save name cache entry")
+				fmt.Printf("Failed to save name cache entry\n")
 			}
 		}
 		if debug {
-			log.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
+			fmt.Printf("using device name=%s addr=%s port=%d uuid=%s\n", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
 		}
 	} else {
 		p, err := strconv.Atoi(port)
@@ -142,10 +140,10 @@ func castApplication(cmd *cobra.Command, args []string) (*application.Applicatio
 		// an error, this is to make sure that if the device gets a new
 		// ipaddress we will invalidate the cache.
 		if err := cache.Save(getCacheKey(entry.GetUUID()), []byte{}); err != nil {
-			log.Debug("Failed to save UUID cache entry")
+			fmt.Printf("Failed to save UUID cache entry: %v\n", err)
 		}
 		if err := cache.Save(getCacheKey(entry.GetName()), []byte{}); err != nil {
-			log.Debug("Failed to save name cache entry")
+			fmt.Printf("Failed to save name cache entry: %v\n", err)
 		}
 		return nil, err
 	}
@@ -202,16 +200,16 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 	// Always return entries in deterministic order.
 	sort.Slice(foundEntries, func(i, j int) bool { return foundEntries[i].DeviceName < foundEntries[j].DeviceName })
 
-	log.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
+	fmt.Printf("Found %d cast dns entries, select one:\n", len(foundEntries))
 	for i, d := range foundEntries {
-		log.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+		fmt.Printf("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q\n", i+1, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
 	}
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		log.Printf("Enter selection: ")
+		fmt.Printf("Enter selection: ")
 		text, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("error reading console: %v\n", err)
+			fmt.Printf("error reading console: %v\n", err)
 			continue
 		}
 		i, err := strconv.Atoi(strings.TrimSpace(text))
@@ -223,3 +221,37 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 		return foundEntries[i-1], nil
 	}
 }
+
+func outputError(msg string, args ...interface{}) {
+	output(output_Error, msg, args...)
+}
+
+func outputInfo(msg string, args ...interface{}) {
+	output(output_Info, msg, args...)
+}
+
+func exit(msg string, args ...interface{}) {
+	outputError(msg, args...)
+	os.Exit(1)
+}
+
+type outputLevel int
+
+const (
+	output_Info outputLevel = iota
+	output_Error
+)
+
+func output(t outputLevel, msg string, args ...interface{}) {
+	switch t {
+	case output_Error:
+		fmt.Printf("%serror%s: ", RED, NC)
+	}
+
+	fmt.Printf(msg, args...)
+}
+
+const (
+	RED = "\033[0;31m"
+	NC  = "\033[0m" // No Color
+)

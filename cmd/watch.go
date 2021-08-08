@@ -24,7 +24,6 @@ import (
 	"github.com/buger/jsonparser"
 	"github.com/spf13/cobra"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 )
@@ -47,7 +46,7 @@ var watchCmd = &cobra.Command{
 			retry := false
 			app, err := castApplication(cmd, args)
 			if err != nil {
-				log.WithError(err).Info("unable to get cast application")
+				outputError("unable to get cast application: %v", err)
 				time.Sleep(time.Second * 10)
 				continue
 			}
@@ -55,7 +54,7 @@ var watchCmd = &cobra.Command{
 			go func() {
 				for {
 					if err := app.Update(); err != nil {
-						log.WithError(err).Info("unable to update cast application")
+						outputError("unable to update cast application: %v", err)
 						retry = true
 						close(done)
 						return
@@ -91,13 +90,13 @@ var watchCmd = &cobra.Command{
 						"payload":        payload,
 					})
 				case outputNormal:
-					log.Infof("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s\n", messageType, protocolVersion, namespace, sourceID, destID, payload)
+					outputInfo("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s\n", messageType, protocolVersion, namespace, sourceID, destID, payload)
 				}
 			})
 			<-done
 			if retry {
 				// Sleep a little bit in-between retries
-				log.Infoln("attempting a retry...")
+				outputInfo("attempting a retry...\n")
 				time.Sleep(time.Second * 10)
 			}
 		}
@@ -123,11 +122,11 @@ func outputStatus(app *application.Application, outputType outputType) {
 		})
 	case outputNormal:
 		if castApplication == nil {
-			log.Infof("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
+			outputInfo("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
 		} else if castApplication.IsIdleScreen {
-			log.Infof("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+			outputInfo("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else if castMedia == nil {
-			log.Infof("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+			outputInfo("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else {
 			metadata := "unknown"
 			if castMedia.Media.Metadata.Title != "" {
@@ -138,7 +137,7 @@ func outputStatus(app *application.Application, outputType outputType) {
 			case "x-youtube/video":
 				metadata = fmt.Sprintf("id=\"%s\", %s", castMedia.Media.ContentId, metadata)
 			}
-			log.Infof(">> %s (%s), %s, time remaining=%.2fs/%.2fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+			outputInfo(">> %s (%s), %s, time remaining=%.2fs/%.2fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 		}
 	}
 }

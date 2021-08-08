@@ -15,10 +15,8 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -26,32 +24,27 @@ import (
 var slideshowCmd = &cobra.Command{
 	Use:   "slideshow file1 file2 ...",
 	Short: "Play a slideshow of photos",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			return fmt.Errorf("requires files to play in slideshow")
+			exit("requires files to play in slideshow\n")
 		}
 		for _, arg := range args {
 			if fileInfo, err := os.Stat(arg); err != nil {
-				logrus.Printf("unable to find %q: %v\n", arg, err)
-				return nil
+				exit("unable to find %q: %v\n", arg, err)
 			} else if fileInfo.Mode().IsDir() {
-				logrus.Printf("%q is a directory\n", arg)
-				return nil
+				exit("%q is a directory\n", arg)
 			}
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			logrus.Printf("unable to get cast application: %v\n", err)
-			return nil
+			exit("unable to get cast application: %v\n", err)
 		}
 
 		duration, _ := cmd.Flags().GetInt("duration")
 		repeat, _ := cmd.Flags().GetBool("repeat")
 		if err := app.Slideshow(args, duration, repeat); err != nil {
-			logrus.Printf("unable to play slideshow on cast application: %v\n", err)
-			return nil
+			exit("unable to play slideshow on cast application: %v\n", err)
 		}
-		return nil
 	},
 }
 
