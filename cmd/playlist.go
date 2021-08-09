@@ -69,7 +69,7 @@ that ffmpeg is installed.`,
 		}
 		filesToPlay := make([]mediaFile, 0, len(files))
 		for _, f := range files {
-			if !forcePlay && !app.PlayableMediaType(f.Name()) {
+			if !forcePlay && !app.PlayableMediaType(filepath.Join(args[0], f.Name())) {
 				continue
 			}
 
