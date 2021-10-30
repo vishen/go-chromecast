@@ -10,7 +10,7 @@ import (
 	"net"
 	"time"
 
-	log "github.com/vishen/go-chromecast/log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/buger/jsonparser"
 	"github.com/gogo/protobuf/proto"

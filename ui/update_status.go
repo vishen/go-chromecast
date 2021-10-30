@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jroimartin/gocui"
-	"github.com/vishen/go-chromecast/log"
+	log "github.com/sirupsen/logrus"
 )
 
 // updateStatus polls the chromecast application for status info, and updates the UI:

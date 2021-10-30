@@ -8,7 +8,7 @@ import (
 
 	"github.com/jroimartin/gocui"
 
-	"github.com/vishen/go-chromecast/log"
+	log "github.com/sirupsen/logrus"
 )
 
 // UserInterface is an alternaive way of running go-chromecast (based around a gocui GUI):

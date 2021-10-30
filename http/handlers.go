@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/dns"
-	"github.com/vishen/go-chromecast/log"
 )
 
 type Handler struct {

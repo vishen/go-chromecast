@@ -4,7 +4,7 @@ import (
 	"github.com/vishen/go-chromecast/application"
 
 	"github.com/jroimartin/gocui"
-	"github.com/vishen/go-chromecast/log"
+	log "github.com/sirupsen/logrus"
 )
 
 // setupKeyBindings binds keys to actions:

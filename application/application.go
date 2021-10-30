@@ -14,8 +14,9 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/h2non/filetype"
-	"github.com/vishen/go-chromecast/log"
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"

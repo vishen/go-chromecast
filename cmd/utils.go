@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/application"
 	castdns "github.com/vishen/go-chromecast/dns"
-	"github.com/vishen/go-chromecast/log"
 	"github.com/vishen/go-chromecast/storage"
 )
 
 func init() {
-	log.SetOutput(log.NewConsoleWriter(os.Stdout))
+	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 }
 
