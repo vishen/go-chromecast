@@ -90,13 +90,13 @@ var watchCmd = &cobra.Command{
 						"payload":        payload,
 					})
 				case outputNormal:
-					outputInfo("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s\n", messageType, protocolVersion, namespace, sourceID, destID, payload)
+					outputInfo("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s", messageType, protocolVersion, namespace, sourceID, destID, payload)
 				}
 			})
 			<-done
 			if retry {
 				// Sleep a little bit in-between retries
-				outputInfo("attempting a retry...\n")
+				outputInfo("attempting a retry...")
 				time.Sleep(time.Second * 10)
 			}
 		}
@@ -122,11 +122,11 @@ func outputStatus(app application.App, outputType outputType) {
 		})
 	case outputNormal:
 		if castApplication == nil {
-			outputInfo("Idle, volume=%0.2f muted=%t\n", castVolume.Level, castVolume.Muted)
+			outputInfo("Idle, volume=%0.2f muted=%t", castVolume.Level, castVolume.Muted)
 		} else if castApplication.IsIdleScreen {
-			outputInfo("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+			outputInfo("Idle (%s), volume=%0.2f muted=%t", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else if castMedia == nil {
-			outputInfo("Idle (%s), volume=%0.2f muted=%t\n", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+			outputInfo("Idle (%s), volume=%0.2f muted=%t", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
 		} else {
 			metadata := "unknown"
 			if castMedia.Media.Metadata.Title != "" {
@@ -137,7 +137,7 @@ func outputStatus(app application.App, outputType outputType) {
 			case "x-youtube/video":
 				metadata = fmt.Sprintf("id=\"%s\", %s", castMedia.Media.ContentId, metadata)
 			}
-			outputInfo(">> %s (%s), %s, time remaining=%.2fs/%.2fs, volume=%0.2f, muted=%t\n", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+			outputInfo(">> %s (%s), %s, time remaining=%.2fs/%.2fs, volume=%0.2f, muted=%t", castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
 		}
 	}
 }

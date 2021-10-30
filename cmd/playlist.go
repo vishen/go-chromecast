@@ -46,16 +46,16 @@ will attempt to transcode the media file to mp4 using ffmpeg. This requires
 that ffmpeg is installed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			exit("requires exactly one argument, should be the folder to play media from\n")
+			exit("requires exactly one argument, should be the folder to play media from")
 		}
 		if fileInfo, err := os.Stat(args[0]); err != nil {
-			exit("unable to find %q: %v\n", args[0], err)
+			exit("unable to find %q: %v", args[0], err)
 		} else if !fileInfo.Mode().IsDir() {
-			exit("%q is not a directory\n", args[0])
+			exit("%q is not a directory", args[0])
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
+			exit("unable to get cast application: %v", err)
 		}
 
 		contentType, _ := cmd.Flags().GetString("content-type")
@@ -65,7 +65,7 @@ that ffmpeg is installed.`,
 		selection, _ := cmd.Flags().GetBool("select")
 		files, err := ioutil.ReadDir(args[0])
 		if err != nil {
-			exit("unable to list files from %q: %v\n", args[0], err)
+			exit("unable to list files from %q: %v", args[0], err)
 		}
 		filesToPlay := make([]mediaFile, 0, len(files))
 		for _, f := range files {
@@ -145,14 +145,14 @@ that ffmpeg is installed.`,
 					t := time.Unix(lp.Started, 0)
 					lastPlayed = t.String()
 				}
-				outputInfo("%d) %s: last played %q\n", i+1, f, lastPlayed)
+				outputInfo("%d) %s: last played %q", i+1, f, lastPlayed)
 			}
 			reader := bufio.NewReader(os.Stdin)
 			for {
 				outputInfo("Enter selection: ")
 				text, err := reader.ReadString('\n')
 				if err != nil {
-					outputError("reading console: %v\n", err)
+					outputError("reading console: %v", err)
 					continue
 				}
 				i, err := strconv.Atoi(strings.TrimSpace(text))
@@ -191,7 +191,7 @@ that ffmpeg is installed.`,
 
 		s := "Attemping to play the following media:"
 		for _, f := range filenames[indexToPlayFrom:] {
-			s += "- " + f + "\n"
+			s += "- " + f + " "
 		}
 		outputInfo(s)
 
@@ -200,21 +200,21 @@ that ffmpeg is installed.`,
 		if runWithUI {
 			go func() {
 				if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-					exit("unable to play playlist on cast application: %v\n", err)
+					exit("unable to play playlist on cast application: %v", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				exit("unable to prepare a new user-interface: %v\n", err)
+				exit("unable to prepare a new user-interface: %v", err)
 			}
 			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v\n", err)
+				exit("unable to run ui: %v", err)
 			}
 		}
 
 		if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-			exit("unable to play playlist on cast application: %v\n", err)
+			exit("unable to play playlist on cast application: %v", err)
 		}
 	},
 }

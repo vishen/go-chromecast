@@ -33,11 +33,11 @@ will attempt to transcode the media file to mp4 using ffmpeg. This requires
 that ffmpeg is installed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			exit("requires exactly one argument, should be the media file to load\n")
+			exit("requires exactly one argument, should be the media file to load")
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
+			exit("unable to get cast application: %v", err)
 		}
 
 		contentType, _ := cmd.Flags().GetString("content-type")
@@ -49,22 +49,22 @@ that ffmpeg is installed.`,
 		if runWithUI {
 			go func() {
 				if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
-					exit("unable to load media: %v\n", err)
+					exit("unable to load media: %v", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				exit("unable to prepare a new user-interface: %v\n", err)
+				exit("unable to prepare a new user-interface: %v", err)
 			}
 			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v\n", err)
+				exit("unable to run ui: %v", err)
 			}
 		}
 
 		// Otherwise just run in CLI mode:
 		if err := app.Load(args[0], contentType, transcode, detach, false); err != nil {
-			exit("unable to load media: %v\n", err)
+			exit("unable to load media: %v", err)
 		}
 	},
 }

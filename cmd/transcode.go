@@ -30,7 +30,7 @@ The transcoded media content-type is required as well`,
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
+			exit("unable to get cast application: %v", err)
 		}
 
 		contentType, _ := cmd.Flags().GetString("content-type")
@@ -40,21 +40,21 @@ The transcoded media content-type is required as well`,
 		if runWithUI {
 			go func() {
 				if err := app.Transcode(command, contentType); err != nil {
-					exit("unable to load media: %v\n", err)
+					exit("unable to load media: %v", err)
 				}
 			}()
 
 			ccui, err := ui.NewUserInterface(app)
 			if err != nil {
-				exit("unable to prepare a new user-interface: %v\n", err)
+				exit("unable to prepare a new user-interface: %v", err)
 			}
 			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v\n", err)
+				exit("unable to run ui: %v", err)
 			}
 		}
 
 		if err := app.Transcode(command, contentType); err != nil {
-			exit("unable to transcode media: %v\n", err)
+			exit("unable to transcode media: %v", err)
 		}
 	},
 }

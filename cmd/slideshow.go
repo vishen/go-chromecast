@@ -26,24 +26,24 @@ var slideshowCmd = &cobra.Command{
 	Short: "Play a slideshow of photos",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			exit("requires files to play in slideshow\n")
+			exit("requires files to play in slideshow")
 		}
 		for _, arg := range args {
 			if fileInfo, err := os.Stat(arg); err != nil {
-				exit("unable to find %q: %v\n", arg, err)
+				exit("unable to find %q: %v", arg, err)
 			} else if fileInfo.Mode().IsDir() {
-				exit("%q is a directory\n", arg)
+				exit("%q is a directory", arg)
 			}
 		}
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
+			exit("unable to get cast application: %v", err)
 		}
 
 		duration, _ := cmd.Flags().GetInt("duration")
 		repeat, _ := cmd.Flags().GetBool("repeat")
 		if err := app.Slideshow(args, duration, repeat); err != nil {
-			exit("unable to play slideshow on cast application: %v\n", err)
+			exit("unable to play slideshow on cast application: %v", err)
 		}
 	},
 }

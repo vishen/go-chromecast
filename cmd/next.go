@@ -25,10 +25,10 @@ var nextCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
+			exit("unable to get cast application: %v", err)
 		}
 		if err := app.Next(); err != nil {
-			exit("unable to play next media: %v\n", err)
+			exit("unable to play next media: %v", err)
 		}
 	},
 }
