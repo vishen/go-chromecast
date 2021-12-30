@@ -19,7 +19,7 @@ import (
 	"net"
 	"time"
 
-	castdns "github.com/johnmurphy/go-chromecast/dns"
+	castdns "github.com/johnmurphyme/go-chromecast/dns"
 	"github.com/spf13/cobra"
 )
 

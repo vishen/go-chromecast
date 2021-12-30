@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/johnmurphy/go-chromecast/application"
-	"github.com/johnmurphy/go-chromecast/dns"
+	"github.com/johnmurphyme/go-chromecast/application"
+	"github.com/johnmurphyme/go-chromecast/dns"
 	"github.com/sirupsen/logrus"
 )
 

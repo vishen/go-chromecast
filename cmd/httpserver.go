@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/johnmurphy/go-chromecast/http"
+	"github.com/johnmurphyme/go-chromecast/http"
 	"github.com/spf13/cobra"
 )
 

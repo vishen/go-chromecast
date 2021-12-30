@@ -18,7 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/johnmurphy/go-chromecast/tts"
+	"github.com/johnmurphyme/go-chromecast/tts"
 	"github.com/spf13/cobra"
 )
 

@@ -1,6 +1,6 @@
 package http
 
-import "github.com/johnmurphy/go-chromecast/cast"
+import "github.com/johnmurphyme/go-chromecast/cast"
 
 type connectResponse struct {
 	DeviceUUID string `json:"device_uuid"`
