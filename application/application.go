@@ -1124,8 +1124,6 @@ func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case result := <-resultChan:
-		// abc, _ := json.Marshal(result)
-		// fmt.Printf("%v\n\n", string(abc))
 		return result, nil
 	}
 }

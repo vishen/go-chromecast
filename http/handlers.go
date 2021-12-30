@@ -79,7 +79,6 @@ func (h *Handler) registerHandlers() {
 	h.mux.HandleFunc("/seek", h.seek)
 	h.mux.HandleFunc("/seek-to", h.seekTo)
 	h.mux.HandleFunc("/load", h.load)
-	h.mux.HandleFunc("/skip-ad", h.skipad)
 }
 
 func (h *Handler) discoverDnsEntries(ctx context.Context, iface string, waitq string) (devices []device) {
