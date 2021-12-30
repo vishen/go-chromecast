@@ -20,9 +20,9 @@ import (
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
 
-	"github.com/vishen/go-chromecast/cast"
-	pb "github.com/vishen/go-chromecast/cast/proto"
-	"github.com/vishen/go-chromecast/storage"
+	"github.com/johnmurphy/go-chromecast/cast"
+	pb "github.com/johnmurphy/go-chromecast/cast/proto"
+	"github.com/johnmurphy/go-chromecast/storage"
 )
 
 var (

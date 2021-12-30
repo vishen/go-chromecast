@@ -15,8 +15,8 @@
 package cmd
 
 import (
+	"github.com/johnmurphy/go-chromecast/http"
 	"github.com/spf13/cobra"
-	"github.com/vishen/go-chromecast/http"
 )
 
 // httpserverCmd represents the httpserver command

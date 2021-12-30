@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/johnmurphy/go-chromecast/application"
+	castdns "github.com/johnmurphy/go-chromecast/dns"
+	"github.com/johnmurphy/go-chromecast/storage"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"github.com/vishen/go-chromecast/application"
-	castdns "github.com/vishen/go-chromecast/dns"
-	"github.com/vishen/go-chromecast/storage"
 )
 
 func init() {
