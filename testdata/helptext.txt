@@ -27,6 +27,7 @@ Available Commands:
   rewind      Rewind by seconds the currently playing media
   seek        Seek by seconds into the currently playing media
   seek-to     Seek to the <timestamp_in_seconds> in the currently playing media
+  skipad      Skip the currently playing ad on the chromecast
   slideshow   Play a slideshow of photos
   status      Current chromecast status
   stop        Stop casting
