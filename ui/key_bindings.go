@@ -11,6 +11,7 @@ import (
 func (ui *UserInterface) setupKeyBindings() {
 	ui.gui.SetKeybinding("", 'q', gocui.ModNone, ui.Stop)
 	ui.gui.SetKeybinding("", 's', gocui.ModNone, ui.stopMedia)
+	ui.gui.SetKeybinding("", 'a', gocui.ModNone, ui.skipAd)
 	ui.gui.SetKeybinding("", gocui.KeySpace, gocui.ModNone, ui.playPause)
 	ui.gui.SetKeybinding("", gocui.KeyArrowLeft, gocui.ModNone, ui.seekBackwards)
 	ui.gui.SetKeybinding("", gocui.KeyArrowRight, gocui.ModNone, ui.seekForwards)
@@ -34,6 +35,13 @@ func (ui *UserInterface) playPause(g *gocui.Gui, v *gocui.View) error {
 		ui.paused = true
 	}
 
+	return nil
+}
+
+// skipAd tells the app to skip ad:
+func (ui *UserInterface) skipAd(g *gocui.Gui, v *gocui.View) error {
+	logrus.Info("Skip Ad")
+	ui.app.Skipad()
 	return nil
 }
 

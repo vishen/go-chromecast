@@ -26,6 +26,7 @@ func (ui *UserInterface) viewKeys(g *gocui.Gui) error {
 		fmt.Fprintf(v, "%s, Seek: %s←%s / %s→", normalTextColour, boldTextColour, normalTextColour, boldTextColour)
 		fmt.Fprintf(v, "%s, Previous/Next: %sPgUp%s / %sPgDn", normalTextColour, boldTextColour, normalTextColour, boldTextColour)
 		fmt.Fprintf(v, "%s, Stop: %ss", normalTextColour, boldTextColour)
+		fmt.Fprintf(v, "%s, Skip Ad: %sa", normalTextColour, boldTextColour)
 		fmt.Fprint(v, resetTextColour)
 	}
 	return nil
