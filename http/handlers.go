@@ -51,6 +51,7 @@ func (h *Handler) registerHandlers() {
 		POST /status?uuid=<device_uuid>
 		POST /pause?uuid=<device_uuid>
 		POST /unpause?uuid=<device_uuid>
+		POST /skipad?uuid=<device_uuid>
 		POST /mute?uuid=<device_uuid>
 		POST /unmute?uuid=<device_uuid>
 		POST /stop?uuid=<device_uuid>
@@ -78,6 +79,7 @@ func (h *Handler) registerHandlers() {
 	h.mux.HandleFunc("/seek", h.seek)
 	h.mux.HandleFunc("/seek-to", h.seekTo)
 	h.mux.HandleFunc("/load", h.load)
+	h.mux.HandleFunc("/skip-ad", h.skipad)
 }
 
 func (h *Handler) discoverDnsEntries(ctx context.Context, iface string, waitq string) (devices []device) {
@@ -316,7 +318,7 @@ func (h *Handler) unpause(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) skipad(w http.ResponseWriter, r *http.Request) {
 	app, found := h.appForRequest(w, r)
 	if !found {
-		h.log("handlers.go.skipad: !found for skipadd")
+		h.log("handlers.go.skipad: !found for skipad")
 		return
 	}
 
