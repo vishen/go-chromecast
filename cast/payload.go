@@ -15,6 +15,7 @@ var (
 	LoadHeader        = PayloadHeader{Type: "LOAD"}         // Loads an application onto the chromecast
 	QueueLoadHeader   = PayloadHeader{Type: "QUEUE_LOAD"}   // Loads an application onto the chromecast
 	QueueUpdateHeader = PayloadHeader{Type: "QUEUE_UPDATE"} // Loads an application onto the chromecast
+	SkipHeader        = PayloadHeader{Type: "SKIP_AD"}      // Skip add based off https://developers.google.com/cast/docs/reference/web_receiver/cast.framework.messages#.SKIP_AD
 )
 
 type Payload interface {
@@ -150,3 +151,4 @@ type SetVolume struct {
 	PayloadHeader
 	Volume Volume `json:"volume"`
 }
+
