@@ -18,8 +18,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/johnmurphy/go-chromecast/tts"
 	"github.com/spf13/cobra"
-	"github.com/vishen/go-chromecast/tts"
 )
 
 // ttsCmd represents the tts command
