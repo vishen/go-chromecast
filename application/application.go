@@ -376,6 +376,18 @@ func (a *Application) Unpause() error {
 	})
 }
 
+func (a *Application) Skipad() error {
+	a.log("app.Skipad here")
+	if a.media == nil {
+		return ErrNoMediaSkipad
+	}
+	
+	return a.sendMediaRecv(&cast.MediaHeader{
+		PayloadHeader:  cast.SkipHeader,
+		MediaSessionId: a.media.MediaSessionId,
+	})
+}
+
 func (a *Application) StopMedia() error {
 	if a.media == nil {
 		return ErrNoMediaStop
