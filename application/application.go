@@ -377,15 +377,29 @@ func (a *Application) Unpause() error {
 }
 
 func (a *Application) Skipad() error {
-	a.log("app.Skipad here")
 	if a.media == nil {
+		return ErrNoMediaSkip
+	}
+	if a.media.CustomData.PlayerState != 1081 {
 		return ErrNoMediaSkipad
 	}
-	
-	return a.sendMediaRecv(&cast.MediaHeader{
-		PayloadHeader:  cast.SkipHeader,
-		MediaSessionId: a.media.MediaSessionId,
-	})
+
+	var result error
+	MAX_LOOP := 30
+	for a.media.CustomData.PlayerState == 1081 {
+		result = a.sendMediaRecv(&cast.MediaHeader{
+			PayloadHeader:  cast.SkipHeader,
+			MediaSessionId: a.media.MediaSessionId,
+		})
+		// fmt.Printf("Looping because %d\n", a.media.CustomData.PlayerState)
+		time.Sleep(2 * time.Second)
+		a.updateMediaStatus()
+		MAX_LOOP--
+		if MAX_LOOP == 0 {
+			return ErrAdMaxLoop
+		}
+	}
+	return result
 }
 
 func (a *Application) StopMedia() error {
@@ -1110,6 +1124,8 @@ func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case result := <-resultChan:
+		// abc, _ := json.Marshal(result)
+		// fmt.Printf("%v\n\n", string(abc))
 		return result, nil
 	}
 }

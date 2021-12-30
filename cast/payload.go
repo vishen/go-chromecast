@@ -131,15 +131,20 @@ type Image struct {
 }
 
 type Media struct {
-	MediaSessionId int     `json:"mediaSessionId"`
-	PlayerState    string  `json:"playerState"`
-	CurrentTime    float32 `json:"currentTime"`
-	IdleReason     string  `json:"idleReason"`
-	Volume         Volume  `json:"volume"`
-	CurrentItemId  int     `json:"currentItemId"`
-	LoadingItemId  int     `json:"loadingItemId"`
+	MediaSessionId int        `json:"mediaSessionId"`
+	PlayerState    string     `json:"playerState"`
+	CurrentTime    float32    `json:"currentTime"`
+	IdleReason     string     `json:"idleReason"`
+	Volume         Volume     `json:"volume"`
+	CurrentItemId  int        `json:"currentItemId"`
+	LoadingItemId  int        `json:"loadingItemId"`
+	CustomData     CustomData `json:"customData"`
 
 	Media MediaItem `json:"media"`
+}
+
+type CustomData struct {
+	PlayerState int `json:"playerState"`
 }
 
 type MediaStatusResponse struct {
@@ -151,4 +156,3 @@ type SetVolume struct {
 	PayloadHeader
 	Volume Volume `json:"volume"`
 }
-
