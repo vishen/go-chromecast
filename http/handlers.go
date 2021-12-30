@@ -315,13 +315,11 @@ func (h *Handler) unpause(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) skipad(w http.ResponseWriter, r *http.Request) {
 	app, found := h.appForRequest(w, r)
-	/*if !found {
+	if !found {
 		h.log("handlers.go.skipad: !found for skipadd")
 		return
-	}*/
-	if !found{
-		h.log("temp found is false")
 	}
+
 	h.log("skipping ad")
 
 	if err := app.Skipad(); err != nil {
