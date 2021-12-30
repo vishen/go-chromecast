@@ -1,4 +1,4 @@
-module github.com/johnmurphyme/go-chromecast
+module github.com/johnmurphy/go-chromecast
 
 go 1.12
 
