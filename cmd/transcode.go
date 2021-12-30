@@ -15,8 +15,8 @@
 package cmd
 
 import (
-	"github.com/johnmurphyme/go-chromecast/ui"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/ui"
 )
 
 // transcodeCmd represents the transcode command
