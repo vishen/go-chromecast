@@ -16,7 +16,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 
-	pb "github.com/johnmurphy/go-chromecast/cast/proto"
+	pb "github.com/johnmurphyme/go-chromecast/cast/proto"
 )
 
 const (

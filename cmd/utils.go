@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/johnmurphy/go-chromecast/application"
-	castdns "github.com/johnmurphy/go-chromecast/dns"
-	"github.com/johnmurphy/go-chromecast/storage"
+	"github.com/johnmurphyme/go-chromecast/application"
+	castdns "github.com/johnmurphyme/go-chromecast/dns"
+	"github.com/johnmurphyme/go-chromecast/storage"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )

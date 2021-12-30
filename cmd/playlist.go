@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/johnmurphy/go-chromecast/ui"
+	"github.com/johnmurphyme/go-chromecast/ui"
 	"github.com/spf13/cobra"
 )
 
