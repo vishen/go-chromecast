@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"sort"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/application"
 	castdns "github.com/vishen/go-chromecast/dns"
@@ -22,7 +22,6 @@ import (
 
 func init() {
 	log.SetOutput(os.Stdout)
-	log.SetLevel(log.DebugLevel)
 }
 
 var (
@@ -246,11 +245,9 @@ const (
 func output(t outputLevel, msg string, args ...interface{}) {
 	switch t {
 	case output_Error:
-		args = append([]interface{}{RED, NC}, args...)
-		log.Errorf("%serror%s: "+msg, args...)
-	default:
-		log.Infof(msg, args...)
+		fmt.Printf("%serror%s: ", RED, NC)
 	}
+	fmt.Printf(msg, args...)
 }
 
 const (
