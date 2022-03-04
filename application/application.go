@@ -72,6 +72,7 @@ type App interface {
 	Seek(value int) error
 	SeekFromStart(value int) error
 	SeekToTime(value float32) error
+	Skipad() error
 	Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error
 	QueueLoad(filenames []string, contentType string, transcode bool) error
 	Transcode(command string, contentType string) error

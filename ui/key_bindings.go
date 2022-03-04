@@ -40,7 +40,7 @@ func (ui *UserInterface) playPause(g *gocui.Gui, v *gocui.View) error {
 
 // skipAd tells the app to skip ad:
 func (ui *UserInterface) skipAd(g *gocui.Gui, v *gocui.View) error {
-	logrus.Info("Skip Ad")
+	log.Info("Skip Ad")
 	ui.app.Skipad()
 	return nil
 }

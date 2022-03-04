@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/cast"
-	mockCast "github.com/vishen/go-chromecast/cast/mock"
+	mockCast "github.com/vishen/go-chromecast/cast/mocks"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 )
 
