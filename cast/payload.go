@@ -15,6 +15,7 @@ var (
 	LoadHeader        = PayloadHeader{Type: "LOAD"}         // Loads an application onto the chromecast
 	QueueLoadHeader   = PayloadHeader{Type: "QUEUE_LOAD"}   // Loads an application onto the chromecast
 	QueueUpdateHeader = PayloadHeader{Type: "QUEUE_UPDATE"} // Loads an application onto the chromecast
+	SkipHeader        = PayloadHeader{Type: "SKIP_AD"}      // Skip add based off https://developers.google.com/cast/docs/reference/web_receiver/cast.framework.messages#.SKIP_AD
 )
 
 type Payload interface {
@@ -130,15 +131,20 @@ type Image struct {
 }
 
 type Media struct {
-	MediaSessionId int     `json:"mediaSessionId"`
-	PlayerState    string  `json:"playerState"`
-	CurrentTime    float32 `json:"currentTime"`
-	IdleReason     string  `json:"idleReason"`
-	Volume         Volume  `json:"volume"`
-	CurrentItemId  int     `json:"currentItemId"`
-	LoadingItemId  int     `json:"loadingItemId"`
+	MediaSessionId int        `json:"mediaSessionId"`
+	PlayerState    string     `json:"playerState"`
+	CurrentTime    float32    `json:"currentTime"`
+	IdleReason     string     `json:"idleReason"`
+	Volume         Volume     `json:"volume"`
+	CurrentItemId  int        `json:"currentItemId"`
+	LoadingItemId  int        `json:"loadingItemId"`
+	CustomData     CustomData `json:"customData"`
 
 	Media MediaItem `json:"media"`
+}
+
+type CustomData struct {
+	PlayerState int `json:"playerState"`
 }
 
 type MediaStatusResponse struct {

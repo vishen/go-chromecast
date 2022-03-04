@@ -52,6 +52,7 @@ func (h *Handler) registerHandlers() {
 		POST /status?uuid=<device_uuid>
 		POST /pause?uuid=<device_uuid>
 		POST /unpause?uuid=<device_uuid>
+		POST /skipad?uuid=<device_uuid>
 		POST /mute?uuid=<device_uuid>
 		POST /unmute?uuid=<device_uuid>
 		POST /stop?uuid=<device_uuid>
@@ -70,6 +71,7 @@ func (h *Handler) registerHandlers() {
 	h.mux.HandleFunc("/status", h.status)
 	h.mux.HandleFunc("/pause", h.pause)
 	h.mux.HandleFunc("/unpause", h.unpause)
+	h.mux.HandleFunc("/skipad", h.skipad)
 	h.mux.HandleFunc("/mute", h.mute)
 	h.mux.HandleFunc("/unmute", h.unmute)
 	h.mux.HandleFunc("/stop", h.stop)
@@ -309,6 +311,22 @@ func (h *Handler) unpause(w http.ResponseWriter, r *http.Request) {
 	if err := app.Unpause(); err != nil {
 		h.log("unable to unpause device: %v", err)
 		httpError(w, fmt.Errorf("unable to unpause device: %w", err))
+		return
+	}
+}
+
+func (h *Handler) skipad(w http.ResponseWriter, r *http.Request) {
+	app, found := h.appForRequest(w, r)
+	if !found {
+		h.log("handlers.go.skipad: !found for skipad")
+		return
+	}
+
+	h.log("skipping ad")
+
+	if err := app.Skipad(); err != nil {
+		h.log("unable to skip ad for: %v", err)
+		httpError(w, fmt.Errorf("unable to skip ad for: %w", err))
 		return
 	}
 }
