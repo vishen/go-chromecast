@@ -13,6 +13,7 @@ Usage:
   go-chromecast [command]
 
 Available Commands:
+  completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   httpserver  Start the HTTP server
   load        Load and play media on the chromecast

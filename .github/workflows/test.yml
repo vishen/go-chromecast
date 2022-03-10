@@ -6,7 +6,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.14.x, 1.15.x, 1.16.x, 1.17.x]
+        go-version: [1.15.x, 1.16.x, 1.17.x]
         platform: [ubuntu-latest, macos-latest]
       fail-fast: false
     runs-on: ${{ matrix.platform }}
@@ -33,7 +33,7 @@ jobs:
   build:
     strategy:
       matrix:
-        go-version: [1.14.x, 1.15.x, 1.16.x, 1.17.x]
+        go-version: [1.15.x, 1.16.x, 1.17.x]
         platform: [ubuntu-latest, macos-latest]  
       fail-fast: false
     runs-on: ${{ matrix.platform }}  
