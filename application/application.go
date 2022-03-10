@@ -376,6 +376,32 @@ func (a *Application) Unpause() error {
 	})
 }
 
+func (a *Application) Skipad() error {
+	if a.media == nil {
+		return ErrNoMediaSkip
+	}
+	if a.media.CustomData.PlayerState != 1081 {
+		return ErrNoMediaSkipad
+	}
+
+	var result error
+	MAX_LOOP := 30
+	for a.media.CustomData.PlayerState == 1081 {
+		result = a.sendMediaRecv(&cast.MediaHeader{
+			PayloadHeader:  cast.SkipHeader,
+			MediaSessionId: a.media.MediaSessionId,
+		})
+		// fmt.Printf("Looping because %d\n", a.media.CustomData.PlayerState)
+		time.Sleep(2 * time.Second)
+		a.updateMediaStatus()
+		MAX_LOOP--
+		if MAX_LOOP == 0 {
+			return ErrAdMaxLoop
+		}
+	}
+	return result
+}
+
 func (a *Application) StopMedia() error {
 	if a.media == nil {
 		return ErrNoMediaStop

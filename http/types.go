@@ -40,6 +40,8 @@ type statusResponse struct {
 	SessionID      string `json:"session_id"`
 	TransportID    string `json:"transport_id"`
 	MediaSessionID int    `json:"media_session_id"`
+
+	PlayerStateId int `json:"player_state_id"`
 }
 
 func fromApplicationStatus(app *cast.Application, media *cast.Media, volume *cast.Volume) statusResponse {
@@ -71,6 +73,9 @@ func fromApplicationStatus(app *cast.Application, media *cast.Media, volume *cas
 		status.Artist = media.Media.Metadata.Artist
 		status.Title = media.Media.Metadata.Title
 		status.Subtitle = media.Media.Metadata.Subtitle
+
+		status.PlayerStateId = media.CustomData.PlayerState
+
 	}
 
 	if volume != nil {
