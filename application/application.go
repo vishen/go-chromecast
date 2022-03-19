@@ -14,8 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/h2non/filetype"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/h2non/filetype"
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
@@ -28,6 +29,7 @@ import (
 var (
 	// Global request id
 	requestID int
+	_         App = &Application{}
 )
 
 const (
@@ -51,12 +53,43 @@ type PlayedItem struct {
 
 type CastMessageFunc func(*pb.CastMessage)
 
+type App interface {
+	SetConn(conn cast.Conn)
+	SetIface(*net.Interface)
+	SetDebug(bool)
+	SetCacheDisabled(bool)
+	SetConnectionRetries(int)
+	SetServerPort(int)
+	Start(addr string, port int) error
+	Close(stopMedia bool) error
+	LoadApp(appID, contentID string) error
+	Status() (*cast.Application, *cast.Media, *cast.Volume)
+	Update() error
+	Pause() error
+	Unpause() error
+	Stop() error
+	StopMedia() error
+	Seek(value int) error
+	SeekFromStart(value int) error
+	SeekToTime(value float32) error
+	Skipad() error
+	Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error
+	QueueLoad(filenames []string, contentType string, transcode bool) error
+	Transcode(command string, contentType string) error
+	Next() error
+	Previous() error
+	SetVolume(value float32) error
+	SetMuted(value bool) error
+	Slideshow(filenames []string, duration int, repeat bool) error
+	AddMessageFunc(f CastMessageFunc)
+	PlayedItems() map[string]PlayedItem
+	PlayableMediaType(filename string) bool
+}
+
 type Application struct {
-	conn  *cast.Connection
+	conn  cast.Conn
 	debug bool
 
-	// 'cast.Connection' will send receieved messages back on this channel.
-	recvMsgChan chan *pb.CastMessage
 	// Internal mapping of request id to result channel
 	resultChanMap map[int]chan *pb.CastMessage
 
@@ -99,42 +132,45 @@ type ApplicationOption func(*Application)
 
 func WithIface(iface *net.Interface) ApplicationOption {
 	return func(a *Application) {
-		a.iface = iface
+		a.SetIface(iface)
 	}
 }
 
 func WithServerPort(port int) ApplicationOption {
 	return func(a *Application) {
-		a.serverPort = port
+		a.SetServerPort(port)
 	}
 }
 
 func WithDebug(debug bool) ApplicationOption {
 	return func(a *Application) {
-		a.debug = debug
-		a.conn.SetDebug(debug)
+		a.SetDebug(debug)
 	}
 }
 
 func WithCacheDisabled(cacheDisabled bool) ApplicationOption {
 	return func(a *Application) {
-		a.cacheDisabled = cacheDisabled
+		a.SetCacheDisabled(cacheDisabled)
+	}
+}
+
+func WithConnection(conn cast.Conn) ApplicationOption {
+	return func(a *Application) {
+		a.SetConn(conn)
 	}
 }
 
 func WithConnectionRetries(connectionRetries int) ApplicationOption {
 	return func(a *Application) {
-		a.connectionRetries = connectionRetries
+		a.SetConnectionRetries(connectionRetries)
 	}
 }
 
 func NewApplication(opts ...ApplicationOption) *Application {
-	recvMsgChan := make(chan *pb.CastMessage, 5)
 	a := &Application{
-		recvMsgChan:       recvMsgChan,
+		conn:              cast.NewConnection(),
 		resultChanMap:     map[int]chan *pb.CastMessage{},
 		messageChan:       make(chan *pb.CastMessage),
-		conn:              cast.NewConnection(recvMsgChan),
 		playedItems:       map[string]PlayedItem{},
 		cache:             storage.NewStorage(),
 		connectionRetries: 5,
@@ -153,9 +189,17 @@ func NewApplication(opts ...ApplicationOption) *Application {
 	return a
 }
 
-func (a *Application) Application() *cast.Application { return a.application }
-func (a *Application) Media() *cast.Media             { return a.media }
-func (a *Application) Volume() *cast.Volume           { return a.volumeReceiver }
+func (a *Application) SetConn(conn cast.Conn)       { a.conn = conn }
+func (a *Application) SetServerPort(serverPort int) { a.serverPort = serverPort }
+func (a *Application) SetConnectionRetries(connectionRetries int) {
+	a.connectionRetries = connectionRetries
+}
+func (a *Application) SetCacheDisabled(cacheDisabled bool) { a.cacheDisabled = cacheDisabled }
+func (a *Application) SetIface(iface *net.Interface)       { a.iface = iface }
+
+func (a *Application) App() *cast.Application { return a.application }
+func (a *Application) Media() *cast.Media     { return a.media }
+func (a *Application) Volume() *cast.Volume   { return a.volumeReceiver }
 
 func (a *Application) AddMessageFunc(f CastMessageFunc) {
 	a.messageMu.Lock()
@@ -197,7 +241,7 @@ func (a *Application) MediaFinished() {
 }
 
 func (a *Application) recvMessages() {
-	for msg := range a.recvMsgChan {
+	for msg := range a.conn.MsgChan() {
 		requestID, err := jsonparser.GetInt([]byte(*msg.PayloadUtf8), "requestId")
 		if err == nil {
 			if resultChan, ok := a.resultChanMap[int(requestID)]; ok {
@@ -253,7 +297,12 @@ func (a *Application) recvMessages() {
 	}
 }
 
-func (a *Application) SetDebug(debug bool) { a.debug = debug; a.conn.SetDebug(debug) }
+func (a *Application) SetDebug(debug bool) {
+	a.debug = debug
+	if a.conn != nil {
+		a.conn.SetDebug(debug)
+	}
+}
 
 func (a *Application) Start(addr string, port int) error {
 	if err := a.loadPlayedItems(); err != nil {

@@ -24,6 +24,15 @@ const (
 	dialerKeepAlive = time.Second * 30
 )
 
+type Conn interface {
+	Start(addr string, port int) error
+	MsgChan() chan *pb.CastMessage
+	Close() error
+	SetDebug(debug bool)
+	LocalAddr() (addr string, err error)
+	Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error
+}
+
 type Connection struct {
 	conn *tls.Conn
 
@@ -35,13 +44,15 @@ type Connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(recvMsgChan chan *pb.CastMessage) *Connection {
+func NewConnection() *Connection {
 	c := &Connection{
-		recvMsgChan: recvMsgChan,
+		recvMsgChan: make(chan *pb.CastMessage, 5),
 		connected:   false,
 	}
 	return c
 }
+
+func (c *Connection) MsgChan() chan *pb.CastMessage { return c.recvMsgChan }
 
 func (c *Connection) Start(addr string, port int) error {
 	if !c.connected {

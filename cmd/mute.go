@@ -25,12 +25,10 @@ var muteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
-			return
+			exit("unable to get cast application: %v", err)
 		}
 		if err := app.SetMuted(true); err != nil {
-			exit("unable to mute cast application: %v\n", err)
-			return
+			exit("unable to mute cast application: %v", err)
 		}
 	},
 }

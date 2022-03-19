@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/jroimartin/gocui"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const viewNameLog = "Log"
@@ -19,10 +19,10 @@ func (ui *UserInterface) viewLog(g *gocui.Gui) error {
 	v.Title = viewNameLog
 	v.Autoscroll = true
 
-	// Tell Logrus to log to this view:
-	logrus.SetOutput(v)
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
+	// Tell the logger to use this view:
+	log.SetOutput(v)
+	log.SetLevel(log.DebugLevel)
+	log.SetFormatter(&log.TextFormatter{
 		ForceColors:     true,
 		FullTimestamp:   true,
 		TimestampFormat: "15:04:05",

@@ -36,7 +36,7 @@ api to control chromecast devices on a network.`,
 		debug, _ := cmd.Flags().GetBool("debug")
 
 		if err := http.NewHandler(verbose || debug).Serve(addr + ":" + port); err != nil {
-			exit("unable to run http server: %v\n", err)
+			exit("unable to run http server: %v", err)
 		}
 	},
 }

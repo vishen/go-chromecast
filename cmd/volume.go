@@ -28,25 +28,25 @@ var volumeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
-			exit("unable to get cast application: %v\n", err)
+			exit("unable to get cast application: %v", err)
 		}
 
 		if len(args) == 1 && args[0] != "" {
 			newVolume, err := strconv.ParseFloat(args[0], 32)
 			if err != nil {
-				exit("invalid volume: %v\n", err)
+				exit("invalid volume: %v", err)
 			}
 			if err = app.SetVolume(float32(newVolume)); err != nil {
-				exit("failed to set volume: %v\n", err)
+				exit("failed to set volume: %v", err)
 			}
 		}
 
 		if err = app.Update(); err != nil {
-			exit("unable to update cast info: %v\n", err)
+			exit("unable to update cast info: %v", err)
 		}
 		_, _, castVolume := app.Status()
 
-		outputInfo("%0.2f\n", castVolume.Level)
+		outputInfo("%0.2f", castVolume.Level)
 	},
 }
 

@@ -90,7 +90,7 @@ func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan C
 	entriesChan := make(chan *zeroconf.ServiceEntry, 5)
 	go func() {
 		if err := resolver.Browse(ctx, "_googlecast._tcp", "local", entriesChan); err != nil {
-			log.Printf("error: unable to browser for mdns entries: %v", err)
+			log.WithError(err).Error("unable to browser for mdns entries")
 			return
 		}
 	}()
