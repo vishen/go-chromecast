@@ -248,6 +248,7 @@ func output(t outputLevel, msg string, args ...interface{}) {
 		fmt.Printf("%serror%s: ", RED, NC)
 	}
 	fmt.Printf(msg, args...)
+	fmt.Println()
 }
 
 const (
