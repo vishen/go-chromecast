@@ -29,7 +29,7 @@ jobs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: go mod download
     - name: Test
-      run: go test -timeout 300s ./...
+      run: go test ./...
   build:
     strategy:
       matrix:
