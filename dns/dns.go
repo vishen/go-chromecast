@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/grandcat/zeroconf"
 	log "github.com/sirupsen/logrus"
@@ -125,9 +127,9 @@ func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan C
 
 						switch key {
 						case "fn":
-							castEntry.DeviceName = val
+							castEntry.DeviceName = decode(val)
 						case "md":
-							castEntry.Device = val
+							castEntry.Device = decode(val)
 						case "id":
 							castEntry.UUID = val
 						}
@@ -139,4 +141,47 @@ func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan C
 		}
 	}()
 	return castDNSEntriesChan, nil
+}
+
+// decode attempts to decode the passed in string using escaped utf8 bytes.
+// some DNS entries for other languages seem to include utf8 escape sequences as
+// part of the name.
+func decode(val string) string {
+	if strings.Index(val, "\\") == -1 {
+		return val
+	}
+
+	var (
+		r        []rune
+		toDecode []byte
+	)
+
+	decodeRunes := func() {
+		if len(toDecode) > 0 {
+			for len(toDecode) > 0 {
+				rr, size := utf8.DecodeRune(toDecode)
+				r = append(r, rr)
+				toDecode = toDecode[size:]
+			}
+			toDecode = []byte{}
+		}
+	}
+
+	for i := 0; i < len(val); {
+		if val[i] == '\\' {
+			if i+3 < len(val) {
+				v, err := strconv.Atoi(val[i+1 : i+4])
+				if err == nil {
+					toDecode = append(toDecode, byte(v))
+					i += 4
+					continue
+				}
+			}
+		}
+		decodeRunes()
+		r = append(r, rune(val[i]))
+		i++
+	}
+	decodeRunes()
+	return string(r)
 }
