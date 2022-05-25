@@ -40,6 +40,14 @@ https://github.com/vishen/go-chromecast/releases
 
 ### Install the usual Go way:
 
+#### Go 1.18 and above
+
+```
+$ go install github.com/vishen/go-chromecast@latest
+```
+
+#### Go 1.17 and below
+
 ```
 $ go get -u github.com/vishen/go-chromecast
 ```
