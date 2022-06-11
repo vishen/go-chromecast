@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"sort"
@@ -14,15 +13,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/application"
 	castdns "github.com/vishen/go-chromecast/dns"
 	"github.com/vishen/go-chromecast/storage"
 )
-
-func init() {
-	log.SetOutput(os.Stdout)
-}
 
 var (
 	cache = storage.NewStorage()
@@ -71,6 +67,10 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 	if deviceUuid == "" && entry != nil {
 		deviceUuid = entry.GetUUID()
 		entry = nil
+	}
+
+	if debug {
+		log.SetLevel(log.DebugLevel)
 	}
 
 	applicationOptions := []application.ApplicationOption{
@@ -247,8 +247,10 @@ func output(t outputLevel, msg string, args ...interface{}) {
 	case output_Error:
 		fmt.Printf("%serror%s: ", RED, NC)
 	}
+	if !strings.HasSuffix(msg, "\n") {
+		msg = msg + "\n"
+	}
 	fmt.Printf(msg, args...)
-	fmt.Println()
 }
 
 const (
