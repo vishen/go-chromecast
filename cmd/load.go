@@ -60,6 +60,7 @@ that ffmpeg is installed.`,
 			if err := ccui.Run(); err != nil {
 				exit("unable to run ui: %v", err)
 			}
+			return
 		}
 
 		// Otherwise just run in CLI mode:
