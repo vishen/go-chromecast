@@ -75,7 +75,7 @@ type App interface {
 	Skipad() error
 	Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error
 	QueueLoad(filenames []string, contentType string, transcode bool) error
-	Transcode(command string, contentType string) error
+	Transcode(contentType string, command string, args ...string) error
 	Next() error
 	Previous() error
 	SetVolume(value float32) error
@@ -1227,7 +1227,7 @@ func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessag
 	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
 }
 
-func (a *Application) startTranscodingServer(command string) error {
+func (a *Application) startTranscodingServer(command string, args ...string) error {
 	if a.httpServer != nil {
 		return nil
 	}
@@ -1259,8 +1259,7 @@ func (a *Application) startTranscodingServer(command string) error {
 
 		a.log("canServe=%t, liveStreaming=%t, filename=%s", canServe, true, filename)
 		if canServe {
-			args := strings.Split(command, " ")
-			cmd := exec.Command(args[0], args[1:]...)
+			cmd := exec.Command(command, args...)
 
 			cmd.Stdout = w
 			if a.debug {
@@ -1297,7 +1296,7 @@ func (a *Application) startTranscodingServer(command string) error {
 	return nil
 }
 
-func (a *Application) Transcode(command string, contentType string) error {
+func (a *Application) Transcode(contentType string, command string, args ...string) error {
 
 	if command == "" || contentType == "" {
 		return errors.New("command and content-type flags needs to be set when transcoding")
@@ -1315,7 +1314,7 @@ func (a *Application) Transcode(command string, contentType string) error {
 
 	a.log("starting transcoding server...")
 	// Start server to serve the media
-	if err := a.startTranscodingServer(command); err != nil {
+	if err := a.startTranscodingServer(command, args...); err != nil {
 		return errors.Wrap(err, "unable to start transcoding server")
 	}
 	a.log("started transcoding server")
