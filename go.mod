@@ -11,7 +11,7 @@ require (
 	github.com/jroimartin/gocui v0.5.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
-	github.com/rogpeppe/go-internal v1.6.2
+	github.com/rogpeppe/go-internal v1.8.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.7.0
@@ -33,6 +33,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/miekg/dns v1.1.46 // indirect
 	github.com/nsf/termbox-go v1.1.1 // indirect
+	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
