@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/vishen/go-chromecast/ui"
 )
@@ -36,10 +38,20 @@ The transcoded media content-type is required as well`,
 		contentType, _ := cmd.Flags().GetString("content-type")
 		command, _ := cmd.Flags().GetString("command")
 
+		var commandArgs []string
+		if command == "" {
+			command = args[0]
+			commandArgs = args[1:]
+		} else {
+			s := strings.Split(command, " ")
+			command = s[0]
+			commandArgs = s[1:]
+		}
+
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
 		if runWithUI {
 			go func() {
-				if err := app.Transcode(command, contentType); err != nil {
+				if err := app.Transcode(contentType, command, commandArgs...); err != nil {
 					exit("unable to load media: %v", err)
 				}
 			}()
@@ -53,7 +65,7 @@ The transcoded media content-type is required as well`,
 			}
 		}
 
-		if err := app.Transcode(command, contentType); err != nil {
+		if err := app.Transcode(contentType, command, commandArgs...); err != nil {
 			exit("unable to transcode media: %v", err)
 		}
 	},
