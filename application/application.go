@@ -73,7 +73,7 @@ type App interface {
 	SeekFromStart(value int) error
 	SeekToTime(value float32) error
 	Skipad() error
-	Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error
+	Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error
 	QueueLoad(filenames []string, contentType string, transcode bool) error
 	Transcode(contentType string, command string, args ...string) error
 	Next() error
@@ -717,7 +717,7 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 	return a.playedItems
 }
 
-func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach, forceDetach bool) error {
+func (a *Application) Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error {
 	var mi mediaItem
 	isExternalMedia := false
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
@@ -757,7 +757,7 @@ func (a *Application) Load(filenameOrUrl, contentType string, transcode, detach,
 	// Send the command to the chromecast
 	a.sendMediaRecv(&cast.LoadMediaCommand{
 		PayloadHeader: cast.LoadHeader,
-		CurrentTime:   0,
+		CurrentTime:   startTime,
 		Autoplay:      true,
 		Media: cast.MediaItem{
 			ContentId:   mi.contentURL,

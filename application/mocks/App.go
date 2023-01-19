@@ -36,12 +36,12 @@ func (_m *App) Close(stopMedia bool) error {
 }
 
 // Load provides a mock function with given fields: filenameOrUrl, contentType, transcode, detach, forceDetach
-func (_m *App) Load(filenameOrUrl string, contentType string, transcode bool, detach bool, forceDetach bool) error {
-	ret := _m.Called(filenameOrUrl, contentType, transcode, detach, forceDetach)
+func (_m *App) Load(filenameOrUrl string, startTime int, contentType string, transcode bool, detach bool, forceDetach bool) error {
+	ret := _m.Called(filenameOrUrl, startTime, contentType, transcode, detach, forceDetach)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, bool, bool, bool) error); ok {
-		r0 = rf(filenameOrUrl, contentType, transcode, detach, forceDetach)
+	if rf, ok := ret.Get(0).(func(string, int, string, bool, bool, bool) error); ok {
+		r0 = rf(filenameOrUrl, startTime, contentType, transcode, detach, forceDetach)
 	} else {
 		r0 = ret.Error(0)
 	}
