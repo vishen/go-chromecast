@@ -1,6 +1,6 @@
 module github.com/vishen/go-chromecast
 
-go 1.17
+go 1.19
 
 require (
 	cloud.google.com/go/texttospeech v1.3.0
