@@ -61,7 +61,7 @@ func (h *Handler) registerHandlers() {
 		POST /rewind?uuid=<device_uuid>&seconds=<int>
 		POST /seek?uuid=<device_uuid>&seconds=<int>
 		POST /seek-to?uuid=<device_uuid>&seconds=<float>
-		POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>
+		POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>&start_time=<int>
 	*/
 
 	h.mux.HandleFunc("/devices", h.listDevices)
@@ -518,7 +518,20 @@ func (h *Handler) load(w http.ResponseWriter, r *http.Request) {
 
 	contentType := q.Get("content_type")
 
-	if err := app.Load(path, contentType, true, true, true); err != nil {
+	startTime := q.Get("start_time")
+	if startTime == "" {
+		startTime = "0"
+	}
+
+	startTimeInt, err := strconv.Atoi(startTime)
+
+	if err != nil {
+		h.log("start_time %q is not a number: %v", startTimeInt, err)
+		httpValidationError(w, "'start_time' is not a number")
+		return
+	}
+
+	if err := app.Load(path, startTimeInt, contentType, true, true, true); err != nil {
 		h.log("unable to load media for device: %v", err)
 		httpError(w, fmt.Errorf("unable to load media for device: %w", err))
 		return

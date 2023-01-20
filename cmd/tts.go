@@ -72,7 +72,7 @@ var ttsCmd = &cobra.Command{
 			exit("unable to close temp file: %v", err)
 		}
 
-		if err := app.Load(f.Name(), "audio/mp3", false, false, false); err != nil {
+		if err := app.Load(f.Name(), 0, "audio/mp3", false, false, false); err != nil {
 			exit("unable to load media to device: %v", err)
 		}
 	},
