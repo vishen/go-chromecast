@@ -185,15 +185,19 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 		return castdns.CastEntry{}, err
 	}
 
+	isDeviceFilter := deviceUuid != "" || deviceName != "" || device != ""
+
 	foundEntries := []castdns.CastEntry{}
 	for entry := range castEntryChan {
-		if first || (deviceUuid != "" && entry.UUID == deviceUuid) || (deviceName != "" && entry.DeviceName == deviceName) || (device != "" && entry.Device == device) {
+		if first && !isDeviceFilter {
+			return entry, nil
+		} else if (deviceUuid != "" && entry.UUID == deviceUuid) || (deviceName != "" && entry.DeviceName == deviceName) || (device != "" && entry.Device == device) {
 			return entry, nil
 		}
 		foundEntries = append(foundEntries, entry)
 	}
 
-	if len(foundEntries) == 0 {
+	if len(foundEntries) == 0 || isDeviceFilter {
 		return castdns.CastEntry{}, fmt.Errorf("no cast devices found on network")
 	}
 
