@@ -20,8 +20,9 @@ import (
 
 // togglepauseCmd represents the togglepause command
 var togglepauseCmd = &cobra.Command{
-	Use:   "togglepause",
-	Short: "Toggle paused/unpaused state of the currently playing media on the chromecast",
+	Use:     "togglepause",
+	Aliases: []string{"tpause", "playpause"},
+	Short:   "Toggle paused/unpaused state. Aliases: tpause, playpause",
 	Run: func(cmd *cobra.Command, args []string) {
 		app, err := castApplication(cmd, args)
 		if err != nil {
