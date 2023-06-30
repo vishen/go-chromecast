@@ -67,6 +67,7 @@ type App interface {
 	Update() error
 	Pause() error
 	Unpause() error
+	TogglePause() error
 	Stop() error
 	StopMedia() error
 	Seek(value int) error
@@ -423,6 +424,22 @@ func (a *Application) Unpause() error {
 		PayloadHeader:  cast.PlayHeader,
 		MediaSessionId: a.media.MediaSessionId,
 	})
+}
+
+func (a *Application) TogglePause() error {
+	if a.media == nil {
+		return ErrNoMediaTogglePause
+	}
+	switch a.media.PlayerState {
+	case "PLAYING", "BUFFERING":
+		{
+			return a.Pause()
+		}
+	default:
+		{
+			return a.Unpause()
+		}
+	}
 }
 
 func (a *Application) Skipad() error {
