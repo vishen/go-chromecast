@@ -61,7 +61,7 @@ func (c *Connection) Start(addr string, port int) error {
 			return err
 		}
 		var ctx context.Context
-		// TODO: Recieve context through function params?
+		// TODO: Receive context through function params?
 		ctx, c.cancel = context.WithCancel(context.Background())
 		go c.receiveLoop(ctx)
 	}

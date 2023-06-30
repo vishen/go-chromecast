@@ -67,6 +67,7 @@ type App interface {
 	Update() error
 	Pause() error
 	Unpause() error
+	TogglePause() error
 	Stop() error
 	StopMedia() error
 	Seek(value int) error
@@ -94,18 +95,18 @@ type Application struct {
 	resultChanMap map[int]chan *pb.CastMessage
 
 	messageMu sync.Mutex
-	// Relay messages receieved so users can add custom logic to
+	// Relay messages received so users can add custom logic to
 	// events.
 	messageChan chan *pb.CastMessage
-	// Functions that will receieve messages from 'messageChan'
+	// Functions that will receive messages from 'messageChan'
 	messageFuncs []CastMessageFunc
 
 	// Current values from the chromecast.
 	application *cast.Application // It is possible that there is no current application, can happen for google home.
 	media       *cast.Media
 	// There seems to be two different volumes returned from the chromecast,
-	// one for the receiever and one for the playing media. It looks we update
-	// the receiever volume from go-chromecast so we should use that one. But
+	// one for the receiver and one for the playing media. It looks we update
+	// the receiver volume from go-chromecast, so we should use that one. But
 	// we will keep the other one around in-case we need it at some point.
 	volumeMedia    *cast.Volume
 	volumeReceiver *cast.Volume
@@ -124,7 +125,7 @@ type Application struct {
 	cache         *storage.Storage
 
 	// Number of connection retries to try before returning
-	// and error.
+	// an error.
 	connectionRetries int
 }
 
@@ -423,6 +424,22 @@ func (a *Application) Unpause() error {
 		PayloadHeader:  cast.PlayHeader,
 		MediaSessionId: a.media.MediaSessionId,
 	})
+}
+
+func (a *Application) TogglePause() error {
+	if a.media == nil {
+		return ErrNoMediaTogglePause
+	}
+	switch a.media.PlayerState {
+	case "PLAYING", "BUFFERING":
+		{
+			return a.Pause()
+		}
+	default:
+		{
+			return a.Unpause()
+		}
+	}
 }
 
 func (a *Application) Skipad() error {
