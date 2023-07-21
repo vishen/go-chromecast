@@ -986,13 +986,13 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 		// attempt to use that
 		contentTypeToUse := contentType
 		if contentType != "" {
-		} else if knownFileType {
-			// If this is a media file we know the chromecast can play,
-			// then we don't need to transcode it.
-			contentTypeToUse, _ = a.possibleContentType(filename)
-			if a.castPlayableContentType(contentTypeToUse) {
-				transcodeFile = false
-			}
+			// } else if knownFileType {
+			// 	// If this is a media file we know the chromecast can play,
+			// 	// then we don't need to transcode it.
+			// 	contentTypeToUse, _ = a.possibleContentType(filename)
+			// 	if a.castPlayableContentType(contentTypeToUse) {
+			// 		transcodeFile = false
+			// 	}
 		} else if transcodeFile {
 			contentTypeToUse = "video/mp4"
 		}
@@ -1126,14 +1126,18 @@ func (a *Application) startStreamingServer() error {
 }
 
 func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
+
+	filterpath := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(filename, "\\", "/"), "[", "\\["), "]", "\\]"), ":", "\\\\:")
 	cmd := exec.Command(
 		"ffmpeg",
-		"-re", // encode at 1x playback speed, to not burn the CPU
+		"-hwaccel", "cuda",
+		"-c:v", "h264_cuvid",
 		"-i", filename,
-		"-vcodec", "h264",
+		"-vcodec", "h264_nvenc",
 		"-acodec", "aac",
 		"-ac", "2", // chromecasts don't support more than two audio channels
 		"-f", "mp4",
+		"-vf", "subtitles="+filterpath+"",
 		"-movflags", "frag_keyframe+faststart",
 		"-strict", "-experimental",
 		"pipe:1",
