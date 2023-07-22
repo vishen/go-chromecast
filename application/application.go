@@ -780,7 +780,20 @@ func (a *Application) Load(filenameOrUrl string, startTime int, contentType stri
 			ContentId:   mi.contentURL,
 			StreamType:  "BUFFERED",
 			ContentType: mi.contentType,
+			Tracks: []cast.MediaTrack{
+				{
+					TrackId:          1,
+					TrackContentId:   strings.ReplaceAll(mi.contentURL, ".mp4", ".vtt"),
+					Language:         "en-US",
+					Subtype:          "SUBTITLES",
+					Type:             "TEXT",
+					TrackContentType: "text/vtt",
+					Name:             "kundalini Subtitle",
+				},
+			},
+			TextTrackStyle: cast.TextTrackStyle{BackgroundColor: "#FFFFFF00", EdgeType: "OUTLINE", EdgeColor: "#000000FF"},
 		},
+		ActiveTrackIds: []int{1},
 	})
 
 	// If we should detach from waiting for media to finish playing
@@ -986,13 +999,13 @@ func (a *Application) loadAndServeFiles(filenames []string, contentType string, 
 		// attempt to use that
 		contentTypeToUse := contentType
 		if contentType != "" {
-			// } else if knownFileType {
-			// 	// If this is a media file we know the chromecast can play,
-			// 	// then we don't need to transcode it.
-			// 	contentTypeToUse, _ = a.possibleContentType(filename)
-			// 	if a.castPlayableContentType(contentTypeToUse) {
-			// 		transcodeFile = false
-			// 	}
+		} else if knownFileType {
+			// If this is a media file we know the chromecast can play,
+			// then we don't need to transcode it.
+			contentTypeToUse, _ = a.possibleContentType(filename)
+			if a.castPlayableContentType(contentTypeToUse) {
+				transcodeFile = false
+			}
 		} else if transcodeFile {
 			contentTypeToUse = "video/mp4"
 		}
@@ -1083,6 +1096,9 @@ func (a *Application) startStreamingServer() error {
 			if fn == filename {
 				canServe = true
 			}
+		}
+		if strings.Contains(filename, ".vtt") {
+			canServe = true
 		}
 
 		a.playedItems[filename] = PlayedItem{ContentID: filename, Started: time.Now().Unix()}
