@@ -783,7 +783,7 @@ func (a *Application) Load(filenameOrUrl string, startTime int, contentType stri
 			Tracks: []cast.MediaTrack{
 				{
 					TrackId:          1,
-					TrackContentId:   strings.ReplaceAll(mi.contentURL, ".mp4", ".vtt"),
+					TrackContentId:   mi.contentURL + "&subtitles=1",
 					Language:         "en-US",
 					Subtype:          "SUBTITLES",
 					Type:             "TEXT",
@@ -1092,13 +1092,11 @@ func (a *Application) startStreamingServer() error {
 		// already been validated and is useable.
 		filename := r.URL.Query().Get("media_file")
 		canServe := false
+		isSubtitles := r.URL.Query().Get("subtitles")
 		for _, fn := range a.mediaFilenames {
 			if fn == filename {
 				canServe = true
 			}
-		}
-		if strings.Contains(filename, ".vtt") {
-			canServe = true
 		}
 
 		a.playedItems[filename] = PlayedItem{ContentID: filename, Started: time.Now().Unix()}
@@ -1112,10 +1110,12 @@ func (a *Application) startStreamingServer() error {
 			liveStreaming = true
 		}
 
-		a.log("canServe=%t, liveStreaming=%t, filename=%s", canServe, liveStreaming, filename)
+		a.log("canServe=%t, liveStreaming=%t, filename=%s, isSubtitles=%s", canServe, liveStreaming, filename, isSubtitles)
 		if canServe {
 			if !liveStreaming {
 				http.ServeFile(w, r, filename)
+			} else if isSubtitles != "" {
+				a.serveSubtitles(w, r, filename)
 			} else {
 				a.serveLiveStreaming(w, r, filename)
 			}
@@ -1141,9 +1141,41 @@ func (a *Application) startStreamingServer() error {
 	return nil
 }
 
+// func (a *Application) serveLiveStreamingHardsub(w http.ResponseWriter, r *http.Request, filename string) {
+
+// 	filterpath := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(filename, "\\", "/"), "[", "\\["), "]", "\\]"), ":", "\\\\:")
+// 	cmd := exec.Command(
+// 		"ffmpeg",
+// 		"-hwaccel", "cuda",
+// 		"-c:v", "h264_cuvid",
+// 		"-i", filename,
+// 		"-vcodec", "h264_nvenc",
+// 		"-acodec", "aac",
+// 		"-ac", "2", // chromecasts don't support more than two audio channels
+// 		"-f", "mp4",
+// 		"-vf", "subtitles="+filterpath+"",
+// 		"-movflags", "frag_keyframe+faststart",
+// 		"-strict", "-experimental",
+// 		"pipe:1",
+// 	)
+
+// 	cmd.Stdout = w
+// 	if a.debug {
+// 		cmd.Stderr = os.Stderr
+// 	}
+
+// 	w.Header().Set("Access-Control-Allow-Origin", "*")
+// 	w.Header().Set("Transfer-Encoding", "chunked")
+
+// 	if err := cmd.Run(); err != nil {
+// 		log.WithField("package", "application").WithFields(log.Fields{
+// 			"filename": filename,
+// 		}).WithError(err).Error("error transcoding")
+// 	}
+// }
+
 func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
 
-	filterpath := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(filename, "\\", "/"), "[", "\\["), "]", "\\]"), ":", "\\\\:")
 	cmd := exec.Command(
 		"ffmpeg",
 		"-hwaccel", "cuda",
@@ -1153,8 +1185,33 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 		"-acodec", "aac",
 		"-ac", "2", // chromecasts don't support more than two audio channels
 		"-f", "mp4",
-		"-vf", "subtitles="+filterpath+"",
 		"-movflags", "frag_keyframe+faststart",
+		"-strict", "-experimental",
+		"pipe:1",
+	)
+
+	cmd.Stdout = w
+	if a.debug {
+		cmd.Stderr = os.Stderr
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	if err := cmd.Run(); err != nil {
+		log.WithField("package", "application").WithFields(log.Fields{
+			"filename": filename,
+		}).WithError(err).Error("error transcoding")
+	}
+}
+
+func (a *Application) serveSubtitles(w http.ResponseWriter, r *http.Request, filename string) {
+
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", filename,
+		"-c:s", "webvtt",
+		"-f", "webvtt",
 		"-strict", "-experimental",
 		"pipe:1",
 	)
