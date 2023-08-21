@@ -74,6 +74,9 @@ func (c *Connection) Close() error {
 	if c.cancel != nil {
 		c.cancel()
 	}
+	defer func() {
+		close(c.recvMsgChan)
+	}()
 	return c.conn.Close()
 }
 
