@@ -399,6 +399,9 @@ func (a *Application) Close(stopMedia bool) error {
 		a.sendMediaConn(&cast.CloseHeader)
 		a.sendDefaultConn(&cast.CloseHeader)
 	}
+	defer func() {
+		close(a.messageChan)
+	}()
 	return a.conn.Close()
 }
 
