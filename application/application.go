@@ -127,6 +127,11 @@ type Application struct {
 	// Number of connection retries to try before returning
 	// an error.
 	connectionRetries int
+
+	// Time between each ad skip attempt
+	skipadSleep time.Duration
+	// Number of times to try to skip an ad
+	skipadRetries int
 }
 
 type ApplicationOption func(*Application)
@@ -167,6 +172,18 @@ func WithConnectionRetries(connectionRetries int) ApplicationOption {
 	}
 }
 
+func WithSkipadSleep(sleep time.Duration) ApplicationOption {
+	return func(a *Application) {
+		a.SetSkipadSleep(sleep)
+	}
+}
+
+func WithSkipadRetries(retries int) ApplicationOption {
+	return func(a *Application) {
+		a.SetSkipadRetries(retries)
+	}
+}
+
 func NewApplication(opts ...ApplicationOption) *Application {
 	a := &Application{
 		conn:              cast.NewConnection(),
@@ -175,6 +192,8 @@ func NewApplication(opts ...ApplicationOption) *Application {
 		playedItems:       map[string]PlayedItem{},
 		cache:             storage.NewStorage(),
 		connectionRetries: 5,
+		skipadSleep:       2 * time.Second,
+		skipadRetries:     30,
 	}
 
 	// Apply options
@@ -197,6 +216,9 @@ func (a *Application) SetConnectionRetries(connectionRetries int) {
 }
 func (a *Application) SetCacheDisabled(cacheDisabled bool) { a.cacheDisabled = cacheDisabled }
 func (a *Application) SetIface(iface *net.Interface)       { a.iface = iface }
+
+func (a *Application) SetSkipadSleep(sleep time.Duration) { a.skipadSleep = sleep }
+func (a *Application) SetSkipadRetries(retries int)       { a.skipadRetries = retries }
 
 func (a *Application) App() *cast.Application { return a.application }
 func (a *Application) Media() *cast.Media     { return a.media }
@@ -457,14 +479,14 @@ func (a *Application) Skipad() error {
 	}
 
 	var result error
-	MAX_LOOP := 30
+	MAX_LOOP := a.skipadRetries
 	for a.media.CustomData.PlayerState == 1081 {
 		result = a.sendMediaRecv(&cast.MediaHeader{
 			PayloadHeader:  cast.SkipHeader,
 			MediaSessionId: a.media.MediaSessionId,
 		})
 		// fmt.Printf("Looping because %d\n", a.media.CustomData.PlayerState)
-		time.Sleep(2 * time.Second)
+		time.Sleep(a.skipadSleep)
 		a.updateMediaStatus()
 		MAX_LOOP--
 		if MAX_LOOP == 0 {
