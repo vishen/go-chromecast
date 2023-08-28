@@ -292,6 +292,9 @@ func (a *Application) recvMessages() {
 				}
 				a.volumeReceiver = &resp.Status.Volume
 			}
+		case "CLOSE":
+			a.MediaFinished()
+			a.application, a.media, a.volumeReceiver = nil, nil, nil
 		}
 		// Relay the event to any user specified message funcs.
 		a.messageChan <- msg
