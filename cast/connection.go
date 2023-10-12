@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -36,7 +37,8 @@ type Conn interface {
 type Connection struct {
 	conn *tls.Conn
 
-	recvMsgChan chan *pb.CastMessage
+	recvMsgChan   chan *pb.CastMessage
+	closeChanOnce sync.Once
 
 	debug     bool
 	connected bool
@@ -74,9 +76,9 @@ func (c *Connection) Close() error {
 	if c.cancel != nil {
 		c.cancel()
 	}
-	defer func() {
+	defer c.closeChanOnce.Do(func() {
 		close(c.recvMsgChan)
-	}()
+	})
 	return c.conn.Close()
 }
 

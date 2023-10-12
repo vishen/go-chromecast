@@ -97,7 +97,8 @@ type Application struct {
 	messageMu sync.Mutex
 	// Relay messages received so users can add custom logic to
 	// events.
-	messageChan chan *pb.CastMessage
+	messageChan   chan *pb.CastMessage
+	closeChanOnce sync.Once
 	// Functions that will receive messages from 'messageChan'
 	messageFuncs []CastMessageFunc
 
@@ -424,9 +425,9 @@ func (a *Application) Close(stopMedia bool) error {
 		a.sendMediaConn(&cast.CloseHeader)
 		a.sendDefaultConn(&cast.CloseHeader)
 	}
-	defer func() {
+	defer a.closeChanOnce.Do(func() {
 		close(a.messageChan)
-	}()
+	})
 	return a.conn.Close()
 }
 
