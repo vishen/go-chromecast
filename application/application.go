@@ -780,17 +780,16 @@ func (a *Application) Load(filenameOrUrl string, startTime int, contentType stri
 		if err != nil {
 			return err
 		}
+		var items []mediaItem
 		for it.HasNext() {
 			url, title := it.Next()
-			fmt.Printf("Playing url %v (%v)\n", url, title)
-			if err := a.play(url, startTime, contentType, transcode, detach, forceDetach); err != nil {
-				return err
-			}
-			if detach || forceDetach { // if detach, then just start the first and exit
-				return nil
-			}
+			items = append(items, mediaItem{
+				filename:   url,
+				contentURL: url,
+			})
+			fmt.Printf("Adding url %v (%v)\n", url, title)
 		}
-		return nil
+		return a.QueueLoadItems(items, "")
 	}
 	return a.play(filenameOrUrl, startTime, contentType, transcode, detach, forceDetach)
 }
@@ -883,11 +882,14 @@ func (a *Application) LoadApp(appID, contentID string) error {
 }
 
 func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
-
 	mediaItems, err := a.loadAndServeFiles(filenames, contentType, transcode)
 	if err != nil {
 		return errors.Wrap(err, "unable to load and serve files")
 	}
+	return a.QueueLoadItems(mediaItems, contentType)
+}
+
+func (a *Application) QueueLoadItems(mediaItems []mediaItem, contentType string) error {
 
 	if err := a.ensureIsDefaultMediaReceiver(); err != nil {
 		return err
