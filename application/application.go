@@ -24,6 +24,9 @@ import (
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/storage"
+	"gopkg.in/ini.v1"
+	"io"
+	"path/filepath"
 )
 
 var (
@@ -764,6 +767,36 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 }
 
 func (a *Application) Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error {
+	// if the file is a playlist, ".pls", then just play the first item.
+	if strings.HasSuffix(filenameOrUrl, "pls") {
+		if strings.HasPrefix(filenameOrUrl, "./") { // convert to file:// uri
+			if abs, err := filepath.Abs(filenameOrUrl); err != nil {
+				return err
+			} else {
+				filenameOrUrl = fmt.Sprintf("file://%v", abs)
+			}
+		}
+		it, err := NewPlaylistIterator(filenameOrUrl)
+		if err != nil {
+			return err
+		}
+		for it.HasNext() {
+			url, title := it.Next()
+			fmt.Printf("Playing url %v (%v)\n", url, title)
+			if err := a.play(url, startTime, contentType, transcode, detach, forceDetach); err != nil {
+				return err
+			}
+			if detach || forceDetach { // if detach, then just start the first and exit
+				return nil
+			}
+		}
+		return nil
+	}
+	return a.play(filenameOrUrl, startTime, contentType, transcode, detach, forceDetach)
+}
+
+func (a *Application) play(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error {
+
 	var mi mediaItem
 	isExternalMedia := false
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
@@ -1391,4 +1424,64 @@ func (a *Application) Transcode(contentType string, command string, args ...stri
 	// Wait until we have been notified that the media has finished playing
 	a.MediaWait()
 	return nil
+}
+
+// plsIterator is an iterator for playlist-files.
+// According to https://en.wikipedia.org/wiki/PLS_(file_format),
+// The format is case-sensitive and essentially that of an INI file.
+// It has entries on the form File1, Title1 etc.
+type plsIterator struct {
+	count    int
+	playlist *ini.Section
+}
+
+func NewPlaylistIterator(uri string) (*plsIterator, error) {
+	content, err := fetch(uri)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %v: %w", uri, err)
+	}
+	pls, err := ini.Load(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse file %v: %w", uri, err)
+	}
+	section, err := pls.GetSection("playlist")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find playlist in .pls-file %v", uri)
+	}
+	return &plsIterator{
+		playlist: section,
+	}, nil
+}
+
+func (it *plsIterator) HasNext() bool {
+	return it.playlist.HasKey(fmt.Sprintf("File%d", it.count+1))
+}
+
+func (it *plsIterator) Next() (file, title string) {
+	if val := it.playlist.Key(fmt.Sprintf("File%d", it.count+1)); val != nil {
+		file = val.Value()
+	}
+	if val := it.playlist.Key(fmt.Sprintf("Title%d", it.count+1)); val != nil {
+		title = val.Value()
+	}
+	it.count = it.count + 1
+	return file, title
+}
+
+// fetch fetches the given url and returns the response body. The url can either
+// be an HTTP url or a file:// url.
+func fetch(url string) ([]byte, error) {
+	if filep := strings.TrimPrefix(url, "file://"); filep != url {
+		return os.ReadFile(filep)
+	}
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
