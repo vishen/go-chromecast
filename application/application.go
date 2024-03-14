@@ -23,9 +23,9 @@ import (
 
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
+	"github.com/vishen/go-chromecast/playlists"
 	"github.com/vishen/go-chromecast/storage"
 	"gopkg.in/ini.v1"
-	"io"
 	"path/filepath"
 )
 
@@ -768,7 +768,7 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 
 func (a *Application) Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error {
 	// if the file is a playlist, ".pls", then just play the first item.
-	if strings.HasSuffix(filenameOrUrl, "pls") {
+	if playlists.IsPlaylist(filenameOrUrl) {
 		if strings.HasPrefix(filenameOrUrl, "./") { // convert to file:// uri
 			if abs, err := filepath.Abs(filenameOrUrl); err != nil {
 				return err
@@ -776,7 +776,7 @@ func (a *Application) Load(filenameOrUrl string, startTime int, contentType stri
 				filenameOrUrl = fmt.Sprintf("file://%v", abs)
 			}
 		}
-		it, err := NewPlaylistIterator(filenameOrUrl)
+		it, err := playlists.NewIterator(filenameOrUrl)
 		if err != nil {
 			return err
 		}
@@ -1435,55 +1435,4 @@ func (a *Application) Transcode(contentType string, command string, args ...stri
 type plsIterator struct {
 	count    int
 	playlist *ini.Section
-}
-
-func NewPlaylistIterator(uri string) (*plsIterator, error) {
-	content, err := fetch(uri)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %v: %w", uri, err)
-	}
-	pls, err := ini.Load(content)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse file %v: %w", uri, err)
-	}
-	section, err := pls.GetSection("playlist")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find playlist in .pls-file %v", uri)
-	}
-	return &plsIterator{
-		playlist: section,
-	}, nil
-}
-
-func (it *plsIterator) HasNext() bool {
-	return it.playlist.HasKey(fmt.Sprintf("File%d", it.count+1))
-}
-
-func (it *plsIterator) Next() (file, title string) {
-	if val := it.playlist.Key(fmt.Sprintf("File%d", it.count+1)); val != nil {
-		file = val.Value()
-	}
-	if val := it.playlist.Key(fmt.Sprintf("Title%d", it.count+1)); val != nil {
-		title = val.Value()
-	}
-	it.count = it.count + 1
-	return file, title
-}
-
-// fetch fetches the given url and returns the response body. The url can either
-// be an HTTP url or a file:// url.
-func fetch(url string) ([]byte, error) {
-	if filep := strings.TrimPrefix(url, "file://"); filep != url {
-		return os.ReadFile(filep)
-	}
-	res, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
 }
