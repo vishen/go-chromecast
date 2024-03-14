@@ -21,6 +21,8 @@ require (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 )
 
+require gopkg.in/ini.v1 v1.67.0
+
 require (
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute v1.19.1 // indirect

@@ -23,7 +23,10 @@ import (
 
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
+	"github.com/vishen/go-chromecast/playlists"
 	"github.com/vishen/go-chromecast/storage"
+	"gopkg.in/ini.v1"
+	"path/filepath"
 )
 
 var (
@@ -764,6 +767,35 @@ func (a *Application) PlayedItems() map[string]PlayedItem {
 }
 
 func (a *Application) Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error {
+	// if the file is a playlist, ".pls", then just play the first item.
+	if playlists.IsPlaylist(filenameOrUrl) {
+		if strings.HasPrefix(filenameOrUrl, "./") { // convert to file:// uri
+			if abs, err := filepath.Abs(filenameOrUrl); err != nil {
+				return err
+			} else {
+				filenameOrUrl = fmt.Sprintf("file://%v", abs)
+			}
+		}
+		it, err := playlists.NewIterator(filenameOrUrl)
+		if err != nil {
+			return err
+		}
+		var items []mediaItem
+		for it.HasNext() {
+			url, title := it.Next()
+			items = append(items, mediaItem{
+				filename:   url,
+				contentURL: url,
+			})
+			fmt.Printf("Adding url %v (%v)\n", url, title)
+		}
+		return a.QueueLoadItems(items, "")
+	}
+	return a.play(filenameOrUrl, startTime, contentType, transcode, detach, forceDetach)
+}
+
+func (a *Application) play(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error {
+
 	var mi mediaItem
 	isExternalMedia := false
 	if strings.HasPrefix(filenameOrUrl, "http://") || strings.HasPrefix(filenameOrUrl, "https://") {
@@ -850,11 +882,14 @@ func (a *Application) LoadApp(appID, contentID string) error {
 }
 
 func (a *Application) QueueLoad(filenames []string, contentType string, transcode bool) error {
-
 	mediaItems, err := a.loadAndServeFiles(filenames, contentType, transcode)
 	if err != nil {
 		return errors.Wrap(err, "unable to load and serve files")
 	}
+	return a.QueueLoadItems(mediaItems, contentType)
+}
+
+func (a *Application) QueueLoadItems(mediaItems []mediaItem, contentType string) error {
 
 	if err := a.ensureIsDefaultMediaReceiver(); err != nil {
 		return err
@@ -1391,4 +1426,13 @@ func (a *Application) Transcode(contentType string, command string, args ...stri
 	// Wait until we have been notified that the media has finished playing
 	a.MediaWait()
 	return nil
+}
+
+// plsIterator is an iterator for playlist-files.
+// According to https://en.wikipedia.org/wiki/PLS_(file_format),
+// The format is case-sensitive and essentially that of an INI file.
+// It has entries on the form File1, Title1 etc.
+type plsIterator struct {
+	count    int
+	playlist *ini.Section
 }
