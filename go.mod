@@ -21,6 +21,7 @@ require (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 )
 
+require github.com/seancfoley/ipaddress-go v1.5.5
 require gopkg.in/ini.v1 v1.67.0
 
 require (
@@ -42,6 +43,7 @@ require (
 	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/seancfoley/bintree v1.2.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
