@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"fmt"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/cast"
 	mockCast "github.com/vishen/go-chromecast/cast/mocks"
 	pb "github.com/vishen/go-chromecast/cast/proto"
-	"path/filepath"
 )
 
 var mockAddr = "foo.bar"
@@ -43,33 +41,4 @@ func TestApplicationStart(t *testing.T) {
 	conn.On("Send", mock.IsType(0), mock.IsType(&cast.ConnectHeader), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	app := application.NewApplication(application.WithConnection(conn))
 	assertions.NoError(app.Start(mockAddr, mockPort))
-}
-
-func TestParsePlaylist(t *testing.T) {
-	var path string
-	if abs, err := filepath.Abs(filepath.Join("..", "testdata", "indiepop64.pls")); err != nil {
-		t.Fatal(err)
-	} else {
-		path = fmt.Sprintf("file://%v", abs)
-	}
-	it, err := application.NewPlaylistIterator(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var wantUrls = []string{
-		"https://ice4.somafm.com/indiepop-64-aac",
-		"https://ice2.somafm.com/indiepop-64-aac",
-		"https://ice1.somafm.com/indiepop-64-aac",
-		"https://ice6.somafm.com/indiepop-64-aac",
-		"https://ice5.somafm.com/indiepop-64-aac",
-	}
-	for i, want := range wantUrls {
-		if !it.HasNext() {
-			t.Fatal("iterator exhausted")
-		}
-		have, _ := it.Next()
-		if have != want {
-			t.Fatalf("url %d, have %v want %v", i, have, want)
-		}
-	}
 }

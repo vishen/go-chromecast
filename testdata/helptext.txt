@@ -26,12 +26,14 @@ Available Commands:
   previous    Play the previous available media
   restart     Restart the currently playing media
   rewind      Rewind by seconds the currently playing media
+  scan        Scan for chromecast devices
   seek        Seek by seconds into the currently playing media
   seek-to     Seek to the <timestamp_in_seconds> in the currently playing media
   skipad      Skip the currently playing ad on the chromecast
   slideshow   Play a slideshow of photos
   status      Current chromecast status
   stop        Stop casting
+  togglepause Toggle paused/unpaused state. Aliases: tpause, playpause
   transcode   Transcode and play media on the chromecast
   tts         text-to-speech
   ui          Run the UI
