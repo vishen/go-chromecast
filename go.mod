@@ -22,6 +22,7 @@ require (
 )
 
 require github.com/seancfoley/ipaddress-go v1.5.5
+require gopkg.in/ini.v1 v1.67.0
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
@@ -52,7 +53,7 @@ require (
 	golang.org/x/tools v0.6.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/grpc v1.56.3 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/errgo.v2 v2.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
