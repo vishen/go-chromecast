@@ -5,13 +5,15 @@ import (
 	"testing"
 
 	"fmt"
+	"path/filepath"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/cast"
 	mockCast "github.com/vishen/go-chromecast/cast/mocks"
 	pb "github.com/vishen/go-chromecast/cast/proto"
-	"path/filepath"
+	"github.com/vishen/go-chromecast/playlists"
 )
 
 var mockAddr = "foo.bar"
@@ -52,7 +54,7 @@ func TestParsePlaylist(t *testing.T) {
 	} else {
 		path = fmt.Sprintf("file://%v", abs)
 	}
-	it, err := application.NewPlaylistIterator(path)
+	it, err := playlists.NewIterator(path)
 	if err != nil {
 		t.Fatal(err)
 	}

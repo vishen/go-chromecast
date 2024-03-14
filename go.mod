@@ -22,6 +22,7 @@ require (
 )
 
 require github.com/seancfoley/ipaddress-go v1.5.5
+
 require gopkg.in/ini.v1 v1.67.0
 
 require (
