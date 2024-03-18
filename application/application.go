@@ -25,7 +25,6 @@ import (
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/playlists"
 	"github.com/vishen/go-chromecast/storage"
-	"gopkg.in/ini.v1"
 	"path/filepath"
 )
 
@@ -1426,13 +1425,4 @@ func (a *Application) Transcode(contentType string, command string, args ...stri
 	// Wait until we have been notified that the media has finished playing
 	a.MediaWait()
 	return nil
-}
-
-// plsIterator is an iterator for playlist-files.
-// According to https://en.wikipedia.org/wiki/PLS_(file_format),
-// The format is case-sensitive and essentially that of an INI file.
-// It has entries on the form File1, Title1 etc.
-type plsIterator struct {
-	count    int
-	playlist *ini.Section
 }
