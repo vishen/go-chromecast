@@ -786,7 +786,7 @@ func (a *Application) Load(filenameOrUrl string, startTime int, contentType stri
 				filename:   url,
 				contentURL: url,
 			})
-			fmt.Printf("Adding url %v (%v)\n", url, title)
+			log.Infof("Adding url %v (%v)", url, title)
 		}
 		return a.QueueLoadItems(items, "")
 	}
