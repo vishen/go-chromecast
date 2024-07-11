@@ -327,3 +327,11 @@ $ go-chromecast tts <message_to_say> --google-service-account=/path/to/service/a
 ```
 
 List of available voices (voice-name) can be found here: https://cloud.google.com/text-to-speech/
+
+Use [SSML](https://cloud.google.com/text-to-speech/docs/ssml)
+
+```
+$ go-chromecast tts '<speak>Hello<break time="500ms"/>world.</speak>' \
+  --google-service-account=/path/to/service/account.json \
+  --ssml
+```

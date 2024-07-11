@@ -15,7 +15,7 @@ const (
 	timeout = time.Second * 10
 )
 
-func Create(sentence string, serviceAccountKey []byte, languageCode string, voiceName string, speakingRate float32, pitch float32) ([]byte, error) {
+func Create(sentence string, serviceAccountKey []byte, languageCode string, voiceName string, speakingRate float32, pitch float32, ssml bool) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -24,10 +24,15 @@ func Create(sentence string, serviceAccountKey []byte, languageCode string, voic
 		return nil, errors.Wrap(err, "unable to create texttospeech client")
 	}
 
+	input := texttospeechpb.SynthesisInput{}
+	if ssml {
+		input.InputSource = &texttospeechpb.SynthesisInput_Ssml{Ssml: sentence}
+	} else {
+		input.InputSource = &texttospeechpb.SynthesisInput_Text{Text: sentence}
+	}
+
 	req := texttospeechpb.SynthesizeSpeechRequest{
-		Input: &texttospeechpb.SynthesisInput{
-			InputSource: &texttospeechpb.SynthesisInput_Text{Text: sentence},
-		},
+		Input: &input,
 		Voice: &texttospeechpb.VoiceSelectionParams{
 			LanguageCode: languageCode,
 			Name:         voiceName,
