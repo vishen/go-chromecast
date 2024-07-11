@@ -43,6 +43,7 @@ var ttsCmd = &cobra.Command{
 		voiceName, _ := cmd.Flags().GetString("voice-name")
 		speakingRate, _ := cmd.Flags().GetFloat32("speaking-rate")
 		pitch, _ := cmd.Flags().GetFloat32("pitch")
+		ssml, _ := cmd.Flags().GetBool("ssml")
 
 		b, err := ioutil.ReadFile(googleServiceAccount)
 		if err != nil {
@@ -54,7 +55,7 @@ var ttsCmd = &cobra.Command{
 			exit("unable to get cast application: %v", err)
 		}
 
-		data, err := tts.Create(args[0], b, languageCode, voiceName, speakingRate, pitch)
+		data, err := tts.Create(args[0], b, languageCode, voiceName, speakingRate, pitch, ssml)
 		if err != nil {
 			exit("unable to create tts: %v", err)
 		}
@@ -85,4 +86,5 @@ func init() {
 	ttsCmd.Flags().String("voice-name", "en-US-Wavenet-G", "text-to-speech Voice (en-US-Wavenet-G, pl-PL-Wavenet-A, pl-PL-Wavenet-B, de-DE-Wavenet-A)")
 	ttsCmd.Flags().Float32("speaking-rate", 1.0, "speaking rate")
 	ttsCmd.Flags().Float32("pitch", 1.0, "pitch")
+	ttsCmd.Flags().Bool("ssml", false, "use SSML")
 }
