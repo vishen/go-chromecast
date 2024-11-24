@@ -45,13 +45,15 @@ type statusResponse struct {
 }
 
 func fromApplicationStatus(app *cast.Application, media *cast.Media, volume *cast.Volume) statusResponse {
-	status := statusResponse{
-		AppID:        app.AppId,
-		DisplayName:  app.DisplayName,
-		IsIdleScreen: app.IsIdleScreen,
-		StatusText:   app.StatusText,
-		SessionID:    app.SessionId,
-		TransportID:  app.TransportId,
+	status := statusResponse{}
+
+	if app != nil {
+		status.AppID = app.AppId
+		status.DisplayName = app.DisplayName
+		status.IsIdleScreen = app.IsIdleScreen
+		status.StatusText = app.StatusText
+		status.SessionID = app.SessionId
+		status.TransportID = app.TransportId
 	}
 
 	if media != nil {
