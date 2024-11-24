@@ -20,15 +20,17 @@ type Handler struct {
 	apps map[string]application.App
 	mux  *http.ServeMux
 
-	verbose bool
+	verbose     bool
+	autoconnect bool
 }
 
 func NewHandler(verbose bool) *Handler {
 	handler := &Handler{
-		verbose: verbose,
-		apps:    map[string]application.App{},
-		mux:     http.NewServeMux(),
-		mu:      sync.Mutex{},
+		verbose:     verbose,
+		apps:        map[string]application.App{},
+		mux:         http.NewServeMux(),
+		mu:          sync.Mutex{},
+		autoconnect: false,
 	}
 	handler.registerHandlers()
 	return handler
@@ -41,6 +43,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Serve(addr string) error {
 	log.Printf("starting http server on %s", addr)
 	return http.ListenAndServe(addr, h)
+}
+
+// Autoconnect configures the handler to perform auto-discovery of all the cast devices & groups.
+func (h *Handler) Autoconnect() error {
+	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
+	h.autoconnect = true
+	return h.connectAllInternal("", "3")
 }
 
 func (h *Handler) registerHandlers() {
@@ -241,25 +250,18 @@ func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
 	wait := q.Get("wait")
 	iface := q.Get("interface")
 
-	devices := h.discoverDnsEntries(context.Background(), iface, wait)
-	uuidMap := map[string]application.App{}
-	for _, device := range devices {
-		app, err := h.connectInternal(device.Addr, device.Port)
-		if err != nil {
-			h.log("error connecting: %v", err)
-			httpError(w, fmt.Errorf("unable to connect to device: %v", err))
-		}
-		uuidMap[device.UUID] = app
+	err := h.connectAllInternal(iface, wait)
+	if err != nil {
+		h.log("error connecting: %v", err)
+		httpError(w, fmt.Errorf("unable to connect to device: %v", err))
 	}
-
-	h.mu.Lock()
-	h.apps = uuidMap
-	h.mu.Unlock()
 
 	var resp []connectResponse
-	for deviceUUID, _ := range uuidMap {
+	h.mu.Lock()
+	for deviceUUID, _ := range h.apps {
 		resp = append(resp, connectResponse{DeviceUUID: deviceUUID})
 	}
+	h.mu.Unlock()
 
 	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -267,6 +269,23 @@ func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
 		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
 		return
 	}
+}
+
+func (h *Handler) connectAllInternal(iface string, waitSec string) error {
+	devices := h.discoverDnsEntries(context.Background(), iface, waitSec)
+	uuidMap := map[string]application.App{}
+	for _, device := range devices {
+		app, err := h.connectInternal(device.Addr, device.Port)
+		if err != nil {
+			return err
+		}
+		uuidMap[device.UUID] = app
+	}
+
+	h.mu.Lock()
+	h.apps = uuidMap
+	h.mu.Unlock()
+	return nil
 }
 
 func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
