@@ -45,8 +45,9 @@ func (h *Handler) Serve(addr string) error {
 
 func (h *Handler) registerHandlers() {
 	/*
-		GET /devices
+		GET /devices?wait=...&iface=...
 		POST /connect?uuid=<device_uuid>&addr=<device_addr>&port=<device_port>
+		POST /connect-all?wait=...&iface=...
 		POST /disconnect?uuid=<device_uuid>
 		POST /disconnect-all
 		POST /status?uuid=<device_uuid>
@@ -66,6 +67,7 @@ func (h *Handler) registerHandlers() {
 
 	h.mux.HandleFunc("/devices", h.listDevices)
 	h.mux.HandleFunc("/connect", h.connect)
+	h.mux.HandleFunc("/connect-all", h.connectAll)
 	h.mux.HandleFunc("/disconnect", h.disconnect)
 	h.mux.HandleFunc("/disconnect-all", h.disconnectAll)
 	h.mux.HandleFunc("/status", h.status)
@@ -201,13 +203,8 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	applicationOptions := []application.ApplicationOption{
-		application.WithDebug(h.verbose),
-		application.WithCacheDisabled(true),
-	}
-
-	app := application.NewApplication(applicationOptions...)
-	if err := app.Start(deviceAddr, devicePortI); err != nil {
+	app, err := h.connectInternal(deviceAddr, devicePortI)
+	if err != nil {
 		h.log("unable to start application: %v", err)
 		httpError(w, fmt.Errorf("unable to start application: %v", err))
 		return
@@ -222,7 +219,54 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
 		return
 	}
+}
 
+func (h *Handler) connectInternal(deviceAddr string, devicePort int) (application.App, error) {
+	applicationOptions := []application.ApplicationOption{
+		application.WithDebug(h.verbose),
+		application.WithCacheDisabled(true),
+	}
+
+	app := application.NewApplication(applicationOptions...)
+	if err := app.Start(deviceAddr, devicePort); err != nil {
+		return nil, err
+	}
+	return app, nil
+}
+
+func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
+	h.log("connecting all devices")
+	q := r.URL.Query()
+
+	wait := q.Get("wait")
+	iface := q.Get("interface")
+
+	devices := h.discoverDnsEntries(context.Background(), iface, wait)
+	uuidMap := map[string]application.App{}
+	for _, device := range devices {
+		app, err := h.connectInternal(device.Addr, device.Port)
+		if err != nil {
+			h.log("error connecting: %v", err)
+			httpError(w, fmt.Errorf("unable to connect to device: %v", err))
+		}
+		uuidMap[device.UUID] = app
+	}
+
+	h.mu.Lock()
+	h.apps = uuidMap
+	h.mu.Unlock()
+
+	var resp []connectResponse
+	for deviceUUID, _ := range uuidMap {
+		resp = append(resp, connectResponse{DeviceUUID: deviceUUID})
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.log("error encoding json: %v", err)
+		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
+		return
+	}
 }
 
 func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
