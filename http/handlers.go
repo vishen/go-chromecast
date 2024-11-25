@@ -60,7 +60,8 @@ func (h *Handler) registerHandlers() {
 		POST /connect-all?wait=...&iface=...
 		POST /disconnect?uuid=<device_uuid>
 		POST /disconnect-all
-		POST /status?uuid=<device_uuid>
+		GET /status?uuid=<device_uuid>
+		GET /statuses
 		POST /pause?uuid=<device_uuid>
 		POST /unpause?uuid=<device_uuid>
 		POST /skipad?uuid=<device_uuid>
@@ -81,6 +82,7 @@ func (h *Handler) registerHandlers() {
 	h.mux.HandleFunc("/disconnect", h.disconnect)
 	h.mux.HandleFunc("/disconnect-all", h.disconnectAll)
 	h.mux.HandleFunc("/status", h.status)
+	h.mux.HandleFunc("/statuses", h.statuses)
 	h.mux.HandleFunc("/pause", h.pause)
 	h.mux.HandleFunc("/unpause", h.unpause)
 	h.mux.HandleFunc("/skipad", h.skipad)
@@ -162,6 +164,17 @@ func (h *Handler) app(uuid string) (application.App, bool) {
 
 	app, ok := h.apps[uuid]
 	return app, ok
+}
+
+func (h *Handler) ConnectedDeviceUUIDs() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	var uuids []string
+	for k, _ := range h.apps {
+		uuids = append(uuids, k)
+	}
+	return uuids
 }
 
 func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
@@ -258,11 +271,9 @@ func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp []connectResponse
-	h.mu.Lock()
-	for deviceUUID, _ := range h.apps {
+	for _, deviceUUID := range h.ConnectedDeviceUUIDs() {
 		resp = append(resp, connectResponse{DeviceUUID: deviceUUID})
 	}
-	h.mu.Unlock()
 
 	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -347,6 +358,41 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(statusResponse); err != nil {
 		h.log("error encoding json: %v", err)
 		httpError(w, fmt.Errorf("unable to json encode devices: %v", err))
+		return
+	}
+}
+
+func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
+	h.log("statuses for devices")
+	uuids := h.ConnectedDeviceUUIDs()
+	mapUUID2Ch := map[string]chan statusResponse{}
+
+	for _, deviceUUID := range uuids {
+		app, ok := h.app(deviceUUID)
+		if ok {
+			ch := make(chan statusResponse, 1)
+			mapUUID2Ch[deviceUUID] = ch
+			go func() {
+				castApplication, castMedia, castVolume := app.Status()
+				ch <- fromApplicationStatus(
+					castApplication,
+					castMedia,
+					castVolume,
+				)
+			}()
+		}
+	}
+
+	statusResponses := map[string]statusResponse{}
+	for deviceUUID, ch := range mapUUID2Ch {
+		statusResponse := <-ch
+		statusResponses[deviceUUID] = statusResponse
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(statusResponses); err != nil {
+		h.log("error encoding json: %v", err)
+		httpError(w, fmt.Errorf("unable to json encode statuses: %v", err))
 		return
 	}
 }
