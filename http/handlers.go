@@ -36,6 +36,14 @@ func NewHandler(verbose bool) *Handler {
 	return handler
 }
 
+// Autoconnect configures the handler to perform auto-discovery of all the cast devices & groups.
+// It's intended to be called just after `NewHandler()`, before the handler is registered in the server.
+func (h *Handler) Autoconnect() error {
+	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
+	h.autoconnect = true
+	return h.connectAllInternal("", "3")
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
@@ -43,13 +51,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Serve(addr string) error {
 	log.Printf("starting http server on %s", addr)
 	return http.ListenAndServe(addr, h)
-}
-
-// Autoconnect configures the handler to perform auto-discovery of all the cast devices & groups.
-func (h *Handler) Autoconnect() error {
-	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
-	h.autoconnect = true
-	return h.connectAllInternal("", "3")
 }
 
 func (h *Handler) registerHandlers() {
