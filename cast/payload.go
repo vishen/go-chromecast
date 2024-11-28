@@ -101,6 +101,8 @@ type LoadMediaCommand struct {
 	Autoplay    bool        `json:"autoplay"`
 	QueueData   QueueData   `json:"queueData"`
 	CustomData  interface{} `json:"customData"`
+
+	ActiveTrackIds []int `json:"activeTrackIds"`
 }
 
 type QueueData struct {
@@ -108,11 +110,27 @@ type QueueData struct {
 }
 
 type MediaItem struct {
-	ContentId   string        `json:"contentId"`
-	ContentType string        `json:"contentType"`
-	StreamType  string        `json:"streamType"`
-	Duration    float32       `json:"duration"`
-	Metadata    MediaMetadata `json:"metadata"`
+	ContentId      string         `json:"contentId"`
+	ContentType    string         `json:"contentType"`
+	StreamType     string         `json:"streamType"`
+	Duration       float32        `json:"duration"`
+	Metadata       MediaMetadata  `json:"metadata"`
+	Tracks         []MediaTrack   `json:"tracks"`
+	TextTrackStyle TextTrackStyle `json:"textTrackStyle"`
+}
+type TextTrackStyle struct {
+	BackgroundColor string `json:"backgroundColor"`
+	EdgeType        string `json:"edgeType"`
+	EdgeColor       string `json:"edgeColor"`
+}
+type MediaTrack struct {
+	TrackId          int    `json:"trackId"`
+	TrackContentId   string `json:"trackContentId"`
+	Language         string `json:"language"`
+	Subtype          string `json:"subtype"`
+	Type             string `json:"type"`
+	TrackContentType string `json:"trackContentType"`
+	Name             string `json:"name"`
 }
 
 type MediaMetadata struct {
