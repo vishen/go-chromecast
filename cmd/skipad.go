@@ -17,9 +17,8 @@ var skipadCmd = &cobra.Command{
 		if err := app.Skipad(); err != nil {
 			exit("unable to skip current ad: %v\n", err)
 		}
-	
+
 	},
-	
 }
 
 func init() {

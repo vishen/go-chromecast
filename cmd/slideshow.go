@@ -17,8 +17,18 @@ package cmd
 import (
 	"os"
 
+	"io/fs"
+
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+
+	"path/filepath"
+	"strings"
 )
+
+type share struct {
+	files []string
+}
 
 // slideshowCmd represents the slideshow command
 var slideshowCmd = &cobra.Command{
@@ -26,26 +36,67 @@ var slideshowCmd = &cobra.Command{
 	Short: "Play a slideshow of photos",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			exit("requires files to play in slideshow")
+			exit("requires files (or directories) to play in slideshow")
 		}
+
+		s := &share{}
+
 		for _, arg := range args {
 			if fileInfo, err := os.Stat(arg); err != nil {
-				exit("unable to find %q: %v", arg, err)
+				log.Warn().Msgf("unable to find %q: %v", arg, err)
 			} else if fileInfo.Mode().IsDir() {
-				exit("%q is a directory", arg)
+				log.Debug().Msgf("%q is a directory", arg)
+
+				// recursively find files in directory
+				// TODO: this will consume large amounts of memory as it will hold references to each file (media item) to be served
+				filepath.WalkDir(arg, s.getFilesRecursively)
+			} else {
+				s.files = append(s.files, arg)
 			}
 		}
-		app, err := castApplication(cmd, args)
+
+		app, err := castApplication(cmd, s.files)
 		if err != nil {
 			exit("unable to get cast application: %v", err)
 		}
 
 		duration, _ := cmd.Flags().GetInt("duration")
 		repeat, _ := cmd.Flags().GetBool("repeat")
-		if err := app.Slideshow(args, duration, repeat); err != nil {
+		if err := app.Slideshow(s.files, duration, repeat); err != nil {
 			exit("unable to play slideshow on cast application: %v", err)
 		}
 	},
+}
+
+func (s *share) getFilesRecursively(path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		log.Warn().Msgf("Error checking file: %v | %v", path, err)
+		return nil
+	}
+
+	if !fileInfo.Mode().IsDir() {
+		if isSupportedImageType(path) {
+			s.files = append(s.files, path)
+		} else {
+			log.Warn().Msgf("excluding %s as it is not a supported image type", path)
+		}
+	}
+
+	return nil
+}
+
+func isSupportedImageType(path string) bool {
+	switch ext := strings.ToLower(filepath.Ext(path)); ext {
+	case ".jpg", ".jpeg", ".gif", ".bmp", ".png", ".webp":
+		return true
+	default:
+		return false
+	}
 }
 
 func init() {
