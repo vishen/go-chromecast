@@ -80,16 +80,23 @@ func (s *share) getFilesRecursively(path string, d fs.DirEntry, err error) error
 	}
 
 	if !fileInfo.Mode().IsDir() {
-		filename := path
-
-		if strings.HasSuffix(strings.ToLower(path), "jpg") {
-			s.files = append(s.files, filename)
+		if isSupportedImageType(path) {
+			s.files = append(s.files, path)
 		} else {
-			log.Warn().Msgf("excluding %s as it is not a jpeg", filename)
+			log.Warn().Msgf("excluding %s as it is not a supported image type", path)
 		}
 	}
 
 	return nil
+}
+
+func isSupportedImageType(path string) bool {
+	switch ext := strings.ToLower(filepath.Ext(path)); ext {
+	case ".jpg", ".jpeg", ".gif", ".bmp", ".png", ".webp":
+		return true
+	default:
+		return false
+	}
 }
 
 func init() {
