@@ -79,7 +79,9 @@ func DiscoverCastDNSEntryByName(ctx context.Context, iface *net.Interface, name 
 // DiscoverCastDNSEntries will return a channel with any cast dns entries
 // found.
 func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan CastEntry, error) {
-	var opts = []zeroconf.ClientOption{}
+	var opts = []zeroconf.ClientOption{
+		zeroconf.SelectIPTraffic(zeroconf.IPv4),
+	}
 	if iface != nil {
 		opts = append(opts, zeroconf.SelectIfaces([]net.Interface{*iface}))
 	}
