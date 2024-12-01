@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/dns"
@@ -348,7 +350,15 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	h.log("status for device")
 
 	castApplication, castMedia, castVolume := app.Status()
+	info, err := app.Info()
+	if err != nil {
+		werr := fmt.Errorf("error getting device info: %v", err)
+		h.log("%v", werr)
+		httpError(w, werr)
+		return
+	}
 	statusResponse := fromApplicationStatus(
+		info,
 		castApplication,
 		castMedia,
 		castVolume,
@@ -366,20 +376,26 @@ func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
 	h.log("statuses for devices")
 	uuids := h.ConnectedDeviceUUIDs()
 	mapUUID2Ch := map[string]chan statusResponse{}
-
+	g := new(errgroup.Group)
 	for _, deviceUUID := range uuids {
 		app, ok := h.app(deviceUUID)
 		if ok {
 			ch := make(chan statusResponse, 1)
 			mapUUID2Ch[deviceUUID] = ch
-			go func() {
+			g.Go(func() error {
 				castApplication, castMedia, castVolume := app.Status()
+				info, err := app.Info()
+				if err != nil {
+					return fmt.Errorf("error getting device info: %v", err)
+				}
 				ch <- fromApplicationStatus(
+					info,
 					castApplication,
 					castMedia,
 					castVolume,
 				)
-			}()
+				return nil
+			})
 		}
 	}
 

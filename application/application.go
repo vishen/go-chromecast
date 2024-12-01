@@ -20,7 +20,6 @@ import (
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
-
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/playlists"
@@ -66,6 +65,7 @@ type App interface {
 	Close(stopMedia bool) error
 	LoadApp(appID, contentID string) error
 	Status() (*cast.Application, *cast.Media, *cast.Volume)
+	Info() (*cast.DeviceInfo, error)
 	Update() error
 	Pause() error
 	Unpause() error
@@ -435,6 +435,15 @@ func (a *Application) Close(stopMedia bool) error {
 
 func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
 	return a.application, a.media, a.volumeReceiver
+}
+
+func (a *Application) Info() (*cast.DeviceInfo, error) {
+	addr, err := a.conn.RemoteAddr()
+
+	if err != nil {
+		return nil, err
+	}
+	return GetInfo(addr)
 }
 
 func (a *Application) Pause() error {
@@ -1120,6 +1129,10 @@ func (a *Application) getLocalIP() (string, error) {
 	}
 	return "", fmt.Errorf("Failed to get local ip address")
 }
+
+//func (a *Application)  Info() cmd.{
+//
+//}
 
 func (a *Application) startStreamingServer() error {
 	if a.httpServer != nil {
