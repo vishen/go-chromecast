@@ -108,6 +108,34 @@ func (_m *Conn) RemoteAddr() (string, error) {
 	return r0, r1
 }
 
+// RemotePort provides a mock function with given fields:
+func (_m *Conn) RemotePort() (string, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemotePort")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (string, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Send provides a mock function with given fields: requestID, payload, sourceID, destinationID, namespace
 func (_m *Conn) Send(requestID int, payload cast.Payload, sourceID string, destinationID string, namespace string) error {
 	ret := _m.Called(requestID, payload, sourceID, destinationID, namespace)

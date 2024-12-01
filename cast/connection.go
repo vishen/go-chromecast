@@ -32,6 +32,7 @@ type Conn interface {
 	SetDebug(debug bool)
 	LocalAddr() (addr string, err error)
 	RemoteAddr() (addr string, err error)
+	RemotePort() (addr string, err error)
 	Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error
 }
 
@@ -91,8 +92,13 @@ func (c *Connection) LocalAddr() (addr string, err error) {
 }
 
 func (c *Connection) RemoteAddr() (addr string, err error) {
-	host, _, err := net.SplitHostPort(c.conn.RemoteAddr().String())
-	return host, err
+	addr, _, err = net.SplitHostPort(c.conn.RemoteAddr().String())
+	return addr, err
+}
+
+func (c *Connection) RemotePort() (port string, err error) {
+	_, port, err = net.SplitHostPort(c.conn.RemoteAddr().String())
+	return port, err
 }
 
 func (c *Connection) log(message string, args ...interface{}) {

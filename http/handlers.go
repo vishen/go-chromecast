@@ -125,6 +125,7 @@ func (h *Handler) discoverDnsEntries(ctx context.Context, iface string, waitq st
 	}
 
 	for d := range devicesChan {
+		log.Printf("Device: %#v", d)
 		devices = append(devices, device{
 			Addr:       d.AddrV4.String(),
 			Port:       d.Port,
@@ -196,10 +197,11 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 
 	deviceAddr := q.Get("addr")
 	devicePort := q.Get("port")
+	deviceName := q.Get("name")
 	iface := q.Get("interface")
 	wait := q.Get("wait")
 
-	if deviceAddr == "" || devicePort == "" {
+	if deviceAddr == "" || devicePort == "" || (deviceName == "" && devicePort != "8009") {
 		h.log("device addr and/or port are missing, trying to lookup address for uuid %q", deviceUUID)
 
 		devices := h.discoverDnsEntries(context.Background(), iface, wait)
@@ -210,6 +212,7 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 				// TODO: This is an unnessecary conversion since
 				// we cast back to int a bit later.
 				devicePort = strconv.Itoa(device.Port)
+				deviceName = device.DeviceName
 			}
 		}
 	}
@@ -228,7 +231,7 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app, err := h.connectInternal(deviceAddr, devicePortI)
+	app, err := h.connectInternal(deviceAddr, devicePortI, deviceName)
 	if err != nil {
 		h.log("unable to start application: %v", err)
 		httpError(w, fmt.Errorf("unable to start application: %v", err))
@@ -246,10 +249,13 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) connectInternal(deviceAddr string, devicePort int) (application.App, error) {
+func (h *Handler) connectInternal(deviceAddr string, devicePort int, deviceName string) (application.App, error) {
 	applicationOptions := []application.ApplicationOption{
 		application.WithDebug(h.verbose),
 		application.WithCacheDisabled(true),
+	}
+	if deviceName != "" {
+		applicationOptions = append(applicationOptions, application.WithDeviceNameOverride(deviceName))
 	}
 
 	app := application.NewApplication(applicationOptions...)
@@ -289,7 +295,7 @@ func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 	devices := h.discoverDnsEntries(context.Background(), iface, waitSec)
 	uuidMap := map[string]application.App{}
 	for _, device := range devices {
-		app, err := h.connectInternal(device.Addr, device.Port)
+		app, err := h.connectInternal(device.Addr, device.Port, device.DeviceName)
 		if err != nil {
 			return err
 		}

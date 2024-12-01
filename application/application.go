@@ -93,6 +93,9 @@ type Application struct {
 	conn  cast.Conn
 	debug bool
 
+	// Device name override (originating e.g. from mdns lookup).
+	deviceNameOverride string
+
 	// Internal mapping of request id to result channel
 	resultChanMap map[int]chan *pb.CastMessage
 
@@ -187,6 +190,12 @@ func WithSkipadRetries(retries int) ApplicationOption {
 	}
 }
 
+func WithDeviceNameOverride(deviceName string) ApplicationOption {
+	return func(a *Application) {
+		a.SetDeviceNameOverride(deviceName)
+	}
+}
+
 func NewApplication(opts ...ApplicationOption) *Application {
 	a := &Application{
 		conn:              cast.NewConnection(),
@@ -222,6 +231,10 @@ func (a *Application) SetIface(iface *net.Interface)       { a.iface = iface }
 
 func (a *Application) SetSkipadSleep(sleep time.Duration) { a.skipadSleep = sleep }
 func (a *Application) SetSkipadRetries(retries int)       { a.skipadRetries = retries }
+
+func (a *Application) SetDeviceNameOverride(deviceName string) {
+	a.deviceNameOverride = deviceName
+}
 
 func (a *Application) App() *cast.Application { return a.application }
 func (a *Application) Media() *cast.Media     { return a.media }
@@ -439,11 +452,18 @@ func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
 
 func (a *Application) Info() (*cast.DeviceInfo, error) {
 	addr, err := a.conn.RemoteAddr()
-
 	if err != nil {
 		return nil, err
 	}
-	return GetInfo(addr)
+	info, err := GetInfo(addr)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("deviceNameOverride: %s", a.deviceNameOverride)
+	if len(a.deviceNameOverride) > 0 {
+		info.Name = a.deviceNameOverride
+	}
+	return info, err
 }
 
 func (a *Application) Pause() error {
