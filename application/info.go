@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/vishen/go-chromecast/cast"
@@ -19,7 +18,6 @@ func GetInfo(ip string) (info *cast.DeviceInfo, err error) {
 	// Note: Services exposed not on 8009 port are "Google Cast Group"s
 	// The only way to find the true device (group) name, is using mDNS outside of this function.
 	url := fmt.Sprintf("http://%v:8008/setup/eureka_info", ip)
-	log.Printf("Fetching: %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err

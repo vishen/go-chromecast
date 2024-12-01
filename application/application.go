@@ -463,7 +463,6 @@ func (a *Application) Info() (*cast.DeviceInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("deviceNameOverride: %s", a.deviceNameOverride)
 	if len(a.deviceNameOverride) > 0 {
 		info.Name = a.deviceNameOverride
 	}

@@ -125,7 +125,6 @@ func (h *Handler) discoverDnsEntries(ctx context.Context, iface string, waitq st
 	}
 
 	for d := range devicesChan {
-		log.Printf("Device: %#v", d)
 		devices = append(devices, device{
 			Addr:       d.AddrV4.String(),
 			Port:       d.Port,
