@@ -398,6 +398,10 @@ func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := g.Wait(); err != nil {
+		h.log("%v", err)
+		httpError(w, err)
+	}
 
 	statusResponses := map[string]statusResponse{}
 	for deviceUUID, ch := range mapUUID2Ch {
