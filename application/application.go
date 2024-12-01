@@ -110,6 +110,7 @@ type Application struct {
 	// Current values from the chromecast.
 	application *cast.Application // It is possible that there is no current application, can happen for google home.
 	media       *cast.Media
+	info        *cast.DeviceInfo
 	// There seems to be two different volumes returned from the chromecast,
 	// one for the receiver and one for the playing media. It looks we update
 	// the receiver volume from go-chromecast, so we should use that one. But
@@ -451,6 +452,9 @@ func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
 }
 
 func (a *Application) Info() (*cast.DeviceInfo, error) {
+	if a.info != nil {
+		return a.info, nil
+	}
 	addr, err := a.conn.RemoteAddr()
 	if err != nil {
 		return nil, err
@@ -463,6 +467,7 @@ func (a *Application) Info() (*cast.DeviceInfo, error) {
 	if len(a.deviceNameOverride) > 0 {
 		info.Name = a.deviceNameOverride
 	}
+	a.info = info
 	return info, err
 }
 
