@@ -20,37 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"encoding/json"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"github.com/spf13/cobra"
-	"io"
-	"net/http"
+	"github.com/vishen/go-chromecast/application"
 )
-
-type deviceInfo struct {
-	Name string
-}
-
-// getInfo uses the http://<ip>:8008/setup/eureka_endpoint to obtain more
-// information about the cast-device.
-// OBS: The 8008 seems to be pure http, whereas 8009 is typically the port
-// to use for protobuf-communication
-func getInfo(ip *ipaddr.IPAddress) (info *deviceInfo, err error) {
-	resp, err := http.Get(fmt.Sprintf("http://%v:8008/setup/eureka_info", ip))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	info = new(deviceInfo)
-	if err := json.Unmarshal(data, info); err != nil {
-		return nil, err
-	}
-	return info, nil
-}
 
 // scanCmd triggers a scan
 var scanCmd = &cobra.Command{
@@ -98,7 +71,7 @@ var scanCmd = &cobra.Command{
 						continue
 					}
 					conn.Close()
-					if info, err := getInfo(ip); err != nil {
+					if info, err := application.GetInfo(ip.String()); err != nil {
 						outputInfo("  - Device at %v:%d errored during discovery: %v", ip, port, err)
 					} else {
 						outputInfo("  - '%v' at %v:%d\n", info.Name, ip, port)

@@ -12,6 +12,8 @@ type volumeResponse struct {
 }
 
 type statusResponse struct {
+	Info *cast.DeviceInfo `json:"info,omitempty"`
+
 	AppID        string `json:"app_id"`
 	DisplayName  string `json:"display_name"`
 	IsIdleScreen bool   `json:"is_idle_screen"`
@@ -44,8 +46,12 @@ type statusResponse struct {
 	PlayerStateId int `json:"player_state_id"`
 }
 
-func fromApplicationStatus(app *cast.Application, media *cast.Media, volume *cast.Volume) statusResponse {
+func fromApplicationStatus(info *cast.DeviceInfo, app *cast.Application, media *cast.Media, volume *cast.Volume) statusResponse {
 	status := statusResponse{}
+
+	if info != nil {
+		status.Info = info
+	}
 
 	if app != nil {
 		status.AppID = app.AppId

@@ -156,3 +156,13 @@ type SetVolume struct {
 	PayloadHeader
 	Volume Volume `json:"volume"`
 }
+
+type DeviceInfo struct {
+	Name       string  `json:"name"`
+	IpAddress  string  `json:"ip_address"`
+	Locale     string  `json:"locale"`
+	MacAddress string  `json:"mac_address"`
+	Ssid       string  `json:"ssid"`
+	Timezone   string  `json:"timezone"`
+	UptimeSec  float64 `json:"uptime"`
+}

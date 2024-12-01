@@ -20,7 +20,6 @@ import (
 
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
-
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/playlists"
@@ -66,6 +65,7 @@ type App interface {
 	Close(stopMedia bool) error
 	LoadApp(appID, contentID string) error
 	Status() (*cast.Application, *cast.Media, *cast.Volume)
+	Info() (*cast.DeviceInfo, error)
 	Update() error
 	Pause() error
 	Unpause() error
@@ -93,6 +93,9 @@ type Application struct {
 	conn  cast.Conn
 	debug bool
 
+	// Device name override (originating e.g. from mdns lookup).
+	deviceNameOverride string
+
 	// Internal mapping of request id to result channel
 	resultChanMap map[int]chan *pb.CastMessage
 
@@ -107,6 +110,7 @@ type Application struct {
 	// Current values from the chromecast.
 	application *cast.Application // It is possible that there is no current application, can happen for google home.
 	media       *cast.Media
+	info        *cast.DeviceInfo
 	// There seems to be two different volumes returned from the chromecast,
 	// one for the receiver and one for the playing media. It looks we update
 	// the receiver volume from go-chromecast, so we should use that one. But
@@ -187,6 +191,12 @@ func WithSkipadRetries(retries int) ApplicationOption {
 	}
 }
 
+func WithDeviceNameOverride(deviceName string) ApplicationOption {
+	return func(a *Application) {
+		a.SetDeviceNameOverride(deviceName)
+	}
+}
+
 func NewApplication(opts ...ApplicationOption) *Application {
 	a := &Application{
 		conn:              cast.NewConnection(),
@@ -222,6 +232,10 @@ func (a *Application) SetIface(iface *net.Interface)       { a.iface = iface }
 
 func (a *Application) SetSkipadSleep(sleep time.Duration) { a.skipadSleep = sleep }
 func (a *Application) SetSkipadRetries(retries int)       { a.skipadRetries = retries }
+
+func (a *Application) SetDeviceNameOverride(deviceName string) {
+	a.deviceNameOverride = deviceName
+}
 
 func (a *Application) App() *cast.Application { return a.application }
 func (a *Application) Media() *cast.Media     { return a.media }
@@ -435,6 +449,25 @@ func (a *Application) Close(stopMedia bool) error {
 
 func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
 	return a.application, a.media, a.volumeReceiver
+}
+
+func (a *Application) Info() (*cast.DeviceInfo, error) {
+	if a.info != nil {
+		return a.info, nil
+	}
+	addr, err := a.conn.RemoteAddr()
+	if err != nil {
+		return nil, err
+	}
+	info, err := GetInfo(addr)
+	if err != nil {
+		return nil, err
+	}
+	if len(a.deviceNameOverride) > 0 {
+		info.Name = a.deviceNameOverride
+	}
+	a.info = info
+	return info, err
 }
 
 func (a *Application) Pause() error {
