@@ -1150,10 +1150,6 @@ func (a *Application) getLocalIP() (string, error) {
 	return "", fmt.Errorf("Failed to get local ip address")
 }
 
-//func (a *Application)  Info() cmd.{
-//
-//}
-
 func (a *Application) startStreamingServer() error {
 	if a.httpServer != nil {
 		return nil
