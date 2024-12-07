@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"net"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
@@ -24,6 +23,9 @@ type Handler struct {
 
 	verbose     bool
 	autoconnect bool
+	// autoupdatePeriodSec defines how frequently app.Update method is called in the background.
+	autoupdatePeriod time.Duration
+	autoupdateTicker *time.Ticker
 }
 
 func NewHandler(verbose bool) *Handler {
@@ -33,6 +35,9 @@ func NewHandler(verbose bool) *Handler {
 		mux:         http.NewServeMux(),
 		mu:          sync.Mutex{},
 		autoconnect: false,
+
+		autoupdatePeriod: time.Duration(-1),
+		autoupdateTicker: nil,
 	}
 	handler.registerHandlers()
 	return handler
@@ -44,6 +49,24 @@ func (h *Handler) Autoconnect() error {
 	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
 	h.autoconnect = true
 	return h.connectAllInternal("", "3")
+}
+
+// AutoUpdate configures the handler to perform auto-update of all the cast devices & groups.
+// It's intended to be called just after `NewHandler()`, before the handler is registered in the server.
+// Thanks to AutoUpdate, /status and /statuses returns relatively recent status 'instantly'.
+func (h *Handler) AutoUpdate(period time.Duration) error {
+	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
+	h.autoupdatePeriod = period
+	h.autoupdateTicker = time.NewTicker(period)
+	go func() {
+		for {
+			<-h.autoupdateTicker.C
+			if err := h.UpdateAll(); err != nil {
+				log.Printf("AutoUpdate issued UpdateAll failed: %v", err)
+			}
+		}
+	}()
+	return nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -353,7 +376,14 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.log("status for device")
-
+	syncUpdate := r.URL.Query().Get("syncUpdate") == "true"
+	if syncUpdate {
+		if err := app.Update(); err != nil {
+			h.log("error updating  status: %v", err)
+			httpError(w, fmt.Errorf("error updating status: %w", err))
+			return
+		}
+	}
 	castApplication, castMedia, castVolume := app.Status()
 	info, err := app.Info()
 	if err != nil {
@@ -377,8 +407,21 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) UpdateAll() error {
+	uuids := h.ConnectedDeviceUUIDs()
+	g := new(errgroup.Group)
+	for _, deviceUUID := range uuids {
+		app, ok := h.app(deviceUUID)
+		if ok {
+			g.Go(func() error { return app.Update() })
+		}
+	}
+	return g.Wait()
+}
+
 func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
 	h.log("statuses for devices")
+	syncUpdate := r.URL.Query().Get("syncUpdate") == "true"
 	uuids := h.ConnectedDeviceUUIDs()
 	mapUUID2Ch := map[string]chan statusResponse{}
 	g := new(errgroup.Group)
@@ -388,6 +431,11 @@ func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
 			ch := make(chan statusResponse, 1)
 			mapUUID2Ch[deviceUUID] = ch
 			g.Go(func() error {
+				if syncUpdate {
+					if err := app.Update(); err != nil {
+						return err
+					}
+				}
 				castApplication, castMedia, castVolume := app.Status()
 				info, err := app.Info()
 				if err != nil {
@@ -404,8 +452,9 @@ func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := g.Wait(); err != nil {
-		h.log("%v", err)
-		httpError(w, err)
+		h.log("collecting statuses failed: %v", err)
+		httpError(w, fmt.Errorf("collecting statuses failed: %w", err))
+		return
 	}
 
 	statusResponses := map[string]statusResponse{}
