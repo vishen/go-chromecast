@@ -165,4 +165,5 @@ type DeviceInfo struct {
 	Ssid       string  `json:"ssid"`
 	Timezone   string  `json:"timezone"`
 	UptimeSec  float64 `json:"uptime"`
+	SsdpUdn    string  `json:"ssdp_udn"`
 }
