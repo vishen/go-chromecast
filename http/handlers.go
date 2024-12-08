@@ -21,8 +21,11 @@ type Handler struct {
 	apps map[string]application.App
 	mux  *http.ServeMux
 
-	verbose     bool
-	autoconnect bool
+	verbose bool
+
+	autoconnectPeriod time.Duration
+	autoconnectTicker *time.Ticker
+
 	// autoupdatePeriodSec defines how frequently app.Update method is called in the background.
 	autoupdatePeriod time.Duration
 	autoupdateTicker *time.Ticker
@@ -30,11 +33,13 @@ type Handler struct {
 
 func NewHandler(verbose bool) *Handler {
 	handler := &Handler{
-		verbose:     verbose,
-		apps:        map[string]application.App{},
-		mux:         http.NewServeMux(),
-		mu:          sync.Mutex{},
-		autoconnect: false,
+		verbose: verbose,
+		apps:    map[string]application.App{},
+		mux:     http.NewServeMux(),
+		mu:      sync.Mutex{},
+
+		autoconnectPeriod: time.Duration(-1),
+		autoconnectTicker: nil,
 
 		autoupdatePeriod: time.Duration(-1),
 		autoupdateTicker: nil,
@@ -43,12 +48,26 @@ func NewHandler(verbose bool) *Handler {
 	return handler
 }
 
-// Autoconnect configures the handler to perform auto-discovery of all the cast devices & groups.
+// AutoConnect configures the handler to perform periodic auto-discovery of all the cast devices & groups.
 // It's intended to be called just after `NewHandler()`, before the handler is registered in the server.
-func (h *Handler) Autoconnect() error {
+func (h *Handler) AutoConnect(period time.Duration) error {
 	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
-	h.autoconnect = true
-	return h.connectAllInternal("", "3")
+	h.autoconnectPeriod = period
+	if err := h.connectAllInternal("", "3"); err != nil {
+		return err
+	}
+	if h.autoconnectPeriod > 0 {
+		h.autoconnectTicker = time.NewTicker(period)
+		go func() {
+			for {
+				<-h.autoconnectTicker.C
+				if err := h.connectAllInternal("", "3"); err != nil {
+					log.Printf("AutoConnect issued connectAllInternal failed: %v", err)
+				}
+			}
+		}()
+	}
+	return nil
 }
 
 // AutoUpdate configures the handler to perform auto-update of all the cast devices & groups.
@@ -57,15 +76,17 @@ func (h *Handler) Autoconnect() error {
 func (h *Handler) AutoUpdate(period time.Duration) error {
 	// Setting the autoconnect property - to allow (in future) periodic refresh of the connections.
 	h.autoupdatePeriod = period
-	h.autoupdateTicker = time.NewTicker(period)
-	go func() {
-		for {
-			<-h.autoupdateTicker.C
-			if err := h.UpdateAll(); err != nil {
-				log.Printf("AutoUpdate issued UpdateAll failed: %v", err)
+	if h.autoupdatePeriod > 0 {
+		h.autoupdateTicker = time.NewTicker(period)
+		go func() {
+			for {
+				<-h.autoupdateTicker.C
+				if err := h.UpdateAll(); err != nil {
+					log.Printf("AutoUpdate issued UpdateAll failed: %v", err)
+				}
 			}
-		}
-	}()
+		}()
+	}
 	return nil
 }
 
@@ -609,7 +630,7 @@ func (h *Handler) rewind(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	seconds := q.Get("seconds")
 	if seconds == "" {
-		httpValidationError(w, "missing 'seconds' in query paramater")
+		httpValidationError(w, "missing 'seconds' in query parameter")
 		return
 	}
 
@@ -638,7 +659,7 @@ func (h *Handler) seek(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	seconds := q.Get("seconds")
 	if seconds == "" {
-		httpValidationError(w, "missing 'seconds' in query paramater")
+		httpValidationError(w, "missing 'seconds' in query parameter")
 		return
 	}
 
