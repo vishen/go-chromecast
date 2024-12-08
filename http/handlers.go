@@ -339,19 +339,22 @@ func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 	ctx := context.Background()
 	devices := h.discoverDnsEntries(ctx, iface, waitSec)
 	apps := make(chan *application.App, len(devices)+1)
-	//
 	g, ctx := errgroup.WithContext(ctx)
 	for _, device := range devices {
 		g.Go(func() error {
+			log.Printf("Connecting to %s:%d (%s)", device.Addr, device.Port, device.DeviceName)
 			app, err := h.connectInternal(device.Addr, device.Port, device.DeviceName)
 			if err != nil {
+				log.Printf("Connection to %s:%d (%s) failed: %v", device.Addr, device.Port, device.DeviceName, err)
 				return err
 			}
+			log.Printf("Connected to %s:%d (%s)", device.Addr, device.Port, device.DeviceName)
 			apps <- &app
 			return nil
 		})
 	}
 	err := g.Wait()
+	log.Printf("Post wait status: %v", err)
 	close(apps)
 
 	// Even if we cannot connect to some of the devices, we still update the map for remaining devices.
@@ -359,9 +362,10 @@ func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 	for app := range apps {
 		info, err := (*app).Info()
 		if err != nil {
-			return err
+			log.Printf("Skipping device %v", app)
+		} else {
+			uuidMap[strings.ReplaceAll(info.SsdpUdn, "-", "")] = *app
 		}
-		uuidMap[strings.ReplaceAll(info.SsdpUdn, "-", "")] = *app
 	}
 
 	h.mu.Lock()
