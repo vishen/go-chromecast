@@ -335,20 +335,26 @@ func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) connectAllInternal(iface string, waitSec string) error {
-	devices := h.discoverDnsEntries(context.Background(), iface, waitSec)
+	ctx := context.Background()
+	devices := h.discoverDnsEntries(ctx, iface, waitSec)
 	uuidMap := map[string]application.App{}
+	g, ctx := errgroup.WithContext(ctx)
 	for _, device := range devices {
-		app, err := h.connectInternal(device.Addr, device.Port, device.DeviceName)
-		if err != nil {
-			return err
-		}
-		uuidMap[device.UUID] = app
+		g.Go(func() error {
+			app, err := h.connectInternal(device.Addr, device.Port, device.DeviceName)
+			if err != nil {
+				return err
+			}
+			uuidMap[device.UUID] = app
+			return nil
+		})
 	}
-
+	err := g.Wait()
 	h.mu.Lock()
+	// Even if we cannot connect to some of the devices, we still update the map for remaining devices.
 	h.apps = uuidMap
 	h.mu.Unlock()
-	return nil
+	return err
 }
 
 func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
