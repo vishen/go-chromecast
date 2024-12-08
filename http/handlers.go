@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -337,7 +338,8 @@ func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 	ctx := context.Background()
 	devices := h.discoverDnsEntries(ctx, iface, waitSec)
-	uuidMap := map[string]application.App{}
+	apps := make(chan *application.App, len(devices)+1)
+	//
 	g, ctx := errgroup.WithContext(ctx)
 	for _, device := range devices {
 		g.Go(func() error {
@@ -345,13 +347,24 @@ func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 			if err != nil {
 				return err
 			}
-			uuidMap[device.UUID] = app
+			apps <- &app
 			return nil
 		})
 	}
 	err := g.Wait()
-	h.mu.Lock()
+	close(apps)
+
 	// Even if we cannot connect to some of the devices, we still update the map for remaining devices.
+	uuidMap := map[string]application.App{}
+	for app := range apps {
+		info, err := (*app).Info()
+		if err != nil {
+			return err
+		}
+		uuidMap[strings.ReplaceAll(info.SsdpUdn, "-", "")] = *app
+	}
+
+	h.mu.Lock()
 	h.apps = uuidMap
 	h.mu.Unlock()
 	return err
