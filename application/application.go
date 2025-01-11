@@ -785,7 +785,7 @@ func (a *Application) castPlayableContentType(contentType string) bool {
 	switch contentType {
 	case "image/apng", "image/bmp", "image/gif", "image/jpeg", "image/png", "image/webp":
 		return true
-	case "audio/mp2t", "audio/mp3", "audio/mp4", "audio/ogg", "audio/wav", "audio/webm":
+	case "audio/mp2t", "audio/mpeg", "audio/mp3", "audio/mp4", "audio/ogg", "audio/wav", "audio/webm":
 		return true
 	case "video/mp4", "video/webm":
 		return true
