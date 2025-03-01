@@ -86,6 +86,8 @@ Available Commands:
   unmute      Unmute the chromecast
   unpause     Unpause the currently playing media on the chromecast
   volume      Get or set volume
+  volume-down Turn down volume
+  volume-up   Turn up volume
   watch       Watch all events sent from a chromecast device
 
 Flags:
@@ -201,6 +203,9 @@ $ go-chromecast volume
 
 # Set the volume level
 $ go-chromecast volume 0.55
+
+# Turn up the volume
+$ go-chromecast volume-up --step 0.10
 
 # View what messages a cast device is sending out.
 $ go-chromecast watch
