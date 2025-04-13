@@ -23,14 +23,20 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop casting",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.Stop(); err != nil {
-			exit("unable to stop casting: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Stop()
 	},
+}
+
+// Stop exports the stop command
+func (a *App) Stop() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Stop(); err != nil {
+		exit("unable to stop casting: %v", err)
+	}
 }
 
 func init() {

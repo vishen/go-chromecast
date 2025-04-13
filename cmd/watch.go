@@ -37,70 +37,76 @@ var watchCmd = &cobra.Command{
 		retries, _ := cmd.Flags().GetInt("retries")
 		output, _ := cmd.Flags().GetString("output")
 
-		o := outputNormal
-		if strings.ToLower(output) == "json" {
-			o = outputJSON
+		app := NewCast(cmd)
+		app.Watch(interval, retries, output)
+	},
+}
+
+// Watch exports the watch command
+func (a *App) Watch(interval, retries int, output string) {
+	o := outputNormal
+	if strings.ToLower(output) == "json" {
+		o = outputJSON
+	}
+
+	for range retries {
+		retry := false
+		app, err := a.castApplication()
+		if err != nil {
+			outputError("unable to get cast application: %v", err)
+			time.Sleep(time.Second * 10)
+			continue
 		}
-
-		for i := 0; i < retries; i++ {
-			retry := false
-			app, err := castApplication(cmd, args)
-			if err != nil {
-				outputError("unable to get cast application: %v", err)
-				time.Sleep(time.Second * 10)
-				continue
-			}
-			done := make(chan struct{}, 1)
-			go func() {
-				for {
-					if err := app.Update(); err != nil {
-						outputError("unable to update cast application: %v", err)
-						retry = true
-						close(done)
-						return
-					}
-					outputStatus(app, o)
-					time.Sleep(time.Second * time.Duration(interval))
-				}
-			}()
-
-			app.AddMessageFunc(func(msg *pb.CastMessage) {
-				protocolVersion := msg.GetProtocolVersion()
-				sourceID := msg.GetSourceId()
-				destID := msg.GetDestinationId()
-				namespace := msg.GetNamespace()
-
-				payload := msg.GetPayloadUtf8()
-				payloadBytes := []byte(payload)
-				requestID, _ := jsonparser.GetInt(payloadBytes, "requestId")
-				messageType, _ := jsonparser.GetString(payloadBytes, "type")
-				// Only log requests that are broadcasted from the chromecast.
-				if requestID != 0 {
+		done := make(chan struct{}, 1)
+		go func() {
+			for {
+				if err := app.Update(); err != nil {
+					outputError("unable to update cast application: %v", err)
+					retry = true
+					close(done)
 					return
 				}
-
-				switch o {
-				case outputJSON:
-					json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
-						"type":           messageType,
-						"proto_version":  protocolVersion,
-						"namespace":      namespace,
-						"source_id":      sourceID,
-						"destination_id": destID,
-						"payload":        payload,
-					})
-				case outputNormal:
-					outputInfo("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s", messageType, protocolVersion, namespace, sourceID, destID, payload)
-				}
-			})
-			<-done
-			if retry {
-				// Sleep a little bit in-between retries
-				outputInfo("attempting a retry...")
-				time.Sleep(time.Second * 10)
+				outputStatus(app, o)
+				time.Sleep(time.Second * time.Duration(interval))
 			}
+		}()
+
+		app.AddMessageFunc(func(msg *pb.CastMessage) {
+			protocolVersion := msg.GetProtocolVersion()
+			sourceID := msg.GetSourceId()
+			destID := msg.GetDestinationId()
+			namespace := msg.GetNamespace()
+
+			payload := msg.GetPayloadUtf8()
+			payloadBytes := []byte(payload)
+			requestID, _ := jsonparser.GetInt(payloadBytes, "requestId")
+			messageType, _ := jsonparser.GetString(payloadBytes, "type")
+			// Only log requests that are broadcasted from the chromecast.
+			if requestID != 0 {
+				return
+			}
+
+			switch o {
+			case outputJSON:
+				json.NewEncoder(os.Stdout).Encode(map[string]any{
+					"type":           messageType,
+					"proto_version":  protocolVersion,
+					"namespace":      namespace,
+					"source_id":      sourceID,
+					"destination_id": destID,
+					"payload":        payload,
+				})
+			case outputNormal:
+				outputInfo("CHROMECAST BROADCAST MESSAGE: type=%s proto=%s (namespace=%s) %s -> %s | %s", messageType, protocolVersion, namespace, sourceID, destID, payload)
+			}
+		})
+		<-done
+		if retry {
+			// Sleep a little bit in-between retries
+			outputInfo("attempting a retry...")
+			time.Sleep(time.Second * 10)
 		}
-	},
+	}
 }
 
 type outputType int
@@ -115,7 +121,7 @@ func outputStatus(app application.App, outputType outputType) {
 
 	switch outputType {
 	case outputJSON:
-		json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+		json.NewEncoder(os.Stdout).Encode(map[string]any{
 			"application": castApplication,
 			"media":       castMedia,
 			"volume":      castVolume,

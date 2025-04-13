@@ -25,21 +25,27 @@ var seekCmd = &cobra.Command{
 	Use:   "seek <delta_in_seconds>",
 	Short: "Seek by seconds into the currently playing media",
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			exit("one argument required")
-		}
-		value, err := strconv.Atoi(args[0])
-		if err != nil {
-			exit("unable to parse %q to an integer", args[0])
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.Seek(value); err != nil {
-			exit("unable to seek current media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Seek(args)
 	},
+}
+
+// Seek exports the seek command
+func (a *App) Seek(args []string) {
+	if len(args) != 1 {
+		exit("one argument required")
+	}
+	value, err := strconv.Atoi(args[0])
+	if err != nil {
+		exit("unable to parse %q to an integer", args[0])
+	}
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Seek(value); err != nil {
+		exit("unable to seek current media: %v", err)
+	}
 }
 
 func init() {

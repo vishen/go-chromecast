@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -27,56 +26,77 @@ var ttsCmd = &cobra.Command{
 	Use:   "tts <message>",
 	Short: "text-to-speech",
 	Run: func(cmd *cobra.Command, args []string) {
+		GoogleServiceAccount, _ := cmd.Flags().GetString("google-service-account")
+		LanguageCode, _ := cmd.Flags().GetString("language-code")
+		VoiceName, _ := cmd.Flags().GetString("voice-name")
+		SpeakingRate, _ := cmd.Flags().GetFloat32("speaking-rate")
+		Pitch, _ := cmd.Flags().GetFloat32("pitch")
+		Ssml, _ := cmd.Flags().GetBool("ssml")
 
-		if len(args) != 1 || args[0] == "" {
-			exit("expected exactly one argument to convert to speech")
-			return
-		}
-
-		googleServiceAccount, _ := cmd.Flags().GetString("google-service-account")
-		if googleServiceAccount == "" {
-			exit("--google-service-account is required")
-			return
-		}
-
-		languageCode, _ := cmd.Flags().GetString("language-code")
-		voiceName, _ := cmd.Flags().GetString("voice-name")
-		speakingRate, _ := cmd.Flags().GetFloat32("speaking-rate")
-		pitch, _ := cmd.Flags().GetFloat32("pitch")
-		ssml, _ := cmd.Flags().GetBool("ssml")
-
-		b, err := ioutil.ReadFile(googleServiceAccount)
-		if err != nil {
-			exit("unable to open google service account file: %v", err)
-		}
-
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
-		data, err := tts.Create(args[0], b, languageCode, voiceName, speakingRate, pitch, ssml)
-		if err != nil {
-			exit("unable to create tts: %v", err)
-		}
-
-		f, err := ioutil.TempFile("", "go-chromecast-tts")
-		if err != nil {
-			exit("unable to create temp file: %v", err)
-		}
-		defer os.Remove(f.Name())
-
-		if _, err := f.Write(data); err != nil {
-			exit("unable to write to temp file: %v", err)
-		}
-		if err := f.Close(); err != nil {
-			exit("unable to close temp file: %v", err)
-		}
-
-		if err := app.Load(f.Name(), 0, "audio/mp3", false, false, false); err != nil {
-			exit("unable to load media to device: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Tts(TTSOpts{
+			GoogleServiceAccount,
+			LanguageCode,
+			VoiceName,
+			SpeakingRate,
+			Pitch,
+			Ssml,
+		}, args)
 	},
+}
+
+type TTSOpts struct {
+	GoogleServiceAccount string
+	LanguageCode         string
+	VoiceName            string
+	SpeakingRate         float32
+	Pitch                float32
+	Ssml                 bool
+}
+
+// Tts exports the tts command
+func (a *App) Tts(opts TTSOpts, args []string) {
+	if len(args) != 1 || args[0] == "" {
+		exit("expected exactly one argument to convert to speech")
+		return
+	}
+
+	if opts.GoogleServiceAccount == "" {
+		exit("--google-service-account is required")
+		return
+	}
+
+	b, err := os.ReadFile(opts.GoogleServiceAccount)
+	if err != nil {
+		exit("unable to open google service account file: %v", err)
+	}
+
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+
+	data, err := tts.Create(args[0], b, opts.LanguageCode, opts.VoiceName, opts.SpeakingRate, opts.Pitch, opts.Ssml)
+	if err != nil {
+		exit("unable to create tts: %v", err)
+	}
+
+	f, err := os.CreateTemp("", "go-chromecast-tts")
+	if err != nil {
+		exit("unable to create temp file: %v", err)
+	}
+	defer os.Remove(f.Name())
+
+	if _, err := f.Write(data); err != nil {
+		exit("unable to write to temp file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		exit("unable to close temp file: %v", err)
+	}
+
+	if err := app.Load(f.Name(), 0, "audio/mp3", false, false, false); err != nil {
+		exit("unable to load media to device: %v", err)
+	}
 }
 
 func init() {

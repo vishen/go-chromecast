@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -38,7 +37,7 @@ func (s *Storage) lazyLoadCacheDir() error {
 		// Check if file exists, if so then load it
 		if _, err := os.Stat(filename); err == nil {
 			s.cacheFilename = filename
-			if fileContents, err := ioutil.ReadFile(filename); err == nil {
+			if fileContents, err := os.ReadFile(filename); err == nil {
 				if err := json.Unmarshal(fileContents, &s.cache); err == nil {
 					return nil
 				}
@@ -63,7 +62,7 @@ func (s *Storage) Save(key string, data []byte) error {
 	s.cache[key] = data
 
 	cacheJson, _ := json.Marshal(s.cache)
-	ioutil.WriteFile(s.cacheFilename, cacheJson, 0644)
+	os.WriteFile(s.cacheFilename, cacheJson, 0644)
 
 	return nil
 }

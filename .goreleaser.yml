@@ -1,11 +1,6 @@
 # This is an example goreleaser.yaml file with some sane defaults.
 # Make sure to check the documentation at http://goreleaser.com
-before:
-  hooks:
-    # you may remove this if you don't use vgo
-    #- go mod download
-    # you may remove this if you don't need go generate
-    #- go generate ./...
+version: 2
 builds:
 - env:
   - CGO_ENABLED=0
@@ -35,10 +30,10 @@ builds:
   - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
 archives:
 - id: build
-  format: tar.gz
+  formats: tar.gz
   format_overrides:
   - goos: windows
-    format: zip
+    formats: zip
 checksum:
   name_template: 'checksums.txt'
 changelog:

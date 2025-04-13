@@ -25,31 +25,37 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Current chromecast status",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		castApplication, castMedia, castVolume := app.Status()
-		if castApplication == nil {
-			outputInfo("Idle, volume=%0.2f muted=%t", castVolume.Level, castVolume.Muted)
-		} else if castApplication.IsIdleScreen {
-			outputInfo("Idle (%s), volume=%0.2f muted=%t", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
-		} else if castMedia == nil {
-			outputInfo("Idle (%s), volume=%0.2f muted=%t", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
-		} else {
-			metadata := "unknown"
-			var usefulID string
-			switch castMedia.Media.ContentType {
-			case "x-youtube/video":
-				usefulID = fmt.Sprintf("[%s] ", castMedia.Media.ContentId)
-			}
-			if castMedia.Media.Metadata.Title != "" {
-				md := castMedia.Media.Metadata
-				metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
-			}
-			outputInfo("%s%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t", usefulID, castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
-		}
+		app := NewCast(cmd)
+		app.Status()
 	},
+}
+
+// Status exports the status command
+func (a *App) Status() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	castApplication, castMedia, castVolume := app.Status()
+	if castApplication == nil {
+		outputInfo("Idle, volume=%0.2f muted=%t", castVolume.Level, castVolume.Muted)
+	} else if castApplication.IsIdleScreen {
+		outputInfo("Idle (%s), volume=%0.2f muted=%t", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+	} else if castMedia == nil {
+		outputInfo("Idle (%s), volume=%0.2f muted=%t", castApplication.DisplayName, castVolume.Level, castVolume.Muted)
+	} else {
+		metadata := "unknown"
+		var usefulID string
+		switch castMedia.Media.ContentType {
+		case "x-youtube/video":
+			usefulID = fmt.Sprintf("[%s] ", castMedia.Media.ContentId)
+		}
+		if castMedia.Media.Metadata.Title != "" {
+			md := castMedia.Media.Metadata
+			metadata = fmt.Sprintf("title=%q, artist=%q", md.Title, md.Artist)
+		}
+		outputInfo("%s%s (%s), %s, time remaining=%.0fs/%.0fs, volume=%0.2f, muted=%t", usefulID, castApplication.DisplayName, castMedia.PlayerState, metadata, castMedia.CurrentTime, castMedia.Media.Duration, castVolume.Level, castVolume.Muted)
+	}
 }
 
 func init() {

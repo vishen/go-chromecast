@@ -23,19 +23,13 @@ import (
 var httpserverCmd = &cobra.Command{
 	Use:   "httpserver",
 	Short: "Start the HTTP server",
-	Long: `Start the HTTP server which provides an HTTP
-api to control chromecast devices on a network.`,
+	Long:  `Start the HTTP server which provides an HTTP API to control chromecast devices on a network.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		addr, _ := cmd.Flags().GetString("http-addr")
 		port, _ := cmd.Flags().GetString("http-port")
-
-		// TODO: Should only need verbose, but debug has stupidly hijacked
-		// the -v flag...
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		debug, _ := cmd.Flags().GetBool("debug")
 
-		if err := http.NewHandler(verbose || debug).Serve(addr + ":" + port); err != nil {
+		if err := http.NewHandler(verbose).Serve(addr + ":" + port); err != nil {
 			exit("unable to run http server: %v", err)
 		}
 	},

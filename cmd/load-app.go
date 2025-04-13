@@ -29,37 +29,44 @@ the chromecast receiver app to be specified. An older list can be found
 here https://gist.github.com/jloutsenhizer/8855258.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 2 {
-			exit("requires exactly two arguments")
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
-		// Optionally run a UI when playing this media:
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
-		if runWithUI {
-			go func() {
-				if err := app.LoadApp(args[0], args[1]); err != nil {
-					exit("unable to load media: %v", err)
-				}
-			}()
 
-			ccui, err := ui.NewUserInterface(app)
-			if err != nil {
-				exit("unable to prepare a new user-interface: %v", err)
-			}
-			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v", err)
-			}
-		}
-
-		// Otherwise just run in CLI mode:
-		if err := app.LoadApp(args[0], args[1]); err != nil {
-			exit("unable to load media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.LoadApp(runWithUI, args)
 	},
+}
+
+// LoadApp exports the load-app command
+func (a *App) LoadApp(runWithUI bool, args []string) {
+	if len(args) != 2 {
+		exit("requires exactly two arguments")
+	}
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+
+	// Optionally run a UI when playing this media:
+	if runWithUI {
+		go func() {
+			if err := app.LoadApp(args[0], args[1]); err != nil {
+				exit("unable to load media: %v", err)
+			}
+		}()
+
+		ccui, err := ui.NewUserInterface(app)
+		if err != nil {
+			exit("unable to prepare a new user-interface: %v", err)
+		}
+		if err := ccui.Run(); err != nil {
+			exit("unable to run ui: %v", err)
+		}
+	}
+
+	// Otherwise just run in CLI mode:
+	if err := app.LoadApp(args[0], args[1]); err != nil {
+		exit("unable to load media: %v", err)
+	}
 }
 
 func init() {

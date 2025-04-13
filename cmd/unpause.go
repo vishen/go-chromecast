@@ -23,14 +23,20 @@ var unpauseCmd = &cobra.Command{
 	Use:   "unpause",
 	Short: "Unpause the currently playing media on the chromecast",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.Unpause(); err != nil {
-			exit("unable to pause cast application: %v", err)
-		}
+		app := NewCast(cmd)
+		app.UnPause()
 	},
+}
+
+// UnPause exports the unpause command
+func (a *App) UnPause() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Unpause(); err != nil {
+		exit("unable to pause cast application: %v", err)
+	}
 }
 
 func init() {

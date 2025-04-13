@@ -30,45 +30,51 @@ locally and serve the output of the transcoding operation to the chromecast.
 This command requires the program or script to write the media content to stdout.
 The transcoded media content-type is required as well`,
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
 		contentType, _ := cmd.Flags().GetString("content-type")
 		command, _ := cmd.Flags().GetString("command")
-
-		var commandArgs []string
-		if command == "" {
-			command = args[0]
-			commandArgs = args[1:]
-		} else {
-			s := strings.Split(command, " ")
-			command = s[0]
-			commandArgs = s[1:]
-		}
-
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
-		if runWithUI {
-			go func() {
-				if err := app.Transcode(contentType, command, commandArgs...); err != nil {
-					exit("unable to load media: %v", err)
-				}
-			}()
 
-			ccui, err := ui.NewUserInterface(app)
-			if err != nil {
-				exit("unable to prepare a new user-interface: %v", err)
-			}
-			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v", err)
-			}
-		}
-
-		if err := app.Transcode(contentType, command, commandArgs...); err != nil {
-			exit("unable to transcode media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Transcode(contentType, command, runWithUI, args)
 	},
+}
+
+// Transcode exports the transcode command
+func (a *App) Transcode(contentType, command string, runWithUI bool, args []string) {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+
+	var commandArgs []string
+	if command == "" {
+		command = args[0]
+		commandArgs = args[1:]
+	} else {
+		s := strings.Split(command, " ")
+		command = s[0]
+		commandArgs = s[1:]
+	}
+
+	if runWithUI {
+		go func() {
+			if err := app.Transcode(contentType, command, commandArgs...); err != nil {
+				exit("unable to load media: %v", err)
+			}
+		}()
+
+		ccui, err := ui.NewUserInterface(app)
+		if err != nil {
+			exit("unable to prepare a new user-interface: %v", err)
+		}
+		if err := ccui.Run(); err != nil {
+			exit("unable to run ui: %v", err)
+		}
+	}
+
+	if err := app.Transcode(contentType, command, commandArgs...); err != nil {
+		exit("unable to transcode media: %v", err)
+	}
 }
 
 func init() {

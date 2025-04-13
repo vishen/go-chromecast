@@ -1,0 +1,2 @@
+all: True
+dir: "{{.InterfaceDir}}/mocks"

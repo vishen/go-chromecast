@@ -23,14 +23,20 @@ var muteCmd = &cobra.Command{
 	Use:   "mute",
 	Short: "Mute the chromecast",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.SetMuted(true); err != nil {
-			exit("unable to mute cast application: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Mute()
 	},
+}
+
+// Mute exports the mute command
+func (a *App) Mute() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.SetMuted(true); err != nil {
+		exit("unable to mute cast application: %v", err)
+	}
 }
 
 func init() {

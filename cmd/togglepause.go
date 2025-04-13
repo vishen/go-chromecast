@@ -24,14 +24,20 @@ var togglepauseCmd = &cobra.Command{
 	Aliases: []string{"tpause", "playpause"},
 	Short:   "Toggle paused/unpaused state. Aliases: tpause, playpause",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.TogglePause(); err != nil {
-			exit("unable to (un)pause cast application: %v", err)
-		}
+		app := NewCast(cmd)
+		app.TogglePause()
 	},
+}
+
+// TogglePause exports the togglepause command
+func (a *App) TogglePause() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.TogglePause(); err != nil {
+		exit("unable to (un)pause cast application: %v", err)
+	}
 }
 
 func init() {

@@ -101,7 +101,7 @@ func (c *Connection) RemotePort() (port string, err error) {
 	return port, err
 }
 
-func (c *Connection) log(message string, args ...interface{}) {
+func (c *Connection) log(message string, args ...any) {
 	if c.debug {
 		log.WithField("package", "cast").Debugf(message, args...)
 	}
@@ -212,12 +212,11 @@ func (c *Connection) receiveLoop(ctx context.Context) {
 			continue
 		}
 
-		c.handleMessage(requestIDi, message, &headers)
+		c.handleMessage(requestIDi, message)
 	}
 }
 
-func (c *Connection) handleMessage(requestID int, message *pb.CastMessage, headers *PayloadHeader) {
-
+func (c *Connection) handleMessage(requestID int, message *pb.CastMessage) {
 	messageType, err := jsonparser.GetString([]byte(*message.PayloadUtf8), "type")
 	if err != nil {
 		c.log("could not find 'type' key in response message request_id=%d %q: %s", requestID, *message.PayloadUtf8, err)
