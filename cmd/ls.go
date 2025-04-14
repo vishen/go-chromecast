@@ -30,28 +30,35 @@ var lsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ifaceName, _ := cmd.Flags().GetString("iface")
 		dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
-		var iface *net.Interface
-		var err error
-		if ifaceName != "" {
-			if iface, err = net.InterfaceByName(ifaceName); err != nil {
-				exit("unable to find interface %q: %v", ifaceName, err)
-			}
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(dnsTimeoutSeconds))
-		defer cancel()
-		castEntryChan, err := castdns.DiscoverCastDNSEntries(ctx, iface)
-		if err != nil {
-			exit("unable to discover chromecast devices: %v", err)
-		}
-		i := 1
-		for d := range castEntryChan {
-			outputInfo("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
-			i++
-		}
-		if i == 1 {
-			outputError("no cast devices found on network")
-		}
+		Ls(ifaceName, dnsTimeoutSeconds)
 	},
+}
+
+// Ls exports the ls command
+func Ls(ifaceName string, dnsTimeoutSeconds int) {
+	var (
+		iface *net.Interface
+		err   error
+	)
+	if ifaceName != "" {
+		if iface, err = net.InterfaceByName(ifaceName); err != nil {
+			exit("unable to find interface %q: %v", ifaceName, err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(dnsTimeoutSeconds))
+	defer cancel()
+	castEntryChan, err := castdns.DiscoverCastDNSEntries(ctx, iface)
+	if err != nil {
+		exit("unable to discover chromecast devices: %v", err)
+	}
+	i := 1
+	for d := range castEntryChan {
+		outputInfo("%d) device=%q device_name=%q address=\"%s:%d\" uuid=%q", i, d.Device, d.DeviceName, d.AddrV4, d.Port, d.UUID)
+		i++
+	}
+	if i == 1 {
+		outputError("no cast devices found on network")
+	}
 }
 
 func init() {

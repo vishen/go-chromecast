@@ -25,21 +25,34 @@ var rewindCmd = &cobra.Command{
 	Use:   "rewind <delta_in_seconds>",
 	Short: "Rewind by seconds the currently playing media",
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			exit("one argument required")
-		}
-		value, err := strconv.Atoi(args[0])
-		if err != nil {
-			exit("unable to parse %q to an integer", args[0])
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.Seek(-value); err != nil {
-			exit("unable to rewind current media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Rewind(args)
 	},
+}
+
+// Rewind exports the rewind command
+func (a *App) Rewind(args []string) {
+	if len(args) != 1 {
+		exit("one argument required")
+	}
+	value, err := strconv.Atoi(args[0])
+	if err != nil {
+		exit("unable to parse %q to an integer", args[0])
+	}
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Seek(-value); err != nil {
+		exit("unable to rewind current media: %v", err)
+	}
+
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Next(); err != nil {
+		exit("unable to play next media: %v", err)
+	}
 }
 
 func init() {

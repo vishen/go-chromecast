@@ -25,30 +25,36 @@ var volumeDownCmd = &cobra.Command{
 	Use:   "volume-down",
 	Short: "Turn down volume",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
 		volumeStep, _ := cmd.Flags().GetFloat32("step")
 
-		if err = app.Update(); err != nil {
-			exit("unable to update cast info: %v", err)
-		}
-		_, _, castVolume := app.Status()
-
-		nextVolume := max(castVolume.Level-volumeStep, math.SmallestNonzeroFloat32)
-		if err = app.SetVolume(float32(nextVolume)); err != nil {
-			exit("failed to set volume: %v", err)
-		}
-
-		if err = app.Update(); err != nil {
-			exit("unable to update cast info: %v", err)
-		}
-		_, _, turnedCastVolume := app.Status()
-
-		outputInfo("%0.2f", turnedCastVolume.Level)
+		app := NewCast(cmd)
+		app.VolumeDown(volumeStep)
 	},
+}
+
+// VolumeDown exports the volume-down command
+func (a *App) VolumeDown(volumeStep float32) {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+
+	if err = app.Update(); err != nil {
+		exit("unable to update cast info: %v", err)
+	}
+	_, _, castVolume := app.Status()
+
+	nextVolume := max(castVolume.Level-volumeStep, math.SmallestNonzeroFloat32)
+	if err = app.SetVolume(float32(nextVolume)); err != nil {
+		exit("failed to set volume: %v", err)
+	}
+
+	if err = app.Update(); err != nil {
+		exit("unable to update cast info: %v", err)
+	}
+	_, _, turnedCastVolume := app.Status()
+
+	outputInfo("%0.2f", turnedCastVolume.Level)
 }
 
 func init() {

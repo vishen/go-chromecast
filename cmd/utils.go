@@ -50,11 +50,25 @@ func (e CachedDNSEntry) GetPort() int {
 	return e.Port
 }
 
-func castApplication(cmd *cobra.Command, args []string) (application.App, error) {
+type App struct {
+	DeviceName   string
+	Device       string
+	Uuid         string
+	Debug        bool
+	DisableCache bool
+	Addr         string
+	Port         string
+	Iface        string
+	ServerPort   int
+	DnsTimeout   int
+	First        bool
+}
+
+func NewCast(cmd *cobra.Command) App {
 	deviceName, _ := cmd.Flags().GetString("device-name")
 	deviceUuid, _ := cmd.Flags().GetString("uuid")
 	device, _ := cmd.Flags().GetString("device")
-	debug, _ := cmd.Flags().GetBool("debug")
+	debug, _ := cmd.Flags().GetBool("verbose")
 	disableCache, _ := cmd.Flags().GetBool("disable-cache")
 	addr, _ := cmd.Flags().GetString("addr")
 	port, _ := cmd.Flags().GetString("port")
@@ -63,50 +77,66 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 	useFirstDevice, _ := cmd.Flags().GetBool("first")
 
+	return App{
+		DeviceName:   deviceName,
+		Device:       device,
+		Uuid:         deviceUuid,
+		Debug:        debug,
+		DisableCache: disableCache,
+		Addr:         addr,
+		Port:         port,
+		Iface:        ifaceName,
+		ServerPort:   serverPort,
+		DnsTimeout:   dnsTimeoutSeconds,
+		First:        useFirstDevice,
+	}
+}
+
+func (app *App) castApplication() (application.App, error) {
 	// Used to try and reconnect
-	if deviceUuid == "" && entry != nil {
-		deviceUuid = entry.GetUUID()
+	if app.Uuid == "" && entry != nil {
+		app.Uuid = entry.GetUUID()
 		entry = nil
 	}
 
-	if debug {
+	if app.Debug {
 		log.SetLevel(log.DebugLevel)
 	}
 
 	applicationOptions := []application.ApplicationOption{
-		application.WithServerPort(serverPort),
-		application.WithDebug(debug),
-		application.WithCacheDisabled(disableCache),
+		application.WithServerPort(app.ServerPort),
+		application.WithDebug(app.Debug),
+		application.WithCacheDisabled(app.DisableCache),
 	}
 
 	// If we need to look on a specific network interface for mdns or
 	// for finding a network ip to host from, ensure that the network
 	// interface exists.
 	var iface *net.Interface
-	if ifaceName != "" {
+	if app.Iface != "" {
 		var err error
-		if iface, err = net.InterfaceByName(ifaceName); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("unable to find interface %q", ifaceName))
+		if iface, err = net.InterfaceByName(app.Iface); err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("unable to find interface %q", app.Iface))
 		}
 		applicationOptions = append(applicationOptions, application.WithIface(iface))
 	}
 
 	// If no address was specified, attempt to determine the address of any
 	// local chromecast devices.
-	if addr == "" {
+	if app.Addr == "" {
 		// If a device name or uuid was specified, check the cache for the ip+port
 		found := false
-		if !disableCache && (deviceName != "" || deviceUuid != "") {
-			entry = findCachedCastDNS(deviceName, deviceUuid)
+		if !app.DisableCache && (app.DeviceName != "" || app.Uuid != "") {
+			entry = findCachedCastDNS(app.DeviceName, app.Uuid)
 			found = entry.GetAddr() != ""
 		}
 		if !found {
 			var err error
-			if entry, err = findCastDNS(iface, dnsTimeoutSeconds, device, deviceName, deviceUuid, useFirstDevice); err != nil {
+			if entry, err = findCastDNS(iface, app.DnsTimeout, app.Device, app.DeviceName, app.Uuid, app.First); err != nil {
 				return nil, errors.Wrap(err, "unable to find cast dns entry")
 			}
 		}
-		if !disableCache {
+		if !app.DisableCache {
 			cachedEntry := CachedDNSEntry{
 				UUID: entry.GetUUID(),
 				Name: entry.GetName(),
@@ -121,21 +151,21 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 				outputError("Failed to save name cache entry\n")
 			}
 		}
-		if debug {
+		if app.Debug {
 			outputInfo("using device name=%s addr=%s port=%d uuid=%s", entry.GetName(), entry.GetAddr(), entry.GetPort(), entry.GetUUID())
 		}
 	} else {
-		p, err := strconv.Atoi(port)
+		p, err := strconv.Atoi(app.Port)
 		if err != nil {
 			return nil, errors.Wrap(err, "port needs to be a number")
 		}
 		entry = CachedDNSEntry{
-			Addr: addr,
+			Addr: app.Addr,
 			Port: p,
 		}
 	}
-	app := application.NewApplication(applicationOptions...)
-	if err := app.Start(entry.GetAddr(), entry.GetPort()); err != nil {
+	appp := application.NewApplication(applicationOptions...)
+	if err := appp.Start(entry.GetAddr(), entry.GetPort()); err != nil {
 		// NOTE: currently we delete the dns cache every time we get
 		// an error, this is to make sure that if the device gets a new
 		// ipaddress we will invalidate the cache.
@@ -147,17 +177,7 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 		}
 		return nil, err
 	}
-	return app, nil
-}
-
-// reconnect will attempt to reconnect to the cast device
-// TODO: This is all very hacky, currently a global dns entry is set which
-// contains the device UUID, and this is then used to reconnect. This should
-// be handled much nicer and we shouldn't need to pass around the cmd and args everywhere
-// just to reconnect. This might require adding something that wraps the application and
-// dns?
-func reconnect(cmd *cobra.Command, args []string) (application.App, error) {
-	return castApplication(cmd, args)
+	return appp, nil
 }
 
 func getCacheKey(suffix string) string {
@@ -226,15 +246,15 @@ func findCastDNS(iface *net.Interface, dnsTimeoutSeconds int, device, deviceName
 	}
 }
 
-func outputError(msg string, args ...interface{}) {
+func outputError(msg string, args ...any) {
 	output(output_Error, msg, args...)
 }
 
-func outputInfo(msg string, args ...interface{}) {
+func outputInfo(msg string, args ...any) {
 	output(output_Info, msg, args...)
 }
 
-func exit(msg string, args ...interface{}) {
+func exit(msg string, args ...any) {
 	outputError(msg, args...)
 	os.Exit(1)
 }
@@ -246,7 +266,7 @@ const (
 	output_Error
 )
 
-func output(t outputLevel, msg string, args ...interface{}) {
+func output(t outputLevel, msg string, args ...any) {
 	switch t {
 	case output_Error:
 		fmt.Printf("%serror%s: ", RED, NC)

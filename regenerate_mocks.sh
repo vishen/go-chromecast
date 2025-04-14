@@ -1,8 +1,7 @@
-#!/bin/bash
-set -e -x
+#!/bin/bash -ex
 
 cd ./cast
-go run github.com/vektra/mockery/v2@v2.49.1 --all
+go run github.com/vektra/mockery/v2@v2.53.3
 
 cd ../application
-go run github.com/vektra/mockery/v2@v2.49.1 --all
+go run github.com/vektra/mockery/v2@v2.53.3

@@ -30,58 +30,66 @@ var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan for chromecast devices",
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			cidrAddr, _  = cmd.Flags().GetString("cidr")
-			port, _      = cmd.Flags().GetInt("port")
-			wg           sync.WaitGroup
-			ipCh         = make(chan *ipaddr.IPAddress)
-			logged       = time.Unix(0, 0)
-			start        = time.Now()
-			count        int
-			ipRange, err = ipaddr.NewIPAddressString(cidrAddr).ToSequentialRange()
-		)
-		if err != nil {
-			exit("could not parse cidr address expression: %v", err)
-		}
-		// Use one goroutine to send URIs over a channel
-		go func() {
-			it := ipRange.Iterator()
-			for it.HasNext() {
-				ip := it.Next()
-				if time.Since(logged) > 8*time.Second {
-					outputInfo("Scanning...  scanned %d, current %v\n", count, ip.String())
-					logged = time.Now()
-				}
-				ipCh <- ip
-				count++
-			}
-			close(ipCh)
-		}()
-		// Use a bunch of goroutines to do connect-attempts.
-		for i := 0; i < 64; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				dialer := &net.Dialer{
-					Timeout: 400 * time.Millisecond,
-				}
-				for ip := range ipCh {
-					conn, err := dialer.Dial("tcp", fmt.Sprintf("%v:%d", ip, port))
-					if err != nil {
-						continue
-					}
-					conn.Close()
-					if info, err := application.GetInfo(ip.String()); err != nil {
-						outputInfo("  - Device at %v:%d errored during discovery: %v", ip, port, err)
-					} else {
-						outputInfo("  - '%v' at %v:%d\n", info.Name, ip, port)
-					}
-				}
-			}()
-		}
-		wg.Wait()
-		outputInfo("Scanned %d uris in %v\n", count, time.Since(start))
+		cidrAddr, _ := cmd.Flags().GetString("cidr")
+		port, _ := cmd.Flags().GetInt("port")
+
+		app := NewCast(cmd)
+		app.Scan(cidrAddr, port)
 	},
+}
+
+// Scan exports the scan command
+func (a *App) Scan(cidrAddr string, port int) {
+	var (
+		wg    sync.WaitGroup
+		count int
+
+		ipCh   = make(chan *ipaddr.IPAddress)
+		logged = time.Unix(0, 0)
+		start  = time.Now()
+	)
+	ipRange, err := ipaddr.NewIPAddressString(cidrAddr).ToSequentialRange()
+	if err != nil {
+		exit("could not parse cidr address expression: %v", err)
+	}
+	// Use one goroutine to send URIs over a channel
+	go func() {
+		it := ipRange.Iterator()
+		for it.HasNext() {
+			ip := it.Next()
+			if time.Since(logged) > 8*time.Second {
+				outputInfo("Scanning...  scanned %d, current %v\n", count, ip.String())
+				logged = time.Now()
+			}
+			ipCh <- ip
+			count++
+		}
+		close(ipCh)
+	}()
+	// Use a bunch of goroutines to do connect-attempts.
+	for range 64 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dialer := &net.Dialer{
+				Timeout: 400 * time.Millisecond,
+			}
+			for ip := range ipCh {
+				conn, err := dialer.Dial("tcp", fmt.Sprintf("%v:%d", ip, port))
+				if err != nil {
+					continue
+				}
+				conn.Close()
+				if info, err := application.GetInfo(ip.String()); err != nil {
+					outputInfo("  - Device at %v:%d errored during discovery: %v", ip, port, err)
+				} else {
+					outputInfo("  - '%v' at %v:%d\n", info.Name, ip, port)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	outputInfo("Scanned %d uris in %v\n", count, time.Since(start))
 }
 
 func init() {

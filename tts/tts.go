@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 
 	texttospeech "cloud.google.com/go/texttospeech/apiv1"
+	texttospeechpb "cloud.google.com/go/texttospeech/apiv1/texttospeechpb"
 	"google.golang.org/api/option"
-	texttospeechpb "google.golang.org/genproto/googleapis/cloud/texttospeech/v1"
 )
 
 const (
@@ -40,8 +40,8 @@ func Create(sentence string, serviceAccountKey []byte, languageCode string, voic
 		},
 		AudioConfig: &texttospeechpb.AudioConfig{
 			AudioEncoding: texttospeechpb.AudioEncoding_MP3,
-			SpeakingRate: float64(speakingRate),
-			Pitch: float64(pitch),
+			SpeakingRate:  float64(speakingRate),
+			Pitch:         float64(pitch),
 		},
 	}
 

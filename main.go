@@ -28,9 +28,9 @@ var (
 )
 
 func main() {
-	os.Exit(main1())
+	os.Exit(exec())
 }
 
-func main1() int {
+func exec() int {
 	return cmd.Execute(version, commit, date)
 }

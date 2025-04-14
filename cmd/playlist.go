@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"bufio"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -45,178 +44,188 @@ If the media file is an unplayable media type by the chromecast, this
 will attempt to transcode the media file to mp4 using ffmpeg. This requires
 that ffmpeg is installed.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			exit("requires exactly one argument, should be the folder to play media from")
-		}
-		if fileInfo, err := os.Stat(args[0]); err != nil {
-			exit("unable to find %q: %v", args[0], err)
-		} else if !fileInfo.Mode().IsDir() {
-			exit("%q is not a directory", args[0])
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
 		contentType, _ := cmd.Flags().GetString("content-type")
 		transcode, _ := cmd.Flags().GetBool("transcode")
 		forcePlay, _ := cmd.Flags().GetBool("force-play")
 		continuePlaying, _ := cmd.Flags().GetBool("continue")
 		selection, _ := cmd.Flags().GetBool("select")
-		files, err := ioutil.ReadDir(args[0])
-		if err != nil {
-			exit("unable to list files from %q: %v", args[0], err)
+		runWithUI, _ := cmd.Flags().GetBool("with-ui")
+
+		app := NewCast(cmd)
+		app.Playlist(contentType,
+			transcode, forcePlay, continuePlaying, selection, runWithUI,
+			args,
+		)
+	},
+}
+
+// Playlist exports the playlist command
+func (a *App) Playlist(contentType string, transcode, forcePlay, continuePlaying, selection, runWithUI bool, args []string) {
+	if len(args) != 1 {
+		exit("requires exactly one argument, should be the folder to play media from")
+	}
+	if fileInfo, err := os.Stat(args[0]); err != nil {
+		exit("unable to find %q: %v", args[0], err)
+	} else if !fileInfo.Mode().IsDir() {
+		exit("%q is not a directory", args[0])
+	}
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+
+	files, err := os.ReadDir(args[0])
+	if err != nil {
+		exit("unable to list files from %q: %v", args[0], err)
+	}
+	filesToPlay := make([]mediaFile, 0, len(files))
+	for _, f := range files {
+		if !forcePlay && !app.PlayableMediaType(filepath.Join(args[0], f.Name())) {
+			continue
 		}
-		filesToPlay := make([]mediaFile, 0, len(files))
-		for _, f := range files {
-			if !forcePlay && !app.PlayableMediaType(filepath.Join(args[0], f.Name())) {
+
+		foundNum := false
+		numPos := 0
+		foundNumbers := []int{}
+		for i, c := range f.Name() {
+			if c < '0' || c > '9' {
+				if foundNum {
+					val, _ := strconv.Atoi(f.Name()[numPos:i])
+					foundNumbers = append(foundNumbers, val)
+				}
+				foundNum = false
 				continue
 			}
 
-			foundNum := false
-			numPos := 0
-			foundNumbers := []int{}
-			for i, c := range f.Name() {
-				if c < '0' || c > '9' {
-					if foundNum {
-						val, _ := strconv.Atoi(f.Name()[numPos:i])
-						foundNumbers = append(foundNumbers, val)
-					}
-					foundNum = false
-					continue
-				}
-
-				if !foundNum {
-					numPos = i
-					foundNum = true
-				}
+			if !foundNum {
+				numPos = i
+				foundNum = true
 			}
-
-			filesToPlay = append(filesToPlay, mediaFile{
-				filename:        f.Name(),
-				possibleNumbers: foundNumbers,
-			})
-
 		}
 
-		sort.Slice(filesToPlay, func(i, j int) bool {
-			iNum := filesToPlay[i].possibleNumbers
-			jNum := filesToPlay[j].possibleNumbers
-			if len(iNum) == 0 {
-				return false
-			}
-			if len(jNum) == 0 {
-				return true
-			}
-			max := len(iNum)
-			if len(iNum) < len(jNum) {
-				max = len(jNum)
-			}
-			for vi := 0; vi < max; vi++ {
-				if len(iNum) <= vi {
-					return false
-				}
-				if len(jNum) <= vi {
-					return true
-				}
-				if iNum[vi] == jNum[vi] {
-					continue
-				}
-				if iNum[vi] > jNum[vi] {
-					return false
-				}
-				return true
-			}
-			return true
+		filesToPlay = append(filesToPlay, mediaFile{
+			filename:        f.Name(),
+			possibleNumbers: foundNumbers,
 		})
 
-		filenames := make([]string, len(filesToPlay))
-		for i, f := range filesToPlay {
-			filename := filepath.Join(args[0], f.filename)
-			filenames[i] = filename
+	}
+
+	sort.Slice(filesToPlay, func(i, j int) bool {
+		iNum := filesToPlay[i].possibleNumbers
+		jNum := filesToPlay[j].possibleNumbers
+		if len(iNum) == 0 {
+			return false
 		}
-
-		indexToPlayFrom := 0
-		if selection {
-			outputInfo("Will play the following items, select where to start from:")
-			for i, f := range filenames {
-				lastPlayed := "never"
-				if lp, ok := app.PlayedItems()[f]; ok {
-					t := time.Unix(lp.Started, 0)
-					lastPlayed = t.String()
-				}
-				outputInfo("%d) %s: last played %q", i+1, f, lastPlayed)
-			}
-			reader := bufio.NewReader(os.Stdin)
-			for {
-				outputInfo("Enter selection: ")
-				text, err := reader.ReadString('\n')
-				if err != nil {
-					outputError("reading console: %v", err)
-					continue
-				}
-				i, err := strconv.Atoi(strings.TrimSpace(text))
-				if err != nil {
-					continue
-				} else if i < 1 || i > len(filenames) {
-					continue
-				}
-				indexToPlayFrom = i - 1
-				break
-			}
-		} else if continuePlaying {
-			var lastPlayedStartUnix int64 = 0
-			var lastPlayedEndUnix int64 = 0
-			lastPlayedIndex := 0
-			for i, f := range filenames {
-				p, ok := app.PlayedItems()[f]
-				if ok && p.Started > lastPlayedStartUnix {
-					lastPlayedStartUnix = p.Started
-					lastPlayedEndUnix = p.Finished
-					lastPlayedIndex = i
-				}
-			}
-
-			if lastPlayedIndex > 0 {
-				if lastPlayedStartUnix < lastPlayedEndUnix {
-					if len(filenames) > lastPlayedIndex {
-						// lastPlayedIndex += 1
-					} else {
-						lastPlayedIndex = 0
-					}
-				}
-			}
-			indexToPlayFrom = lastPlayedIndex
+		if len(jNum) == 0 {
+			return true
 		}
-
-		s := "Attemping to play the following media:"
-		for _, f := range filenames[indexToPlayFrom:] {
-			s += "- " + f + " "
+		max := len(iNum)
+		if len(iNum) < len(jNum) {
+			max = len(jNum)
 		}
-		outputInfo(s)
+		for vi := range max {
+			if len(iNum) <= vi {
+				return false
+			}
+			if len(jNum) <= vi {
+				return true
+			}
+			if iNum[vi] == jNum[vi] {
+				continue
+			}
+			if iNum[vi] > jNum[vi] {
+				return false
+			}
+			return true
+		}
+		return true
+	})
 
-		// Optionally run a UI when playing this media:
-		runWithUI, _ := cmd.Flags().GetBool("with-ui")
-		if runWithUI {
-			go func() {
-				if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-					exit("unable to play playlist on cast application: %v", err)
-				}
-			}()
+	filenames := make([]string, len(filesToPlay))
+	for i, f := range filesToPlay {
+		filename := filepath.Join(args[0], f.filename)
+		filenames[i] = filename
+	}
 
-			ccui, err := ui.NewUserInterface(app)
+	indexToPlayFrom := 0
+	if selection {
+		outputInfo("Will play the following items, select where to start from:")
+		for i, f := range filenames {
+			lastPlayed := "never"
+			if lp, ok := app.PlayedItems()[f]; ok {
+				t := time.Unix(lp.Started, 0)
+				lastPlayed = t.String()
+			}
+			outputInfo("%d) %s: last played %q", i+1, f, lastPlayed)
+		}
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			outputInfo("Enter selection: ")
+			text, err := reader.ReadString('\n')
 			if err != nil {
-				exit("unable to prepare a new user-interface: %v", err)
+				outputError("reading console: %v", err)
+				continue
 			}
-			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v", err)
+			i, err := strconv.Atoi(strings.TrimSpace(text))
+			if err != nil {
+				continue
+			} else if i < 1 || i > len(filenames) {
+				continue
+			}
+			indexToPlayFrom = i - 1
+			break
+		}
+	} else if continuePlaying {
+		var lastPlayedStartUnix int64 = 0
+		var lastPlayedEndUnix int64 = 0
+		lastPlayedIndex := 0
+		for i, f := range filenames {
+			p, ok := app.PlayedItems()[f]
+			if ok && p.Started > lastPlayedStartUnix {
+				lastPlayedStartUnix = p.Started
+				lastPlayedEndUnix = p.Finished
+				lastPlayedIndex = i
 			}
 		}
 
-		if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
-			exit("unable to play playlist on cast application: %v", err)
+		if lastPlayedIndex > 0 {
+			if lastPlayedStartUnix < lastPlayedEndUnix {
+				if len(filenames) > lastPlayedIndex {
+					// lastPlayedIndex += 1
+				} else {
+					lastPlayedIndex = 0
+				}
+			}
 		}
-	},
+		indexToPlayFrom = lastPlayedIndex
+	}
+
+	s := "Attemping to play the following media:"
+	for _, f := range filenames[indexToPlayFrom:] {
+		s += "- " + f + " "
+	}
+	outputInfo(s)
+
+	// Optionally run a UI when playing this media:
+	if runWithUI {
+		go func() {
+			if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
+				exit("unable to play playlist on cast application: %v", err)
+			}
+		}()
+
+		ccui, err := ui.NewUserInterface(app)
+		if err != nil {
+			exit("unable to prepare a new user-interface: %v", err)
+		}
+		if err := ccui.Run(); err != nil {
+			exit("unable to run ui: %v", err)
+		}
+	}
+
+	if err := app.QueueLoad(filenames[indexToPlayFrom:], contentType, transcode); err != nil {
+		exit("unable to play playlist on cast application: %v", err)
+	}
 }
 
 func init() {

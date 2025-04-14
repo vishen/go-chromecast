@@ -23,14 +23,20 @@ var restartCmd = &cobra.Command{
 	Use:   "restart",
 	Short: "Restart the currently playing media",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.SeekFromStart(0); err != nil {
-			exit("unable to restart media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Restart()
 	},
+}
+
+// Restart exports the restart command
+func (a *App) Restart() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.SeekFromStart(0); err != nil {
+		exit("unable to restart media: %v", err)
+	}
 }
 
 func init() {

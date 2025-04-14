@@ -23,14 +23,20 @@ var previousCmd = &cobra.Command{
 	Use:   "previous",
 	Short: "Play the previous available media",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.Previous(); err != nil {
-			exit("unable to play previous media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Previous()
 	},
+}
+
+// Previous exports the previous command
+func (a *App) Previous() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Previous(); err != nil {
+		exit("unable to play previous media: %v", err)
+	}
 }
 
 func init() {

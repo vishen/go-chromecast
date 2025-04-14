@@ -25,21 +25,27 @@ var uiCmd = &cobra.Command{
 	Use:   "ui",
 	Short: "Run the UI",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-			return
-		}
-
-		ccui, err := ui.NewUserInterface(app)
-		if err != nil {
-			exit("unable to prepare a new user-interface: %v", err)
-		}
-
-		if err := ccui.Run(); err != nil {
-			exit("unable to start the user-interface: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Ui()
 	},
+}
+
+// Ui exports the ui command
+func (a *App) Ui() {
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+		return
+	}
+
+	ccui, err := ui.NewUserInterface(app)
+	if err != nil {
+		exit("unable to prepare a new user-interface: %v", err)
+	}
+
+	if err := ccui.Run(); err != nil {
+		exit("unable to start the user-interface: %v", err)
+	}
 }
 
 func init() {

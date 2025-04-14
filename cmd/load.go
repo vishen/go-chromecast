@@ -32,43 +32,49 @@ If the media file is an unplayable media type by the chromecast, this
 will attempt to transcode the media file to mp4 using ffmpeg. This requires
 that ffmpeg is installed.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			exit("requires exactly one argument, should be the media file to load")
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
 		contentType, _ := cmd.Flags().GetString("content-type")
+		startTime, _ := cmd.Flags().GetInt("start-time")
 		transcode, _ := cmd.Flags().GetBool("transcode")
 		detach, _ := cmd.Flags().GetBool("detach")
-		startTime, _ := cmd.Flags().GetInt("start-time")
-
-		// Optionally run a UI when playing this media:
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
-		if runWithUI {
-			go func() {
-				if err := app.Load(args[0], startTime, contentType, transcode, detach, false); err != nil {
-					exit("unable to load media: %v", err)
-				}
-			}()
 
-			ccui, err := ui.NewUserInterface(app)
-			if err != nil {
-				exit("unable to prepare a new user-interface: %v", err)
-			}
-			if err := ccui.Run(); err != nil {
-				exit("unable to run ui: %v", err)
-			}
-			return
-		}
-
-		// Otherwise just run in CLI mode:
-		if err := app.Load(args[0], startTime, contentType, transcode, detach, false); err != nil {
-			exit("unable to load media: %v", err)
-		}
+		app := NewCast(cmd)
+		app.Load(contentType, startTime, transcode, detach, runWithUI, args)
 	},
+}
+
+// Load exports the load command
+func (a *App) Load(contentType string, startTime int, transcode, detach, runWithUI bool, args []string) {
+	if len(args) != 1 {
+		exit("requires exactly one argument, should be the media file to load")
+	}
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+
+	// Optionally run a UI when playing this media:
+	if runWithUI {
+		go func() {
+			if err := app.Load(args[0], startTime, contentType, transcode, detach, false); err != nil {
+				exit("unable to load media: %v", err)
+			}
+		}()
+
+		ccui, err := ui.NewUserInterface(app)
+		if err != nil {
+			exit("unable to prepare a new user-interface: %v", err)
+		}
+		if err := ccui.Run(); err != nil {
+			exit("unable to run ui: %v", err)
+		}
+		return
+	}
+
+	// Otherwise just run in CLI mode:
+	if err := app.Load(args[0], startTime, contentType, transcode, detach, false); err != nil {
+		exit("unable to load media: %v", err)
+	}
 }
 
 func init() {

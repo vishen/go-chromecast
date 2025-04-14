@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,13 +19,14 @@ import (
 
 	"github.com/h2non/filetype"
 
+	"path/filepath"
+
 	"github.com/buger/jsonparser"
 	"github.com/pkg/errors"
 	"github.com/vishen/go-chromecast/cast"
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/playlists"
 	"github.com/vishen/go-chromecast/storage"
-	"path/filepath"
 )
 
 var (
@@ -388,7 +390,7 @@ func (a *Application) Update() error {
 	// Simple retry. We need this for when the device isn't currently
 	// available, but it is likely that it will come up soon. If the device
 	// has switch network addresses the caller is expected to handle that situation.
-	for i := 0; i < a.connectionRetries; i++ {
+	for i := range a.connectionRetries {
 		recvStatus, err = a.getReceiverStatus()
 		if err == nil {
 			break
@@ -496,13 +498,9 @@ func (a *Application) TogglePause() error {
 	}
 	switch a.media.PlayerState {
 	case "PLAYING", "BUFFERING":
-		{
-			return a.Pause()
-		}
+		return a.Pause()
 	default:
-		{
-			return a.Unpause()
-		}
+		return a.Unpause()
 	}
 }
 
@@ -604,11 +602,9 @@ func (a *Application) Seek(value int) error {
 		"CC1AD845", // Default media
 	}
 
-	for _, app := range appsSeekTo {
-		if app == a.application.AppId {
-			absolute := a.media.CurrentTime + float32(value)
-			return a.SeekToTime(absolute)
-		}
+	if slices.Contains(appsSeekTo, a.application.AppId) {
+		absolute := a.media.CurrentTime + float32(value)
+		return a.SeekToTime(absolute)
 	}
 
 	return a.sendMediaRecv(&cast.MediaHeader{
@@ -1197,7 +1193,7 @@ func (a *Application) startStreamingServer() error {
 			if !liveStreaming {
 				http.ServeFile(w, r, filename)
 			} else {
-				a.serveLiveStreaming(w, r, filename)
+				a.serveLiveStreaming(w, filename)
 			}
 		} else {
 			http.Error(w, "Invalid file", 400)
@@ -1221,7 +1217,7 @@ func (a *Application) startStreamingServer() error {
 	return nil
 }
 
-func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request, filename string) {
+func (a *Application) serveLiveStreaming(w http.ResponseWriter, filename string) {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-re", // encode at 1x playback speed, to not burn the CPU
@@ -1250,7 +1246,7 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (a *Application) log(message string, args ...interface{}) {
+func (a *Application) log(message string, args ...any) {
 	if a.debug {
 		log.WithField("package", "application").Infof(message, args...)
 	}
@@ -1318,19 +1314,8 @@ func (a *Application) sendMediaRecv(payload cast.Payload) error {
 	return err
 }
 
-func (a *Application) sendAndWaitDefaultConn(payload cast.Payload) (*pb.CastMessage, error) {
-	return a.sendAndWait(payload, defaultSender, defaultRecv, namespaceConn)
-}
-
 func (a *Application) sendAndWaitDefaultRecv(payload cast.Payload) (*pb.CastMessage, error) {
 	return a.sendAndWait(payload, defaultSender, defaultRecv, namespaceRecv)
-}
-
-func (a *Application) sendAndWaitMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
-	if a.application == nil {
-		return nil, ErrApplicationNotSet
-	}
-	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceConn)
 }
 
 func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {

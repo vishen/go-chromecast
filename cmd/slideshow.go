@@ -35,37 +35,43 @@ var slideshowCmd = &cobra.Command{
 	Use:   "slideshow file1 file2 ...",
 	Short: "Play a slideshow of photos",
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			exit("requires files (or directories) to play in slideshow")
-		}
-
-		s := &share{}
-
-		for _, arg := range args {
-			if fileInfo, err := os.Stat(arg); err != nil {
-				log.Warn().Msgf("unable to find %q: %v", arg, err)
-			} else if fileInfo.Mode().IsDir() {
-				log.Debug().Msgf("%q is a directory", arg)
-
-				// recursively find files in directory
-				// TODO: this will consume large amounts of memory as it will hold references to each file (media item) to be served
-				filepath.WalkDir(arg, s.getFilesRecursively)
-			} else {
-				s.files = append(s.files, arg)
-			}
-		}
-
-		app, err := castApplication(cmd, s.files)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-
 		duration, _ := cmd.Flags().GetInt("duration")
 		repeat, _ := cmd.Flags().GetBool("repeat")
-		if err := app.Slideshow(s.files, duration, repeat); err != nil {
-			exit("unable to play slideshow on cast application: %v", err)
-		}
+
+		app := NewCast(cmd)
+		app.Slideshow(duration, repeat, args)
 	},
+}
+
+// Slideshow exports the slideshow command
+func (a *App) Slideshow(duration int, repeat bool, args []string) {
+	if len(args) == 0 {
+		exit("requires files (or directories) to play in slideshow")
+	}
+
+	s := &share{}
+
+	for _, arg := range args {
+		if fileInfo, err := os.Stat(arg); err != nil {
+			log.Warn().Msgf("unable to find %q: %v", arg, err)
+		} else if fileInfo.Mode().IsDir() {
+			log.Debug().Msgf("%q is a directory", arg)
+
+			// recursively find files in directory
+			// TODO: this will consume large amounts of memory as it will hold references to each file (media item) to be served
+			filepath.WalkDir(arg, s.getFilesRecursively)
+		} else {
+			s.files = append(s.files, arg)
+		}
+	}
+
+	app, err := a.castApplication()
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Slideshow(s.files, duration, repeat); err != nil {
+		exit("unable to play slideshow on cast application: %v", err)
+	}
 }
 
 func (s *share) getFilesRecursively(path string, d fs.DirEntry, err error) error {
