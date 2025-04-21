@@ -259,13 +259,17 @@ $ go-chromecast --with-ui load /path/to/file.flac
 There is a HTTP API server provided that has the following api:
 
 ```
-GET /devices?interface=<network_interface>&wait=<seconds>
-POST /connect?uuid=<device_uuid>&addr=<device_addr>&port=<device_port>&interface=<network_interface>&wait=<seconds>
-POST /disconnect?uuid=<device_uuid>&stop=<bool>
-POST /disconnect-all?stop=<bool>
-POST /status?uuid=<device_uuid>
+GET /devices?wait=...&iface=...
+POST /connect?uuid=<device_uuid>&addr=<device_addr>&port=<device_port>
+POST /connect-all?wait=...&iface=...
+POST /disconnect?uuid=<device_uuid>
+POST /disconnect-all
+GET /status?uuid=<device_uuid>
+GET /statuses (Deprecated use status-all)
+GET /status-all
 POST /pause?uuid=<device_uuid>
 POST /unpause?uuid=<device_uuid>
+POST /skipad?uuid=<device_uuid>
 POST /mute?uuid=<device_uuid>
 POST /unmute?uuid=<device_uuid>
 POST /stop?uuid=<device_uuid>
@@ -274,7 +278,7 @@ POST /volume?uuid=<device_uuid>&volume=<float>
 POST /rewind?uuid=<device_uuid>&seconds=<int>
 POST /seek?uuid=<device_uuid>&seconds=<int>
 POST /seek-to?uuid=<device_uuid>&seconds=<float>
-POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>
+POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>&start_time=<int>
 ```
 
 ```
