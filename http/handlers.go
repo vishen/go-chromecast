@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishen/go-chromecast/application"
@@ -108,7 +109,8 @@ func (h *Handler) registerHandlers() {
 		POST /disconnect?uuid=<device_uuid>
 		POST /disconnect-all
 		GET /status?uuid=<device_uuid>
-		GET /statuses
+		GET /statuses (Deprecated use status-all)
+		GET /status-all
 		POST /pause?uuid=<device_uuid>
 		POST /unpause?uuid=<device_uuid>
 		POST /skipad?uuid=<device_uuid>
@@ -129,6 +131,7 @@ func (h *Handler) registerHandlers() {
 	h.mux.HandleFunc("/disconnect", h.disconnect)
 	h.mux.HandleFunc("/disconnect-all", h.disconnectAll)
 	h.mux.HandleFunc("/status", h.status)
+	h.mux.HandleFunc("/status-all", h.statusAll)
 	h.mux.HandleFunc("/statuses", h.statuses)
 	h.mux.HandleFunc("/pause", h.pause)
 	h.mux.HandleFunc("/unpause", h.unpause)
@@ -463,7 +466,17 @@ func (h *Handler) UpdateAll() error {
 	return g.Wait()
 }
 
+// Deprecated: Use statusAll instead
 func (h *Handler) statuses(w http.ResponseWriter, r *http.Request) {
+	dep_message := "/statuses is deprecated, use /status-all instead"
+	log.Warn(dep_message)
+
+	w.Header().Add("Deprecated", dep_message)
+
+	h.statusAll(w, r)
+}
+
+func (h *Handler) statusAll(w http.ResponseWriter, r *http.Request) {
 	h.log("statuses for devices")
 	syncUpdate := r.URL.Query().Get("syncUpdate") == "true"
 	uuids := h.ConnectedDeviceUUIDs()
