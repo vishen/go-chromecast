@@ -146,5 +146,6 @@ func init() {
 	watchCmd.Flags().Int("interval", 10, "interval between status poll in seconds")
 	watchCmd.Flags().Int("retries", 10, "times to retry when losing chromecast connection")
 	watchCmd.Flags().String("output", "normal", "output format: normal or json")
+	watchCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 	rootCmd.AddCommand(watchCmd)
 }

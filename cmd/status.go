@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/application"
 )
 
 // statusCmd represents the status command
@@ -25,7 +26,19 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Current chromecast status",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
+		broadSearch, _ := cmd.Flags().GetBool("broad-search")
+		
+		var app application.App
+		var err error
+		
+		if broadSearch {
+			// Use broad search for device discovery
+			app, err = castApplicationWithBroadSearch(cmd, args)
+		} else {
+			// Use standard device discovery
+			app, err = castApplication(cmd, args)
+		}
+		
 		if err != nil {
 			exit("unable to get cast application: %v", err)
 		}
@@ -81,6 +94,7 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(statusCmd)
+	statusCmd.Flags().Bool("broad-search", false, "perform comprehensive search using both mDNS and port scanning")
 	statusCmd.Flags().Bool("content-id", false, "print the content id if available")
+	rootCmd.AddCommand(statusCmd)
 }

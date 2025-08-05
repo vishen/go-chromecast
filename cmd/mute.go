@@ -23,7 +23,7 @@ var muteCmd = &cobra.Command{
 	Use:   "mute",
 	Short: "Mute the chromecast",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
+ 		app, err := castApplication(cmd, args)
 		if err != nil {
 			exit("unable to get cast application: %v", err)
 		}
@@ -35,4 +35,5 @@ var muteCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(muteCmd)
+	muteCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

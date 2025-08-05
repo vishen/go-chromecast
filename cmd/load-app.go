@@ -28,14 +28,14 @@ var loadAppCmd = &cobra.Command{
 the chromecast receiver app to be specified. An older list can be found 
 here https://gist.github.com/jloutsenhizer/8855258.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 2 {
-			exit("requires exactly two arguments")
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
+Run: func(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		exit("requires exactly two arguments")
+	}
+	app, err := castApplication(cmd, args)
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
 
 		// Optionally run a UI when playing this media:
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
@@ -64,4 +64,5 @@ here https://gist.github.com/jloutsenhizer/8855258.
 
 func init() {
 	rootCmd.AddCommand(loadAppCmd)
+	loadAppCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

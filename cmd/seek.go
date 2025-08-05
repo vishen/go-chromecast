@@ -24,24 +24,25 @@ import (
 var seekCmd = &cobra.Command{
 	Use:   "seek <delta_in_seconds>",
 	Short: "Seek by seconds into the currently playing media",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			exit("one argument required")
-		}
-		value, err := strconv.Atoi(args[0])
-		if err != nil {
-			exit("unable to parse %q to an integer", args[0])
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.Seek(value); err != nil {
-			exit("unable to seek current media: %v", err)
-		}
-	},
+Run: func(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		exit("one argument required")
+	}
+	value, err := strconv.Atoi(args[0])
+	if err != nil {
+		exit("unable to parse %q to an integer", args[0])
+	}
+app, err := castApplication(cmd, args)
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.Seek(value); err != nil {
+		exit("unable to seek current media: %v", err)
+	}
+},
 }
 
 func init() {
-	rootCmd.AddCommand(seekCmd)
+rootCmd.AddCommand(seekCmd)
+seekCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

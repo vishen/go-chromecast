@@ -54,4 +54,5 @@ var volumeDownCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(volumeDownCmd)
 	volumeDownCmd.Flags().Float32("step", 0.05, "step value for turning down volume")
+	volumeDownCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

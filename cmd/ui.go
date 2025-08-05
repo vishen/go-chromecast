@@ -15,9 +15,9 @@
 package cmd
 
 import (
-	"github.com/vishen/go-chromecast/ui"
-
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/application"
+	"github.com/vishen/go-chromecast/ui"
 )
 
 // uiCmd represents the ui command (runs a UI):
@@ -25,7 +25,19 @@ var uiCmd = &cobra.Command{
 	Use:   "ui",
 	Short: "Run the UI",
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := castApplication(cmd, args)
+		broadSearch, _ := cmd.Flags().GetBool("broad-search")
+		
+		var app application.App
+		var err error
+		
+		if broadSearch {
+			// Use broad search for device discovery
+			app, err = castApplicationWithBroadSearch(cmd, args)
+		} else {
+			// Use standard device discovery
+			app, err = castApplication(cmd, args)
+		}
+		
 		if err != nil {
 			exit("unable to get cast application: %v", err)
 			return
@@ -43,5 +55,6 @@ var uiCmd = &cobra.Command{
 }
 
 func init() {
+	uiCmd.Flags().Bool("broad-search", false, "perform comprehensive search using both mDNS and port scanning")
 	rootCmd.AddCommand(uiCmd)
 }

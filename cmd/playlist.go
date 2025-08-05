@@ -226,4 +226,5 @@ func init() {
 	playlistCmd.Flags().Bool("transcode", true, "transcode the media to mp4 if media type is unrecognised")
 	playlistCmd.Flags().Bool("force-play", false, "attempt to play a media type even if it is unrecognised")
 	playlistCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
+	playlistCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

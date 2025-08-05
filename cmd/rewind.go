@@ -32,7 +32,7 @@ var rewindCmd = &cobra.Command{
 		if err != nil {
 			exit("unable to parse %q to an integer", args[0])
 		}
-		app, err := castApplication(cmd, args)
+ 		app, err := castApplication(cmd, args)
 		if err != nil {
 			exit("unable to get cast application: %v", err)
 		}
@@ -44,4 +44,5 @@ var rewindCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(rewindCmd)
+	rewindCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

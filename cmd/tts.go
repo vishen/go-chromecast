@@ -87,4 +87,5 @@ func init() {
 	ttsCmd.Flags().Float32("speaking-rate", 1.0, "speaking rate")
 	ttsCmd.Flags().Float32("pitch", 1.0, "pitch")
 	ttsCmd.Flags().Bool("ssml", false, "use SSML")
+	ttsCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

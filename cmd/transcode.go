@@ -26,7 +26,7 @@ var transcodeCmd = &cobra.Command{
 	Use:   "transcode",
 	Short: "Transcode and play media on the chromecast",
 	Long: `Transcode and play media on the chromecast. This will start a streaming server
-locally and serve the output of the transcoding operation to the chromecast. 
+locally and serve the output of the transcoding operation to the chromecast.
 This command requires the program or script to write the media content to stdout.
 The transcoded media content-type is required as well`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -72,7 +72,7 @@ The transcoded media content-type is required as well`,
 }
 
 func init() {
-	rootCmd.AddCommand(transcodeCmd)
-	transcodeCmd.Flags().String("command", "", "command to use when transcoding")
-	transcodeCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
+rootCmd.AddCommand(transcodeCmd)
+transcodeCmd.Flags().String("command", "", "command to use when transcoding")
+transcodeCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }
