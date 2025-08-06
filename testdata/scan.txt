@@ -1,0 +1,14 @@
+# Test scan command help and basic functionality
+go-chromecast scan --help
+stdout 'Scan for chromecast devices'
+stdout 'subnets'
+stdout 'broad-search'
+stdout 'cidr'
+! stderr .
+
+# Test that scan command accepts the flags in help output
+go-chromecast scan --subnets 192.168.1.0/24 --help
+stdout 'subnets'
+
+go-chromecast scan --broad-search --help
+stdout 'broad-search'
