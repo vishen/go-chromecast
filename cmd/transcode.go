@@ -72,7 +72,6 @@ The transcoded media content-type is required as well`,
 }
 
 func init() {
-rootCmd.AddCommand(transcodeCmd)
-transcodeCmd.Flags().String("command", "", "command to use when transcoding")
-transcodeCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
+	rootCmd.AddCommand(transcodeCmd)
+	transcodeCmd.Flags().String("command", "", "command to use when transcoding")
 }

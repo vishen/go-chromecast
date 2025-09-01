@@ -23,5 +23,4 @@ var skipadCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(skipadCmd)
-	skipadCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

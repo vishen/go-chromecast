@@ -43,6 +43,5 @@ app, err := castApplication(cmd, args)
 }
 
 func init() {
-rootCmd.AddCommand(seekCmd)
-seekCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
+	rootCmd.AddCommand(seekCmd)
 }

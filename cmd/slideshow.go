@@ -103,5 +103,4 @@ func init() {
 	rootCmd.AddCommand(slideshowCmd)
 	slideshowCmd.Flags().Int("duration", 10, "duration of each image on screen")
 	slideshowCmd.Flags().Bool("repeat", true, "should the slideshow repeat")
-	slideshowCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

@@ -35,5 +35,4 @@ var nextCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(nextCmd)
-	nextCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

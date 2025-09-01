@@ -208,6 +208,5 @@ func performBroadSearch(iface *net.Interface, dnsTimeoutSeconds int) []CastDevic
 }
 
 func init() {
-	lsCmd.Flags().Bool("broad-search", false, "perform comprehensive search using both mDNS and port scanning")
 	rootCmd.AddCommand(lsCmd)
 }

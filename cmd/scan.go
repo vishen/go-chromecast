@@ -39,13 +39,18 @@ Run: func(cmd *cobra.Command, args []string) {
 
 	if subnetsFlag != "" {
 		if subnetsFlag == "*" {
-			// Scan all detected subnets on all active interfaces
+			// Scan all detected subnets on all active interfaces, skipping virtual/Tailscale interfaces
 			interfaces, err := net.Interfaces()
 			if err != nil {
 				exit("could not list interfaces: %v", err)
 			}
 			for _, iface := range interfaces {
 				if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+					continue
+				}
+				// Skip Tailscale and common virtual interfaces
+				name := strings.ToLower(iface.Name)
+				if strings.HasPrefix(name, "tailscale") || strings.HasPrefix(name, "ts") || strings.HasPrefix(name, "utun") || strings.HasPrefix(name, "tun") || strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vmnet") || strings.HasPrefix(name, "docker") || strings.HasPrefix(name, "vbox") || strings.HasPrefix(name, "zt") || strings.HasPrefix(name, "wg") {
 					continue
 				}
 				addrs, err := iface.Addrs()
@@ -74,13 +79,18 @@ Run: func(cmd *cobra.Command, args []string) {
 			}
 		}
 	} else if broadSearch {
-		// Scan all detected subnets on all active interfaces
+		// Scan all detected subnets on all active interfaces, skipping virtual/Tailscale interfaces
 		interfaces, err := net.Interfaces()
 		if err != nil {
 			exit("could not list interfaces: %v", err)
 		}
 		for _, iface := range interfaces {
 			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			// Skip Tailscale and common virtual interfaces
+			name := strings.ToLower(iface.Name)
+			if strings.HasPrefix(name, "tailscale") || strings.HasPrefix(name, "ts") || strings.HasPrefix(name, "utun") || strings.HasPrefix(name, "tun") || strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vmnet") || strings.HasPrefix(name, "docker") || strings.HasPrefix(name, "vbox") || strings.HasPrefix(name, "zt") || strings.HasPrefix(name, "wg") {
 				continue
 			}
 			addrs, err := iface.Addrs()
@@ -254,7 +264,7 @@ func init() {
 	scanCmd.Flags().String("cidr", "192.168.50.0/24", "cidr expression of subnet to scan")
 	scanCmd.Flags().IntSlice("ports", defaultPorts, "ports to scan for (includes Chromecast devices and groups)")
 	scanCmd.Flags().String("iface", "", "network interface to use for detecting local subnet")
-	scanCmd.Flags().BoolP("broad-search", "b", false, "(No-op) For consistency: scan always performs a comprehensive search")
 	scanCmd.Flags().String("subnets", "", "Comma-separated list of subnets to scan (e.g. 192.168.4.0/24,192.168.3.0/24), or * for all detected subnets. Overrides --cidr and --broad-search if set.")
+	scanCmd.Flags().BoolP("broad-search", "b", false, "(No-op) For consistency: scan always performs a comprehensive search")
 	rootCmd.AddCommand(scanCmd)
 }

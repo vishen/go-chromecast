@@ -42,6 +42,5 @@ var uiCmd = &cobra.Command{
 }
 
 func init() {
-	uiCmd.Flags().Bool("broad-search", false, "perform comprehensive search using both mDNS and port scanning")
 	rootCmd.AddCommand(uiCmd)
 }

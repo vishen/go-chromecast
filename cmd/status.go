@@ -94,7 +94,6 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	statusCmd.Flags().Bool("broad-search", false, "perform comprehensive search using both mDNS and port scanning")
 	statusCmd.Flags().Bool("content-id", false, "print the content id if available")
 	rootCmd.AddCommand(statusCmd)
 }

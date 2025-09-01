@@ -77,5 +77,4 @@ func init() {
 	loadCmd.Flags().Bool("detach", false, "detach from waiting until media finished. Only works with url loaded external media")
 	loadCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
 	loadCmd.Flags().Int("start-time", 0, "start time to play media, in seconds")
-	loadCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }

@@ -44,5 +44,4 @@ var rewindCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(rewindCmd)
-	rewindCmd.Flags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }
