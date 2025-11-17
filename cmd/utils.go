@@ -50,7 +50,7 @@ func (e CachedDNSEntry) GetPort() int {
 	return e.Port
 }
 
-func castApplication(cmd *cobra.Command, args []string) (application.App, error) {
+func castApplication(cmd *cobra.Command, _ []string) (application.App, error) {
 	deviceName, _ := cmd.Flags().GetString("device-name")
 	deviceUuid, _ := cmd.Flags().GetString("uuid")
 	device, _ := cmd.Flags().GetString("device")

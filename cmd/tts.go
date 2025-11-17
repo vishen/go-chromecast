@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/tts"
 )
 
@@ -73,7 +74,13 @@ var ttsCmd = &cobra.Command{
 			exit("unable to close temp file: %v", err)
 		}
 
-		if err := app.Load(f.Name(), 0, "audio/mp3", false, false, false); err != nil {
+		if err := app.Load(f.Name(), application.LoadOptions{
+			StartTime:   0,
+			ContentType: "audio/mp3",
+			Transcode:   false,
+			Detach:      false,
+			ForceDetach: false,
+		}); err != nil {
 			exit("unable to load media to device: %v", err)
 		}
 	},

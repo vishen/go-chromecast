@@ -221,7 +221,7 @@ func (h *Handler) ConnectedDeviceUUIDs() []string {
 	defer h.mu.Unlock()
 
 	var uuids []string
-	for k, _ := range h.apps {
+	for k := range h.apps {
 		uuids = append(uuids, k)
 	}
 	return uuids
@@ -772,7 +772,13 @@ func (h *Handler) load(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := app.Load(path, startTimeInt, contentType, true, true, true); err != nil {
+	if err := app.Load(path, application.LoadOptions{
+		StartTime:   startTimeInt,
+		ContentType: contentType,
+		Transcode:   true,
+		Detach:      true,
+		ForceDetach: true,
+	}); err != nil {
 		h.log("unable to load media for device: %v", err)
 		httpError(w, fmt.Errorf("unable to load media for device: %w", err))
 		return

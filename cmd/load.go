@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"github.com/vishen/go-chromecast/application"
 	"github.com/vishen/go-chromecast/ui"
 
 	"github.com/spf13/cobra"
@@ -49,7 +50,13 @@ that ffmpeg is installed.`,
 		runWithUI, _ := cmd.Flags().GetBool("with-ui")
 		if runWithUI {
 			go func() {
-				if err := app.Load(args[0], startTime, contentType, transcode, detach, false); err != nil {
+				if err := app.Load(args[0], application.LoadOptions{
+					StartTime:   startTime,
+					ContentType: contentType,
+					Transcode:   transcode,
+					Detach:      detach,
+					ForceDetach: false,
+				}); err != nil {
 					exit("unable to load media: %v", err)
 				}
 			}()
@@ -65,7 +72,13 @@ that ffmpeg is installed.`,
 		}
 
 		// Otherwise just run in CLI mode:
-		if err := app.Load(args[0], startTime, contentType, transcode, detach, false); err != nil {
+		if err := app.Load(args[0], application.LoadOptions{
+			StartTime:   startTime,
+			ContentType: contentType,
+			Transcode:   transcode,
+			Detach:      detach,
+			ForceDetach: false,
+		}); err != nil {
 			exit("unable to load media: %v", err)
 		}
 	},
