@@ -344,3 +344,39 @@ $ go-chromecast tts '<speak>Hello<break time="500ms"/>world.</speak>' \
   --google-service-account=/path/to/service/account.json \
   --ssml
 ```
+
+### Enhanced Device Discovery (Experimental)
+
+**Broad Search** - For complex network topologies with multiple subnets or VLANs, the `--broad-search` flag enables comprehensive device discovery that combines mDNS discovery with targeted port scanning across detected network interfaces.
+
+```bash
+# Use broad search to find devices across multiple subnets
+$ go-chromecast ls --broad-search
+
+# Works with all commands that connect to devices
+$ go-chromecast status --broad-search
+$ go-chromecast load media.mp4 --broad-search
+$ go-chromecast ui --broad-search
+```
+
+**Multi-Subnet Scanning** - The `scan` command supports scanning specific subnets or auto-detecting all available subnets:
+
+```bash
+# Scan specific subnets
+$ go-chromecast scan --subnets 192.168.4.0/24,192.168.3.0/24
+
+# Scan all detected subnets
+$ go-chromecast scan --subnets *
+
+# Traditional single subnet scan (default behavior)
+$ go-chromecast scan --cidr 192.168.1.0/24
+```
+
+**When to use:**
+- Multiple VLANs or subnets in your network
+- Chromecast devices not appearing in device list
+- Network setups with WiFi isolation or complex routing
+- Corporate networks with segmented subnets
+- Chromecast Audio groups on different ports
+
+**Note:** Broad search is slower than standard discovery as it performs more comprehensive network scanning. The enhanced discovery automatically detects your network topology and finds devices that standard mDNS discovery might miss, including Chromecast groups on non-standard ports.
