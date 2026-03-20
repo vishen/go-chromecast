@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	cloud.google.com/go/texttospeech v1.10.0
-	github.com/buger/jsonparser v1.1.1
+	github.com/buger/jsonparser v1.1.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/h2non/filetype v1.1.3
