@@ -24,22 +24,22 @@ import (
 var seekToCmd = &cobra.Command{
 	Use:   "seek-to <timestamp_in_seconds>",
 	Short: "Seek to the <timestamp_in_seconds> in the currently playing media",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			exit("one argument required")
-		}
-		value, err := strconv.ParseFloat(args[0], 32)
-		if err != nil {
-			exit("unable to parse %q to an integer", args[0])
-		}
-		app, err := castApplication(cmd, args)
-		if err != nil {
-			exit("unable to get cast application: %v", err)
-		}
-		if err := app.SeekToTime(float32(value)); err != nil {
-			exit("unable to seek to current media: %v", err)
-		}
-	},
+Run: func(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		exit("one argument required")
+	}
+	value, err := strconv.ParseFloat(args[0], 32)
+	if err != nil {
+		exit("unable to parse %q to an integer", args[0])
+	}
+ app, err := castApplication(cmd, args)
+	if err != nil {
+		exit("unable to get cast application: %v", err)
+	}
+	if err := app.SeekToTime(float32(value)); err != nil {
+		exit("unable to seek to current media: %v", err)
+	}
+},
 }
 
 func init() {

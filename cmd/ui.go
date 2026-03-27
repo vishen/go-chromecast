@@ -15,9 +15,8 @@
 package cmd
 
 import (
-	"github.com/vishen/go-chromecast/ui"
-
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/ui"
 )
 
 // uiCmd represents the ui command (runs a UI):
