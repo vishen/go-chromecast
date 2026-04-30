@@ -78,4 +78,5 @@ func init() {
 	rootCmd.PersistentFlags().IntP("server-port", "s", 0, "Listening port for the http server")
 	rootCmd.PersistentFlags().Int("dns-timeout", 3, "Multicast DNS timeout in seconds when searching for chromecast DNS entries")
 	rootCmd.PersistentFlags().Bool("first", false, "Use first cast device found")
+	rootCmd.PersistentFlags().BoolP("broad-search", "b", false, "Search for devices using comprehensive network scanning (slower but finds more devices)")
 }
