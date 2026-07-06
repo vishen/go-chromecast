@@ -1,6 +1,6 @@
 module github.com/vishen/go-chromecast
 
-go 1.24.0
+go 1.25.0
 
 require (
 	cloud.google.com/go/texttospeech v1.10.0
@@ -15,8 +15,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/net v0.48.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	google.golang.org/api v0.209.0
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697
 )
@@ -25,7 +25,7 @@ require github.com/seancfoley/ipaddress-go v1.7.0
 
 require (
 	github.com/rs/zerolog v1.33.0
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -63,12 +63,12 @@ require (
 	go.opentelemetry.io/otel v1.41.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
-	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/mod v0.30.0 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/grpc v1.79.3 // indirect
