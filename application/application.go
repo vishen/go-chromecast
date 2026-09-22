@@ -87,6 +87,7 @@ type App interface {
 	AddMessageFunc(f CastMessageFunc)
 	PlayedItems() map[string]PlayedItem
 	PlayableMediaType(filename string) bool
+	GetLocalIP() (string, error)
 }
 
 type Application struct {
@@ -240,6 +241,10 @@ func (a *Application) SetDeviceNameOverride(deviceName string) {
 func (a *Application) App() *cast.Application { return a.application }
 func (a *Application) Media() *cast.Media     { return a.media }
 func (a *Application) Volume() *cast.Volume   { return a.volumeReceiver }
+
+func (a *Application) GetLocalIP() (string, error) {
+	return a.getLocalIP()
+}
 
 func (a *Application) AddMessageFunc(f CastMessageFunc) {
 	a.messageMu.Lock()

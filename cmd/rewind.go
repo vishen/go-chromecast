@@ -32,7 +32,7 @@ var rewindCmd = &cobra.Command{
 		if err != nil {
 			exit("unable to parse %q to an integer", args[0])
 		}
-		app, err := castApplication(cmd, args)
+ 		app, err := castApplication(cmd, args)
 		if err != nil {
 			exit("unable to get cast application: %v", err)
 		}
