@@ -46,7 +46,7 @@ here https://gist.github.com/jloutsenhizer/8855258.
 				}
 			}()
 
-			ccui, err := ui.NewUserInterface(app)
+			ccui, err := ui.NewUserInterface(app, uiOptions(cmd)...)
 			if err != nil {
 				exit("unable to prepare a new user-interface: %v", err)
 			}

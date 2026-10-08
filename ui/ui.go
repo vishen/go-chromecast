@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"io"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ type UserInterface struct {
 	app             application.App
 	displayName     string
 	gui             *gocui.Gui
+	hideLog         bool
 	media           string
 	muted           bool
 	paused          bool
@@ -28,8 +30,18 @@ type UserInterface struct {
 	wg              sync.WaitGroup
 }
 
+// Option configures a UserInterface:
+type Option func(*UserInterface)
+
+// WithLogHidden hides the log view (nothing is logged while the UI runs):
+func WithLogHidden(hideLog bool) Option {
+	return func(ui *UserInterface) {
+		ui.hideLog = hideLog
+	}
+}
+
 // NewUserInterface returns a new user-interface loaded with everything we need:
-func NewUserInterface(app application.App) (*UserInterface, error) {
+func NewUserInterface(app application.App, opts ...Option) (*UserInterface, error) {
 
 	// Use a GUI from gocui to handle the user-interface:
 	g, err := gocui.NewGui(gocui.OutputNormal)
@@ -45,6 +57,16 @@ func NewUserInterface(app application.App) (*UserInterface, error) {
 		seekFastforward: 15,
 		seekRewind:      -15,
 		volume:          0,
+	}
+
+	for _, opt := range opts {
+		opt(newUserInterface)
+	}
+
+	// Without a log view there is nowhere to write the logs to, and they
+	// would end up being written over the UI:
+	if newUserInterface.hideLog {
+		log.SetOutput(io.Discard)
 	}
 
 	// Tell the GUI about its "Manager" function (defines the gocui "views"):
