@@ -12,7 +12,14 @@ const viewNameKeys = "Keys"
 func (ui *UserInterface) viewKeys(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 
-	if v, err := g.SetView(viewNameKeys, 0, maxY-3, maxX-1, maxY-1); err != nil {
+	// The keys go at the bottom, or just below the other views if there
+	// is no log view to fill the gap:
+	y := maxY - 3
+	if ui.hideLog {
+		y = 7
+	}
+
+	if v, err := g.SetView(viewNameKeys, 0, y, maxX-1, y+2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}

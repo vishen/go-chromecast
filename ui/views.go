@@ -18,7 +18,9 @@ func (ui *UserInterface) views(g *gocui.Gui) error {
 	ui.viewStatus(g)
 	ui.viewVolume(g)
 	ui.viewProgress(g)
-	ui.viewLog(g)
+	if !ui.hideLog {
+		ui.viewLog(g)
+	}
 	ui.viewKeys(g)
 	return nil
 }
