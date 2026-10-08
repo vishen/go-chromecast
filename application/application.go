@@ -155,6 +155,16 @@ func WithServerPort(port int) ApplicationOption {
 	}
 }
 
+// WithServerAddr sets the address the cast device should use to reach the
+// http server that serves the local media, instead of using the local
+// address of the connection to the device. Useful when running in a
+// container or VM where that address isn't reachable by the device.
+func WithServerAddr(addr string) ApplicationOption {
+	return func(a *Application) {
+		a.SetServerAddr(addr)
+	}
+}
+
 func WithDebug(debug bool) ApplicationOption {
 	return func(a *Application) {
 		a.SetDebug(debug)
@@ -224,6 +234,7 @@ func NewApplication(opts ...ApplicationOption) *Application {
 
 func (a *Application) SetConn(conn cast.Conn)       { a.conn = conn }
 func (a *Application) SetServerPort(serverPort int) { a.serverPort = serverPort }
+func (a *Application) SetServerAddr(addr string)    { a.localIP = addr }
 func (a *Application) SetConnectionRetries(connectionRetries int) {
 	a.connectionRetries = connectionRetries
 }
