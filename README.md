@@ -126,6 +126,9 @@ Found 2 cast dns entries, select one:
 Enter selection: 1
 Idle (Backdrop), volume=1.00 muted=false
 
+# Status of a cast device as json, useful for scripting.
+$ go-chromecast status --json | jq -r .media.media.metadata.title
+
 # Specify a cast device name.
 $ go-chromecast status -n "Living Room Speaker"
 Idle, volume=0.17 muted=false
