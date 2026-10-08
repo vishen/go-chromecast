@@ -71,6 +71,7 @@ Available Commands:
   mute        Mute the chromecast
   next        Play the next available media
   pause       Pause the currently playing media on the chromecast
+  playback-rate Set the playback rate of the currently playing media
   playlist    Load and play media on the chromecast
   previous    Play the previous available media
   restart     Restart the currently playing media
@@ -197,6 +198,9 @@ $ go-chromecast rewind 30
 
 # Go forward in the currently playing media by x seconds.
 $ go-chromecast seek 30
+
+# Play the currently playing media at 1.5x speed (0.5 to 2).
+$ go-chromecast playback-rate 1.5
 
 # Get the current volume level
 $ go-chromecast volume

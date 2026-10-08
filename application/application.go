@@ -69,6 +69,7 @@ type App interface {
 	Update() error
 	Pause() error
 	Unpause() error
+	SetPlaybackRate(rate float32) error
 	TogglePause() error
 	Stop() error
 	StopMedia() error
@@ -477,6 +478,22 @@ func (a *Application) Pause() error {
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PauseHeader,
 		MediaSessionId: a.media.MediaSessionId,
+	})
+}
+
+// SetPlaybackRate sets the playback rate of the playing media, where 1 is
+// the normal speed. The cast devices support rates between 0.5 and 2.
+func (a *Application) SetPlaybackRate(rate float32) error {
+	if a.media == nil {
+		return ErrNoMediaPlaybackRate
+	}
+	if rate < 0.5 || rate > 2 {
+		return ErrPlaybackRateRange
+	}
+	return a.sendMediaRecv(&cast.SetPlaybackRate{
+		PayloadHeader:  cast.PlaybackRateHeader,
+		MediaSessionId: a.media.MediaSessionId,
+		PlaybackRate:   rate,
 	})
 }
 
