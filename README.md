@@ -171,6 +171,9 @@ Enter selection: 2
 Attemping to play the following media:
 - /home/jonathan/playlist_test/sample_1.mp3
 
+# Start a playlist from the 3rd item, without being asked.
+$ go-chromecast playlist ~/playlist_test/ --start-index 3
+
 # Start a playlist from the start, ignoring if you have previously played that playlist.
 $ go-chromecast playlist ~/playlist_test/ -n "Living Room Speaker" --continue=false
 

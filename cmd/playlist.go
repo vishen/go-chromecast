@@ -63,6 +63,10 @@ that ffmpeg is installed.`,
 		forcePlay, _ := cmd.Flags().GetBool("force-play")
 		continuePlaying, _ := cmd.Flags().GetBool("continue")
 		selection, _ := cmd.Flags().GetBool("select")
+		startIndex, _ := cmd.Flags().GetInt("start-index")
+		if startIndex < 0 {
+			exit("--start-index must be 1 or greater")
+		}
 		files, err := ioutil.ReadDir(args[0])
 		if err != nil {
 			exit("unable to list files from %q: %v", args[0], err)
@@ -137,7 +141,12 @@ that ffmpeg is installed.`,
 		}
 
 		indexToPlayFrom := 0
-		if selection {
+		if startIndex > 0 {
+			if startIndex > len(filenames) {
+				exit("--start-index is %d but there are only %d items to play", startIndex, len(filenames))
+			}
+			indexToPlayFrom = startIndex - 1
+		} else if selection {
 			outputInfo("Will play the following items, select where to start from:")
 			for i, f := range filenames {
 				lastPlayed := "never"
@@ -223,6 +232,7 @@ func init() {
 	rootCmd.AddCommand(playlistCmd)
 	playlistCmd.Flags().Bool("continue", true, "continue playing from the last known media")
 	playlistCmd.Flags().Bool("select", false, "choose which media to start the playlist from")
+	playlistCmd.Flags().Int("start-index", 0, "start the playlist from this item (starting at 1), without asking; the items are numbered as shown by --select")
 	playlistCmd.Flags().Bool("transcode", true, "transcode the media to mp4 if media type is unrecognised")
 	playlistCmd.Flags().Bool("force-play", false, "attempt to play a media type even if it is unrecognised")
 	playlistCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
