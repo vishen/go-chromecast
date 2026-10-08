@@ -101,6 +101,7 @@ Flags:
   -h, --help                 help for go-chromecast
   -i, --iface string         Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
+      --ui-hide-log          hide the log in the UI
   -u, --uuid string          chromecast device uuid
       --verbose              verbose logging
       --version              display command version
@@ -252,6 +253,14 @@ Use the UI in combination with the `load` command (detailed above):
 
 ```
 $ go-chromecast --with-ui load /path/to/file.flac
+```
+
+### Hiding the log
+
+The log takes most of the UI. It can be hidden with the `--ui-hide-log` flag:
+
+```
+$ go-chromecast ui --ui-hide-log
 ```
 
 ## HTTP API Server

@@ -31,7 +31,7 @@ var uiCmd = &cobra.Command{
 			return
 		}
 
-		ccui, err := ui.NewUserInterface(app)
+		ccui, err := ui.NewUserInterface(app, uiOptions(cmd)...)
 		if err != nil {
 			exit("unable to prepare a new user-interface: %v", err)
 		}
@@ -40,6 +40,14 @@ var uiCmd = &cobra.Command{
 			exit("unable to start the user-interface: %v", err)
 		}
 	},
+}
+
+// uiOptions returns the options of the UI that were set with flags:
+func uiOptions(cmd *cobra.Command) []ui.Option {
+	hideLog, _ := cmd.Flags().GetBool("ui-hide-log")
+	return []ui.Option{
+		ui.WithLogHidden(hideLog),
+	}
 }
 
 func init() {
