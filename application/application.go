@@ -24,6 +24,7 @@ import (
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/playlists"
 	"github.com/vishen/go-chromecast/storage"
+	"github.com/vishen/go-chromecast/youtube"
 	"path/filepath"
 )
 
@@ -64,6 +65,8 @@ type App interface {
 	Start(addr string, port int) error
 	Close(stopMedia bool) error
 	LoadApp(appID, contentID string) error
+	LoadYouTube(videoID, playlistID string) error
+	QueueYouTube(videoID string, playNext bool) error
 	Status() (*cast.Application, *cast.Media, *cast.Volume)
 	Info() (*cast.DeviceInfo, error)
 	Update() error
@@ -139,6 +142,9 @@ type Application struct {
 	skipadSleep time.Duration
 	// Number of times to try to skip an ad
 	skipadRetries int
+
+	// Session used to control the YouTube app, created on first use.
+	youtube *youtube.Session
 }
 
 type ApplicationOption func(*Application)
