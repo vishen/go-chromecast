@@ -75,13 +75,25 @@ func (c *Connection) Start(addr string, port int) error {
 func (c *Connection) Close() error {
 	// TODO: nothing here is concurrent safe, fix?
 	c.connected = false
-	if c.cancel != nil {
+	if c.cancel == nil {
+		// The receive loop was never started, so there is nothing else
+		// that will close the channel.
+		c.closeRecvMsgChan()
+	} else {
+		// The receive loop closes the channel when it exits, as it is
+		// the only one sending on it.
 		c.cancel()
 	}
-	defer c.closeChanOnce.Do(func() {
+	if c.conn == nil {
+		return nil
+	}
+	return c.conn.Close()
+}
+
+func (c *Connection) closeRecvMsgChan() {
+	c.closeChanOnce.Do(func() {
 		close(c.recvMsgChan)
 	})
-	return c.conn.Close()
 }
 
 func (c *Connection) SetDebug(debug bool) { c.debug = debug }
@@ -157,6 +169,9 @@ func (c *Connection) Send(requestID int, payload Payload, sourceID, destinationI
 }
 
 func (c *Connection) receiveLoop(ctx context.Context) {
+	// Nothing is sent on the channel after this loop exits, so it is safe
+	// to close it here.
+	defer c.closeRecvMsgChan()
 	for {
 		select {
 		case <-ctx.Done():
@@ -212,11 +227,11 @@ func (c *Connection) receiveLoop(ctx context.Context) {
 			continue
 		}
 
-		c.handleMessage(requestIDi, message, &headers)
+		c.handleMessage(ctx, requestIDi, message, &headers)
 	}
 }
 
-func (c *Connection) handleMessage(requestID int, message *pb.CastMessage, headers *PayloadHeader) {
+func (c *Connection) handleMessage(ctx context.Context, requestID int, message *pb.CastMessage, headers *PayloadHeader) {
 
 	messageType, err := jsonparser.GetString([]byte(*message.PayloadUtf8), "type")
 	if err != nil {
@@ -230,6 +245,11 @@ func (c *Connection) handleMessage(requestID int, message *pb.CastMessage, heade
 			c.log("unable to respond to 'PING': %v", err)
 		}
 	default:
-		c.recvMsgChan <- message
+		// Don't block forever if the connection is closed while nobody
+		// is reading the messages.
+		select {
+		case c.recvMsgChan <- message:
+		case <-ctx.Done():
+		}
 	}
 }
