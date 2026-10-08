@@ -29,8 +29,9 @@ import (
 
 var (
 	// Global request id
-	requestID int
-	_         App = &Application{}
+	requestID   int
+	requestIDMu sync.Mutex
+	_           App = &Application{}
 )
 
 const (
@@ -97,7 +98,8 @@ type Application struct {
 	deviceNameOverride string
 
 	// Internal mapping of request id to result channel
-	resultChanMap map[int]chan *pb.CastMessage
+	resultChanMap   map[int]chan *pb.CastMessage
+	resultChanMapMu sync.Mutex
 
 	messageMu sync.Mutex
 	// Relay messages received so users can add custom logic to
@@ -284,7 +286,10 @@ func (a *Application) recvMessages() {
 	for msg := range a.conn.MsgChan() {
 		requestID, err := jsonparser.GetInt([]byte(*msg.PayloadUtf8), "requestId")
 		if err == nil {
-			if resultChan, ok := a.resultChanMap[int(requestID)]; ok {
+			a.resultChanMapMu.Lock()
+			resultChan, ok := a.resultChanMap[int(requestID)]
+			a.resultChanMapMu.Unlock()
+			if ok {
 				resultChan <- msg
 				// Relay the event to any user specified message funcs.
 				a.messageChan <- msg
@@ -1256,31 +1261,42 @@ func (a *Application) log(message string, args ...interface{}) {
 	}
 }
 
-func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) (int, error) {
-	// NOTE: Not concurrent safe, but currently only synchronous flow is possible
-	// TODO(vishen): just make concurrent safe regardless of current flow
+func nextRequestID() int {
+	requestIDMu.Lock()
+	defer requestIDMu.Unlock()
 	requestID += 1
+	return requestID
+}
+
+func (a *Application) send(payload cast.Payload, sourceID, destinationID, namespace string) (int, error) {
+	requestID := nextRequestID()
 	payload.SetRequestId(requestID)
 	return requestID, a.conn.Send(requestID, payload, sourceID, destinationID, namespace)
 }
 
 func (a *Application) sendAndWait(payload cast.Payload, sourceID, destinationID, namespace string) (*pb.CastMessage, error) {
-	requestID, err := a.send(payload, sourceID, destinationID, namespace)
-	if err != nil {
+	requestID := nextRequestID()
+	payload.SetRequestId(requestID)
+
+	// Register the result channel before sending the request, otherwise
+	// the response could arrive before we are waiting for it.
+	resultChan := make(chan *pb.CastMessage, 1)
+	a.resultChanMapMu.Lock()
+	a.resultChanMap[requestID] = resultChan
+	a.resultChanMapMu.Unlock()
+	defer func() {
+		a.resultChanMapMu.Lock()
+		delete(a.resultChanMap, requestID)
+		a.resultChanMapMu.Unlock()
+	}()
+
+	if err := a.conn.Send(requestID, payload, sourceID, destinationID, namespace); err != nil {
 		return nil, err
 	}
 
 	// Set a timeout to wait for the response
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-
-	// TODO(vishen): not concurrent safe. Not a problem at the moment
-	// because only synchronous flow currently allowed.
-	resultChan := make(chan *pb.CastMessage, 1)
-	a.resultChanMap[requestID] = resultChan
-	defer func() {
-		delete(a.resultChanMap, requestID)
-	}()
 
 	select {
 	case <-ctx.Done():
