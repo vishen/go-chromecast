@@ -8,6 +8,7 @@ var (
 	ErrNoMediaNext            = errors.New("media not yet initialised, there is nothing to go to next")
 	ErrNoMediaPause           = errors.New("media not yet initialised, there is nothing to pause")
 	ErrNoMediaPrevious        = errors.New("media not yet initialised, there is nothing previous")
+	ErrNoMediaReplay          = errors.New("media not yet initialised, there is nothing to replay")
 	ErrNoMediaSkip            = errors.New("media not yet initialised, there is nothing to skip")
 	ErrNoMediaStop            = errors.New("media not yet initialised, there is nothing to stop")
 	ErrNoMediaUnpause         = errors.New("media not yet initialised, there is nothing to unpause")

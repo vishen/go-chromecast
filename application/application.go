@@ -24,6 +24,7 @@ import (
 	pb "github.com/vishen/go-chromecast/cast/proto"
 	"github.com/vishen/go-chromecast/playlists"
 	"github.com/vishen/go-chromecast/storage"
+	"github.com/vishen/go-chromecast/youtube"
 	"path/filepath"
 )
 
@@ -64,6 +65,8 @@ type App interface {
 	Start(addr string, port int) error
 	Close(stopMedia bool) error
 	LoadApp(appID, contentID string) error
+	LoadYouTube(videoID, playlistID string) error
+	QueueYouTube(videoID string, playNext bool) error
 	Status() (*cast.Application, *cast.Media, *cast.Volume)
 	Info() (*cast.DeviceInfo, error)
 	Update() error
@@ -76,6 +79,7 @@ type App interface {
 	SeekFromStart(value int) error
 	SeekToTime(value float32) error
 	Skipad() error
+	Replay() error
 	Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error
 	QueueLoad(filenames []string, contentType string, transcode bool) error
 	Transcode(contentType string, command string, args ...string) error
@@ -139,6 +143,9 @@ type Application struct {
 	skipadSleep time.Duration
 	// Number of times to try to skip an ad
 	skipadRetries int
+
+	// Session used to control the YouTube app, created on first use.
+	youtube *youtube.Session
 }
 
 type ApplicationOption func(*Application)
@@ -504,6 +511,52 @@ func (a *Application) TogglePause() error {
 			return a.Unpause()
 		}
 	}
+}
+
+// Replay plays the current media again from the beginning.
+func (a *Application) Replay() error {
+	if a.media == nil || a.application == nil {
+		return ErrNoMediaReplay
+	}
+
+	// Get the latest media status. Once the media has finished the status
+	// comes back empty: there is nothing to seek on anymore, but we still
+	// have the last media we knew about to load it again.
+	a.sendMediaConn(&cast.ConnectHeader)
+	mediaStatus, err := a.getMediaStatus()
+	if err != nil {
+		return err
+	}
+	loaded := len(mediaStatus.Status) > 0
+	for _, media := range mediaStatus.Status {
+		a.media = &media
+		a.volumeMedia = &media.Volume
+	}
+
+	isYouTube := a.application.AppId == youtube.AppID
+	if loaded {
+		switch a.media.PlayerState {
+		case "PLAYING", "BUFFERING", "PAUSED":
+			// Once a video has ended the YouTube app leaves it cued
+			// and ignores any seek, so it has to be loaded again.
+			if !isYouTube || !youtubeHasEnded(a.media.CustomData.PlayerState) {
+				return a.SeekToTime(0)
+			}
+		}
+	}
+
+	if a.media.Media.ContentId == "" {
+		return ErrNoMediaReplay
+	}
+	if isYouTube {
+		return a.LoadYouTube(a.media.Media.ContentId, "")
+	}
+	return a.sendMediaRecv(&cast.LoadMediaCommand{
+		PayloadHeader: cast.LoadHeader,
+		CurrentTime:   0,
+		Autoplay:      true,
+		Media:         a.media.Media,
+	})
 }
 
 func (a *Application) Skipad() error {

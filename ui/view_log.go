@@ -11,7 +11,8 @@ const viewNameLog = "Log"
 func (ui *UserInterface) viewLog(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 
-	v, err := g.SetView(viewNameLog, 0, 8, maxX-1, maxY-5)
+	// The log takes whatever is left between the other views and the keys:
+	v, err := g.SetView(viewNameLog, 0, 8, maxX-1, maxY-4-len(keysHelpLines(maxX-2)))
 	if err != nil && err != gocui.ErrUnknownView {
 		return err
 	}

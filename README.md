@@ -89,6 +89,7 @@ Available Commands:
   volume-down Turn down volume
   volume-up   Turn up volume
   watch       Watch all events sent from a chromecast device
+  youtube     Play YouTube videos on the YouTube app
 
 Flags:
   -a, --addr string          Address of the chromecast device
@@ -140,6 +141,13 @@ Idle (Default Media Receiver), volume=0.17 muted=false
 
 # Play a file hosted on the internet
 $ go-chromecast load https://example.com/path/to/media.mp4
+
+# Play a YouTube video on the YouTube app (a url or just the video id).
+$ go-chromecast youtube https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+# Add a YouTube video to the end of the queue, or to play next.
+$ go-chromecast youtube --add https://youtu.be/dQw4w9WgXcQ
+$ go-chromecast youtube --next https://youtu.be/dQw4w9WgXcQ
 
 # Load a local media file (can play both audio and video).
 $ go-chromecast load ~/Downloads/SampleAudio_0.4mb.mp3
@@ -227,6 +235,7 @@ A basic terminal user-interface is provided, that supports the following control
 - Seek (15s): <- / ->
 - Previous/Next: PgUp / PgDn
 - Stop: "s"
+- Replay: "r"
 
 It can be run in the following ways:
 
