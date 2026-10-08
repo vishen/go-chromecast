@@ -74,6 +74,7 @@ that ffmpeg is installed.`,
 func init() {
 	rootCmd.AddCommand(loadCmd)
 	loadCmd.Flags().Bool("transcode", true, "transcode the media to mp4 if media type is unrecognised")
+	loadCmd.Flags().String("ffmpeg-args", "", "extra arguments to pass to ffmpeg when transcoding, ie: '-vn' or '-map 0:v -map 0:a:1'")
 	loadCmd.Flags().Bool("detach", false, "detach from waiting until media finished. Only works with url loaded external media")
 	loadCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
 	loadCmd.Flags().Int("start-time", 0, "start time to play media, in seconds")
