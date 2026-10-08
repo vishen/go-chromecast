@@ -312,6 +312,24 @@ func (_m *App) SetMuted(value bool) error {
 	return r0
 }
 
+// SetPlaybackRate provides a mock function with given fields: rate
+func (_m *App) SetPlaybackRate(rate float32) error {
+	ret := _m.Called(rate)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPlaybackRate")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(float32) error); ok {
+		r0 = rf(rate)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SetServerPort provides a mock function with given fields: _a0
 func (_m *App) SetServerPort(_a0 int) {
 	_m.Called(_a0)
