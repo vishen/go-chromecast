@@ -235,6 +235,7 @@ A basic terminal user-interface is provided, that supports the following control
 - Seek (15s): <- / ->
 - Previous/Next: PgUp / PgDn
 - Stop: "s"
+- Replay: "r"
 
 It can be run in the following ways:
 

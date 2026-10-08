@@ -30,6 +30,17 @@ func (a *Application) LoadYouTube(videoID, playlistID string) error {
 	return errors.Wrap(session.Play(context.Background(), videoID, playlistID), "unable to play youtube video")
 }
 
+// youtubeHasEnded returns whether the player state reported by the YouTube
+// app (the one from the YouTube IFrame API) means that the video is not
+// playing anymore: unstarted (-1), ended (0) or cued (5).
+func youtubeHasEnded(playerState int) bool {
+	switch playerState {
+	case -1, 0, 5:
+		return true
+	}
+	return false
+}
+
 // QueueYouTube adds a YouTube video to the queue of the YouTube app. If
 // playNext is true it is added just after the current video, otherwise it is
 // added to the end of the queue.

@@ -79,6 +79,7 @@ type App interface {
 	SeekFromStart(value int) error
 	SeekToTime(value float32) error
 	Skipad() error
+	Replay() error
 	Load(filenameOrUrl string, startTime int, contentType string, transcode, detach, forceDetach bool) error
 	QueueLoad(filenames []string, contentType string, transcode bool) error
 	Transcode(contentType string, command string, args ...string) error
@@ -510,6 +511,52 @@ func (a *Application) TogglePause() error {
 			return a.Unpause()
 		}
 	}
+}
+
+// Replay plays the current media again from the beginning.
+func (a *Application) Replay() error {
+	if a.media == nil || a.application == nil {
+		return ErrNoMediaReplay
+	}
+
+	// Get the latest media status. Once the media has finished the status
+	// comes back empty: there is nothing to seek on anymore, but we still
+	// have the last media we knew about to load it again.
+	a.sendMediaConn(&cast.ConnectHeader)
+	mediaStatus, err := a.getMediaStatus()
+	if err != nil {
+		return err
+	}
+	loaded := len(mediaStatus.Status) > 0
+	for _, media := range mediaStatus.Status {
+		a.media = &media
+		a.volumeMedia = &media.Volume
+	}
+
+	isYouTube := a.application.AppId == youtube.AppID
+	if loaded {
+		switch a.media.PlayerState {
+		case "PLAYING", "BUFFERING", "PAUSED":
+			// Once a video has ended the YouTube app leaves it cued
+			// and ignores any seek, so it has to be loaded again.
+			if !isYouTube || !youtubeHasEnded(a.media.CustomData.PlayerState) {
+				return a.SeekToTime(0)
+			}
+		}
+	}
+
+	if a.media.Media.ContentId == "" {
+		return ErrNoMediaReplay
+	}
+	if isYouTube {
+		return a.LoadYouTube(a.media.Media.ContentId, "")
+	}
+	return a.sendMediaRecv(&cast.LoadMediaCommand{
+		PayloadHeader: cast.LoadHeader,
+		CurrentTime:   0,
+		Autoplay:      true,
+		Media:         a.media.Media,
+	})
 }
 
 func (a *Application) Skipad() error {
