@@ -127,6 +127,9 @@ type Application struct {
 	mediaFinished  chan bool
 	mediaFilenames []string
 
+	// Subtitles to show with the media that is loaded.
+	subtitles string
+
 	playedItems   map[string]PlayedItem
 	cacheDisabled bool
 	cache         *storage.Storage
@@ -861,11 +864,7 @@ func (a *Application) play(filenameOrUrl string, startTime int, contentType stri
 		return err
 	}
 
-	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
-	a.MediaStart()
-
-	// Send the command to the chromecast
-	a.sendMediaRecv(&cast.LoadMediaCommand{
+	loadCommand := &cast.LoadMediaCommand{
 		PayloadHeader: cast.LoadHeader,
 		CurrentTime:   startTime,
 		Autoplay:      true,
@@ -874,7 +873,22 @@ func (a *Application) play(filenameOrUrl string, startTime int, contentType stri
 			StreamType:  "BUFFERED",
 			ContentType: mi.contentType,
 		},
-	})
+	}
+	tracks, err := a.subtitlesTracks()
+	if err != nil {
+		return err
+	}
+	if len(tracks) > 0 {
+		loadCommand.Media.Tracks = tracks
+		loadCommand.Media.TextTrackStyle = &subtitlesTextTrackStyle
+		loadCommand.ActiveTrackIds = []int{subtitlesTrackID}
+	}
+
+	// NOTE: This isn't concurrent safe, but it doesn't need to be at the moment!
+	a.MediaStart()
+
+	// Send the command to the chromecast
+	a.sendMediaRecv(loadCommand)
 
 	// If we should detach from waiting for media to finish playing
 	// and this is a url loaded external media, then we can exit early.
@@ -1169,6 +1183,7 @@ func (a *Application) startStreamingServer() error {
 	a.log("found available port :%d", a.serverPort)
 
 	a.httpServer = http.NewServeMux()
+	a.httpServer.HandleFunc(subtitlesPath, a.serveSubtitles)
 
 	a.httpServer.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Check to see if we have a 'filename' and if it is one of the ones that have
