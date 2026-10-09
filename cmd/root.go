@@ -32,6 +32,14 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for interacting with the Google Chromecast",
 	Long: `Control your Google Chromecast or Google Home Mini from the
 command line.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := setUITheme(cmd); err != nil {
+			// The usage doesn't help with a broken theme:
+			cmd.SilenceUsage = true
+			return err
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		printVersion, _ := cmd.Flags().GetBool("version")
 		if printVersion {
@@ -69,6 +77,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("verbose", false, "verbose logging")
 	rootCmd.PersistentFlags().Bool("disable-cache", false, "disable the cache")
 	rootCmd.PersistentFlags().Bool("with-ui", false, "run with a UI")
+	rootCmd.PersistentFlags().String("ui-theme", "", "file with the colours of the UI (default \"go-chromecast/theme.json\" in the user config directory, if it exists)")
 	rootCmd.PersistentFlags().StringP("device", "d", "", "chromecast device, ie: 'Chromecast' or 'Google Home Mini'")
 	rootCmd.PersistentFlags().StringP("device-name", "n", "", "chromecast device name")
 	rootCmd.PersistentFlags().StringP("uuid", "u", "", "chromecast device uuid")
