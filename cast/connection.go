@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -23,7 +24,17 @@ import (
 const (
 	dialerTimeout   = time.Second * 3
 	dialerKeepAlive = time.Second * 30
+
+	// A cast device sends a PING every few seconds (5 to 10), so if we
+	// haven't received anything for this long the connection isn't working
+	// anymore, even if it hasn't been closed (ie: the device is unplugged
+	// or the network is down).
+	defaultReadTimeout = time.Second * 30
 )
+
+// ErrConnectionLost is returned when sending on a connection that has
+// stopped working.
+var ErrConnectionLost = errors.New("connection to the chromecast lost")
 
 type Conn interface {
 	Start(addr string, port int) error
@@ -45,6 +56,10 @@ type Connection struct {
 	debug     bool
 	connected bool
 
+	// lost is set once the connection has stopped working.
+	lost        atomic.Bool
+	readTimeout time.Duration
+
 	cancel context.CancelFunc
 }
 
@@ -52,6 +67,7 @@ func NewConnection() *Connection {
 	c := &Connection{
 		recvMsgChan: make(chan *pb.CastMessage, 5),
 		connected:   false,
+		readTimeout: defaultReadTimeout,
 	}
 	return c
 }
@@ -64,6 +80,7 @@ func (c *Connection) Start(addr string, port int) error {
 		if err != nil {
 			return err
 		}
+		c.lost.Store(false)
 		var ctx context.Context
 		// TODO: Receive context through function params?
 		ctx, c.cancel = context.WithCancel(context.Background())
@@ -124,6 +141,9 @@ func (c *Connection) connect(addr string, port int) error {
 }
 
 func (c *Connection) Send(requestID int, payload Payload, sourceID, destinationID, namespace string) error {
+	if c.lost.Load() {
+		return ErrConnectionLost
+	}
 
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
@@ -168,8 +188,14 @@ func (c *Connection) receiveLoop(ctx context.Context) {
 		if c.conn == nil {
 			continue
 		}
+		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 		if err := binary.Read(c.conn, binary.BigEndian, &length); err != nil {
 			c.log("failed to binary read payload: %v", err)
+			// Nothing else is going to be received on this connection
+			// (it was closed, or it has been silent for too long), so
+			// make sure that nothing else is sent on it either.
+			c.lost.Store(true)
+			c.conn.Close()
 			break
 		}
 		if length == 0 {
