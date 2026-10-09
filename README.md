@@ -281,6 +281,15 @@ POST /seek-to?uuid=<device_uuid>&seconds=<float>
 POST /load?uuid=<device_uuid>&path=<filepath_or_url>&content_type=<string>&start_time=<int>
 ```
 
+A device can also be given by its address instead of its uuid, with `addr=<device_addr>` (and `port=<device_port>`
+if it isn't the default one). There is no need to connect to it first:
+
+```
+POST /pause?addr=192.168.0.10
+```
+
+If the connection to a device stops working (ie: the device was restarted), the next request connects to it again.
+
 ```
 $ go-chromecast httpserver
 
