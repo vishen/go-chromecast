@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -131,6 +132,11 @@ type Application struct {
 	cacheDisabled bool
 	cache         *storage.Storage
 
+	// Where the media is read from when loading "-", and the guard that
+	// makes sure it is only served once.
+	stdin     io.Reader
+	stdinOnce sync.Once
+
 	// Number of connection retries to try before returning
 	// an error.
 	connectionRetries int
@@ -207,6 +213,7 @@ func NewApplication(opts ...ApplicationOption) *Application {
 		connectionRetries: 5,
 		skipadSleep:       2 * time.Second,
 		skipadRetries:     30,
+		stdin:             os.Stdin,
 	}
 
 	// Apply options
@@ -841,6 +848,11 @@ func (a *Application) play(filenameOrUrl string, startTime int, contentType stri
 			contentURL:  filenameOrUrl,
 			contentType: contentType,
 		}
+	} else if filenameOrUrl == stdinFilename {
+		var err error
+		if mi, err = a.loadAndServeStdin(contentType, transcode); err != nil {
+			return errors.Wrap(err, "unable to load and serve stdin")
+		}
 	} else {
 		mediaItems, err := a.loadAndServeFiles([]string{filenameOrUrl}, contentType, transcode)
 		if err != nil {
@@ -1194,7 +1206,9 @@ func (a *Application) startStreamingServer() error {
 
 		a.log("canServe=%t, liveStreaming=%t, filename=%s", canServe, liveStreaming, filename)
 		if canServe {
-			if !liveStreaming {
+			if filename == stdinFilename {
+				a.serveStdin(w, r, liveStreaming)
+			} else if !liveStreaming {
 				http.ServeFile(w, r, filename)
 			} else {
 				a.serveLiveStreaming(w, r, filename)
@@ -1247,6 +1261,89 @@ func (a *Application) serveLiveStreaming(w http.ResponseWriter, r *http.Request,
 		log.WithField("package", "application").WithFields(log.Fields{
 			"filename": filename,
 		}).WithError(err).Error("error transcoding")
+	}
+}
+
+// stdinFilename is the filename that means "read the media from stdin".
+const stdinFilename = "-"
+
+// loadAndServeStdin starts serving the media that is read from stdin. If a
+// content-type is given the media is sent as it is, otherwise it is
+// transcoded to mp4.
+func (a *Application) loadAndServeStdin(contentType string, transcode bool) (mediaItem, error) {
+	mi := mediaItem{
+		filename:    stdinFilename,
+		contentType: contentType,
+	}
+	if contentType == "" {
+		if !transcode {
+			return mi, errors.New("unknown content-type for stdin, either specify a content-type or set transcode to true")
+		}
+		mi.contentType = "video/mp4"
+		mi.transcode = true
+	}
+	a.mediaFilenames = append(a.mediaFilenames, stdinFilename)
+
+	localIP, err := a.getLocalIP()
+	if err != nil {
+		return mi, err
+	}
+	if err := a.startStreamingServer(); err != nil {
+		return mi, errors.Wrap(err, "unable to start streaming server")
+	}
+
+	mi.contentURL = fmt.Sprintf("http://%s:%d?media_file=%s&live_streaming=%t", localIP, a.serverPort, stdinFilename, mi.transcode)
+	return mi, nil
+}
+
+// serveStdin sends what is read from stdin, transcoding it to mp4 first if
+// transcode is set. Stdin can only be read once, so any request after the
+// first one is rejected.
+func (a *Application) serveStdin(w http.ResponseWriter, r *http.Request, transcode bool) {
+	served := true
+	a.stdinOnce.Do(func() { served = false })
+	if served {
+		http.Error(w, "stdin has already been served", http.StatusGone)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	if !transcode {
+		if _, err := io.Copy(w, a.stdin); err != nil {
+			a.log("error serving stdin: %v", err)
+		}
+		return
+	}
+
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", "pipe:0",
+		"-vcodec", "h264",
+		// What comes from stdin is likely to be live (ie: a recording of
+		// the screen), so keep the delay down: don't buffer frames in the
+		// encoder, and use short fragments, as the chromecast needs a few
+		// of them before it starts playing.
+		"-preset", "veryfast",
+		"-tune", "zerolatency",
+		"-g", "30",
+		"-pix_fmt", "yuv420p",
+		"-acodec", "aac",
+		"-ac", "2", // chromecasts don't support more than two audio channels
+		"-f", "mp4",
+		"-movflags", "frag_keyframe+empty_moov",
+		"-strict", "-experimental",
+		"pipe:1",
+	)
+	cmd.Stdin = a.stdin
+	cmd.Stdout = w
+	if a.debug {
+		cmd.Stderr = os.Stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		log.WithField("package", "application").WithError(err).Error("error transcoding stdin")
 	}
 }
 
