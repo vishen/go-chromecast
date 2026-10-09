@@ -393,6 +393,10 @@ func (a *Application) Update() error {
 		if err == nil {
 			break
 		}
+		// There is no point in retrying on a connection that is gone.
+		if errors.Is(err, cast.ErrConnectionLost) {
+			break
+		}
 		a.log("error getting receiver status: %v", err)
 		a.log("unable to get status from device; attempt %d/5, retrying...", i+1)
 		time.Sleep(time.Second * 2)
