@@ -62,6 +62,8 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 	serverPort, _ := cmd.Flags().GetInt("server-port")
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 	useFirstDevice, _ := cmd.Flags().GetBool("first")
+	subtitles, _ := cmd.Flags().GetString("subtitles")
+	subtitlesTrack, _ := cmd.Flags().GetInt("subtitles-track")
 
 	// Used to try and reconnect
 	if deviceUuid == "" && entry != nil {
@@ -77,6 +79,8 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 		application.WithServerPort(serverPort),
 		application.WithDebug(debug),
 		application.WithCacheDisabled(disableCache),
+		application.WithSubtitles(subtitles),
+		application.WithSubtitlesTrack(subtitlesTrack),
 	}
 
 	// If we need to look on a specific network interface for mdns or
