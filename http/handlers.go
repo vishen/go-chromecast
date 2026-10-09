@@ -18,10 +18,27 @@ import (
 	"github.com/vishen/go-chromecast/dns"
 )
 
+// defaultDevicePort is the port of a cast device (groups use other ports).
+const defaultDevicePort = "8009"
+
+// target is how to reach a connected device. It is kept to be able to look
+// the device up by its address and to reconnect to it.
+type target struct {
+	addr string
+	port int
+	name string
+}
+
 type Handler struct {
 	mu   sync.Mutex
 	apps map[string]application.App
-	mux  *http.ServeMux
+	// targets has an entry for each of the apps, with the same key.
+	targets map[string]target
+	mux     *http.ServeMux
+
+	// connectFunc connects to a device. It is a field so that it can be
+	// replaced in tests.
+	connectFunc func(deviceAddr string, devicePort int, deviceName string) (application.App, error)
 
 	verbose bool
 
@@ -37,6 +54,7 @@ func NewHandler(verbose bool) *Handler {
 	handler := &Handler{
 		verbose: verbose,
 		apps:    map[string]application.App{},
+		targets: map[string]target{},
 		mux:     http.NewServeMux(),
 		mu:      sync.Mutex{},
 
@@ -46,6 +64,7 @@ func NewHandler(verbose bool) *Handler {
 		autoupdatePeriod: time.Duration(-1),
 		autoupdateTicker: nil,
 	}
+	handler.connectFunc = handler.connectInternal
 	handler.registerHandlers()
 	return handler
 }
@@ -216,6 +235,53 @@ func (h *Handler) app(uuid string) (application.App, bool) {
 	return app, ok
 }
 
+// appByAddr returns the connected device that has the given address, and the
+// key (its uuid, usually) it is stored with.
+func (h *Handler) appByAddr(addr string) (string, application.App, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for key, t := range h.targets {
+		if t.addr == addr {
+			app, ok := h.apps[key]
+			return key, app, ok
+		}
+	}
+	return "", nil, false
+}
+
+// addApp stores a connected device.
+func (h *Handler) addApp(key string, app application.App, t target) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.apps[key] = app
+	h.targets[key] = t
+}
+
+// reconnect replaces the connection to a device with a new one. It returns
+// the error that made the reconnection necessary if it can't be done.
+func (h *Handler) reconnect(key string, cause error) (application.App, error) {
+	h.mu.Lock()
+	t, ok := h.targets[key]
+	old := h.apps[key]
+	h.mu.Unlock()
+	if !ok {
+		return nil, cause
+	}
+
+	h.log("reconnecting to addr=%s port=%d after: %v", t.addr, t.port, cause)
+	if old != nil {
+		old.Close(false)
+	}
+	app, err := h.connectFunc(t.addr, t.port, t.name)
+	if err != nil {
+		return nil, fmt.Errorf("%w (and unable to reconnect: %v)", cause, err)
+	}
+	h.addApp(key, app, t)
+	return app, nil
+}
+
 func (h *Handler) ConnectedDeviceUUIDs() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -230,9 +296,16 @@ func (h *Handler) ConnectedDeviceUUIDs() []string {
 func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
+	deviceAddr := q.Get("addr")
+
+	// A device can be connected with just its address, in which case the
+	// address is also what identifies it.
 	deviceUUID := q.Get("uuid")
 	if deviceUUID == "" {
-		httpValidationError(w, "missing 'uuid' in query paramater")
+		deviceUUID = deviceAddr
+	}
+	if deviceUUID == "" {
+		httpValidationError(w, "missing 'uuid' or 'addr' in query paramater")
 		return
 	}
 
@@ -242,13 +315,16 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deviceAddr := q.Get("addr")
 	devicePort := q.Get("port")
 	deviceName := q.Get("name")
 	iface := q.Get("interface")
 	wait := q.Get("wait")
 
-	if deviceAddr == "" || devicePort == "" || (deviceName == "" && devicePort != "8009") {
+	if deviceAddr != "" && devicePort == "" {
+		devicePort = defaultDevicePort
+	}
+
+	if deviceAddr == "" || devicePort == "" || (deviceName == "" && devicePort != defaultDevicePort) {
 		h.log("device addr and/or port are missing, trying to lookup address for uuid %q", deviceUUID)
 
 		devices := h.discoverDnsEntries(context.Background(), iface, wait)
@@ -278,15 +354,13 @@ func (h *Handler) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app, err := h.connectInternal(deviceAddr, devicePortI, deviceName)
+	app, err := h.connectFunc(deviceAddr, devicePortI, deviceName)
 	if err != nil {
 		h.log("unable to start application: %v", err)
 		httpError(w, fmt.Errorf("unable to start application: %v", err))
 		return
 	}
-	h.mu.Lock()
-	h.apps[deviceUUID] = app
-	h.mu.Unlock()
+	h.addApp(deviceUUID, app, target{addr: deviceAddr, port: devicePortI, name: deviceName})
 
 	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(connectResponse{DeviceUUID: deviceUUID}); err != nil {
@@ -341,18 +415,22 @@ func (h *Handler) connectAll(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 	ctx := context.Background()
 	devices := h.discoverDnsEntries(ctx, iface, waitSec)
-	apps := make(chan *application.App, len(devices)+1)
+	type connected struct {
+		app    application.App
+		target target
+	}
+	apps := make(chan connected, len(devices)+1)
 	g, ctx := errgroup.WithContext(ctx)
 	for _, device := range devices {
 		g.Go(func() error {
 			log.Printf("Connecting to %s:%d (%s)", device.Addr, device.Port, device.DeviceName)
-			app, err := h.connectInternal(device.Addr, device.Port, device.DeviceName)
+			app, err := h.connectFunc(device.Addr, device.Port, device.DeviceName)
 			if err != nil {
 				log.Printf("Connection to %s:%d (%s) failed: %v", device.Addr, device.Port, device.DeviceName, err)
 				return err
 			}
 			log.Printf("Connected to %s:%d (%s)", device.Addr, device.Port, device.DeviceName)
-			apps <- &app
+			apps <- connected{app: app, target: target{addr: device.Addr, port: device.Port, name: device.DeviceName}}
 			return nil
 		})
 	}
@@ -362,17 +440,21 @@ func (h *Handler) connectAllInternal(iface string, waitSec string) error {
 
 	// Even if we cannot connect to some of the devices, we still update the map for remaining devices.
 	uuidMap := map[string]application.App{}
-	for app := range apps {
-		info, err := (*app).Info()
+	targets := map[string]target{}
+	for c := range apps {
+		info, err := c.app.Info()
 		if err != nil {
-			log.Printf("Skipping device %v", app)
+			log.Printf("Skipping device %v", c.app)
 		} else {
-			uuidMap[strings.ReplaceAll(info.SsdpUdn, "-", "")] = *app
+			uuid := strings.ReplaceAll(info.SsdpUdn, "-", "")
+			uuidMap[uuid] = c.app
+			targets[uuid] = c.target
 		}
 	}
 
 	h.mu.Lock()
 	h.apps = uuidMap
+	h.targets = targets
 	h.mu.Unlock()
 	return err
 }
@@ -381,18 +463,25 @@ func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
 	deviceUUID := q.Get("uuid")
-	if deviceUUID == "" {
-		httpValidationError(w, "missing 'uuid' in query paramater")
+	deviceAddr := q.Get("addr")
+	if deviceUUID == "" && deviceAddr == "" {
+		httpValidationError(w, "missing 'uuid' or 'addr' in query paramater")
+		return
+	}
+
+	var app application.App
+	var ok bool
+	if deviceUUID != "" {
+		app, ok = h.app(deviceUUID)
+	} else {
+		deviceUUID, app, ok = h.appByAddr(deviceAddr)
+	}
+	if !ok {
+		httpValidationError(w, "device is not connected")
 		return
 	}
 
 	h.log("disconnecting device %s", deviceUUID)
-
-	app, ok := h.app(deviceUUID)
-	if !ok {
-		httpValidationError(w, "device uuid is not connected")
-		return
-	}
 
 	stopMedia := q.Get("stop") == "true"
 	if err := app.Close(stopMedia); err != nil {
@@ -401,6 +490,7 @@ func (h *Handler) disconnect(w http.ResponseWriter, r *http.Request) {
 
 	h.mu.Lock()
 	delete(h.apps, deviceUUID)
+	delete(h.targets, deviceUUID)
 	h.mu.Unlock()
 }
 
@@ -413,6 +503,7 @@ func (h *Handler) disconnectAll(w http.ResponseWriter, r *http.Request) {
 			h.log("unable to close application %q: %v", deviceUUID, err)
 		}
 		delete(h.apps, deviceUUID)
+		delete(h.targets, deviceUUID)
 	}
 	h.mu.Unlock()
 }
@@ -779,25 +870,59 @@ func (h *Handler) load(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// appForRequest returns the device a request is for, which is given either
+// by its uuid or by its address. A device given by an address that isn't
+// connected yet is connected first. If the connection to the device has
+// stopped working, it is replaced with a new one.
 func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (application.App, bool) {
 	q := r.URL.Query()
 
 	deviceUUID := q.Get("uuid")
-	if deviceUUID == "" {
-		httpValidationError(w, "missing 'uuid' in query params")
+	deviceAddr := q.Get("addr")
+	if deviceUUID == "" && deviceAddr == "" {
+		httpValidationError(w, "missing 'uuid' or 'addr' in query params")
 		return nil, false
 	}
 
-	app, ok := h.app(deviceUUID)
-	if !ok {
-		httpValidationError(w, "device uuid is not connected")
-		return nil, false
+	var app application.App
+	var ok bool
+	if deviceUUID != "" {
+		if app, ok = h.app(deviceUUID); !ok {
+			httpValidationError(w, "device uuid is not connected")
+			return nil, false
+		}
+	} else if deviceUUID, app, ok = h.appByAddr(deviceAddr); !ok {
+		devicePort := q.Get("port")
+		if devicePort == "" {
+			devicePort = defaultDevicePort
+		}
+		devicePortI, err := strconv.Atoi(devicePort)
+		if err != nil {
+			httpValidationError(w, "'port' is not a number")
+			return nil, false
+		}
+
+		h.log("connecting to addr=%s port=%d...", deviceAddr, devicePortI)
+		if app, err = h.connectFunc(deviceAddr, devicePortI, ""); err != nil {
+			h.log("unable to start application: %v", err)
+			httpError(w, fmt.Errorf("unable to start application: %v", err))
+			return nil, false
+		}
+		deviceUUID = deviceAddr
+		h.addApp(deviceUUID, app, target{addr: deviceAddr, port: devicePortI})
 	}
 
 	if err := app.Update(); err != nil {
-		h.log("unable to update the status of the device: %v", err)
-		httpError(w, fmt.Errorf("unable to update the status of the device: %w", err))
-		return nil, false
+		// The connection might be gone (ie: the device was restarted),
+		// so try again with a new one before giving up.
+		if app, err = h.reconnect(deviceUUID, err); err == nil {
+			err = app.Update()
+		}
+		if err != nil {
+			h.log("unable to update the status of the device: %v", err)
+			httpError(w, fmt.Errorf("unable to update the status of the device: %w", err))
+			return nil, false
+		}
 	}
 
 	return app, true
