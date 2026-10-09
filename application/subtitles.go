@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
@@ -26,6 +27,14 @@ func WithSubtitles(subtitles string) ApplicationOption {
 	}
 }
 
+// WithSubtitlesTrack sets which subtitles to use when the file given to
+// WithSubtitles has more than one, starting from 1. It defaults to the first.
+func WithSubtitlesTrack(track int) ApplicationOption {
+	return func(a *Application) {
+		a.subtitlesTrack = track
+	}
+}
+
 // subtitlesTracks returns the text track for the subtitles that were set, if
 // any, making sure they are being served if they are a local file.
 func (a *Application) subtitlesTracks() ([]cast.MediaTrack, error) {
@@ -37,6 +46,16 @@ func (a *Application) subtitlesTracks() ([]cast.MediaTrack, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		if _, err := os.Stat(a.subtitles); err != nil {
 			return nil, errors.Wrapf(err, "unable to find subtitles %q", a.subtitles)
+		}
+		// Convert them now, and not when the chromecast asks for them, so
+		// that any problem with them is an error and not a video without
+		// subtitles.
+		if !isWebVTT(a.subtitles) {
+			webvtt, err := convertToWebVTT(a.subtitles, a.subtitlesTrack)
+			if err != nil {
+				return nil, err
+			}
+			a.subtitlesWebVTT = webvtt
 		}
 		localIP, err := a.getLocalIP()
 		if err != nil {
@@ -83,24 +102,46 @@ func (a *Application) serveSubtitles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
 
-	if strings.EqualFold(path.Ext(a.subtitles), ".vtt") {
+	if isWebVTT(a.subtitles) {
 		http.ServeFile(w, r, a.subtitles)
 		return
 	}
+	w.Write(a.subtitlesWebVTT)
+}
 
-	webvtt, err := exec.Command(
+// isWebVTT returns whether a subtitles file is already WebVTT.
+func isWebVTT(filename string) bool {
+	return strings.EqualFold(path.Ext(filename), ".vtt")
+}
+
+// convertToWebVTT converts subtitles to WebVTT with ffmpeg. The file can be
+// anything ffmpeg can read subtitles from: srt, ass, or even a video with
+// embedded subtitles. track is which subtitles of the file to convert,
+// starting from 1.
+func convertToWebVTT(filename string, track int) ([]byte, error) {
+	if track < 1 {
+		track = 1
+	}
+
+	var stderr bytes.Buffer
+	cmd := exec.Command(
 		"ffmpeg",
 		"-v", "error",
-		"-i", a.subtitles,
-		"-map", "0:s:0", // the first subtitles, in case there are more
+		"-i", filename,
+		"-map", fmt.Sprintf("0:s:%d", track-1),
 		"-f", "webvtt",
 		"pipe:1",
-	).Output()
+	)
+	cmd.Stderr = &stderr
+	webvtt, err := cmd.Output()
 	if err != nil {
-		a.log("error converting subtitles %q: %v", a.subtitles, err)
-		w.Header().Del("Content-Type")
-		http.Error(w, "unable to convert the subtitles to WebVTT", http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("unable to convert subtitles %d of %q to WebVTT: %v: %s", track, filename, err, firstLine(stderr.String()))
 	}
-	w.Write(webvtt)
+	return webvtt, nil
+}
+
+// firstLine returns the first line of a text.
+func firstLine(text string) string {
+	line, _, _ := strings.Cut(strings.TrimSpace(text), "\n")
+	return line
 }

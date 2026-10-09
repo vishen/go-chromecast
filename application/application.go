@@ -127,8 +127,12 @@ type Application struct {
 	mediaFinished  chan bool
 	mediaFilenames []string
 
-	// Subtitles to show with the media that is loaded.
-	subtitles string
+	// Subtitles to show with the media that is loaded: where they are,
+	// which ones if there are several, and their conversion to WebVTT if
+	// they had to be converted.
+	subtitles       string
+	subtitlesTrack  int
+	subtitlesWebVTT []byte
 
 	playedItems   map[string]PlayedItem
 	cacheDisabled bool

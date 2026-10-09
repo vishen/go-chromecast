@@ -43,47 +43,61 @@ func TestSubtitlesTracks(t *testing.T) {
 }
 
 func TestServeSubtitles(t *testing.T) {
-	serve := func(subtitles string) *httptest.ResponseRecorder {
-		a := &Application{subtitles: subtitles}
+	serve := func(a *Application) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		a.serveSubtitles(w, httptest.NewRequest(http.MethodGet, subtitlesPath, nil))
 		return w
+	}
+
+	t.Run("without subtitles", func(t *testing.T) {
+		require.Equal(t, http.StatusNotFound, serve(&Application{}).Code)
+	})
+
+	t.Run("webvtt is sent as it is", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "subtitles.vtt")
+		require.NoError(t, os.WriteFile(path, []byte("WEBVTT\n\n00:00.000 --> 00:02.000\nHello\n"), 0o600))
+
+		w := serve(&Application{subtitles: path})
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+		require.Equal(t, "text/vtt; charset=utf-8", w.Header().Get("Content-Type"))
+		require.Contains(t, w.Body.String(), "Hello")
+	})
+
+	t.Run("anything else is sent converted", func(t *testing.T) {
+		w := serve(&Application{subtitles: "subtitles.srt", subtitlesWebVTT: []byte("WEBVTT\n\nconverted")})
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+		require.Equal(t, "text/vtt; charset=utf-8", w.Header().Get("Content-Type"))
+		require.Contains(t, w.Body.String(), "converted")
+	})
+}
+
+func TestConvertToWebVTT(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg is not installed")
 	}
 	file := func(name, content string) string {
 		path := filepath.Join(t.TempDir(), name)
 		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 		return path
 	}
+	srt := file("subtitles.srt", testSrt)
 
-	t.Run("without subtitles", func(t *testing.T) {
-		require.Equal(t, http.StatusNotFound, serve("").Code)
-	})
+	webvtt, err := convertToWebVTT(srt, 1)
+	require.NoError(t, err)
+	require.Contains(t, string(webvtt), "WEBVTT")
+	require.Contains(t, string(webvtt), "Hello")
 
-	t.Run("webvtt is sent as it is", func(t *testing.T) {
-		w := serve(file("subtitles.vtt", "WEBVTT\n\n00:00.000 --> 00:02.000\nHello\n"))
-		require.Equal(t, http.StatusOK, w.Code)
-		require.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
-		require.Equal(t, "text/vtt; charset=utf-8", w.Header().Get("Content-Type"))
-		require.Contains(t, w.Body.String(), "Hello")
-	})
+	// The first subtitles are the default.
+	webvtt, err = convertToWebVTT(srt, 0)
+	require.NoError(t, err)
+	require.Contains(t, string(webvtt), "Hello")
 
-	t.Run("anything else is converted to webvtt", func(t *testing.T) {
-		if _, err := exec.LookPath("ffmpeg"); err != nil {
-			t.Skip("ffmpeg is not installed")
-		}
-		w := serve(file("subtitles.srt", testSrt))
-		require.Equal(t, http.StatusOK, w.Code)
-		require.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
-		require.Equal(t, "text/vtt; charset=utf-8", w.Header().Get("Content-Type"))
-		require.Contains(t, w.Body.String(), "WEBVTT")
-		require.Contains(t, w.Body.String(), "Hello")
-	})
+	// There is only one subtitles track in that file.
+	_, err = convertToWebVTT(srt, 2)
+	require.Error(t, err)
 
-	t.Run("fails if it can't be converted", func(t *testing.T) {
-		if _, err := exec.LookPath("ffmpeg"); err != nil {
-			t.Skip("ffmpeg is not installed")
-		}
-		w := serve(file("subtitles.srt", "this isn't a subtitles file"))
-		require.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+	_, err = convertToWebVTT(file("broken.srt", "this isn't a subtitles file"), 1)
+	require.Error(t, err)
 }
