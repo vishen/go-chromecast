@@ -143,6 +143,15 @@ $ go-chromecast load https://example.com/path/to/media.mp4
 
 # Load a local media file (can play both audio and video).
 $ go-chromecast load ~/Downloads/SampleAudio_0.4mb.mp3
+
+# Load media from stdin. It is transcoded to mp4 with ffmpeg, unless a
+# content-type is given, in which case it is sent as it is.
+$ cat ~/Downloads/video.mkv | go-chromecast load -
+
+# Cast the desktop with any program that can record it to stdout, ie
+# wf-recorder on wayland. Expect a delay of several seconds: the chromecast
+# buffers some of the video before it starts playing.
+$ wf-recorder -y -D -r 30 -m mpegts -f /dev/stdout | go-chromecast load -
 Found 2 cast dns entries, select one:
 1) device="Chromecast" device_name="MarieGotGame?" address="192.168.0.115:8009" status="" uuid="b380c5847b3182e4fb2eb0d0e270bf16"
 2) device="Google Home Mini" device_name="Living Room Speaker" address="192.168.0.52:8009" status="" uuid="b87d86bed423a6feb8b91a7d2778b55c"
