@@ -1058,40 +1058,34 @@ type mediaItem struct {
 	transcode   bool
 }
 
+// contentTypeAndTranscode returns the content type to send a local file with,
+// and whether it has to be transcoded.
+//
+// We only need to know the content type of the file to decide if it has to
+// be transcoded. Otherwise the file is sent as it is, with the content type
+// we were given (if any), and it is up to the chromecast to work out what it
+// is and to play it.
+func (a *Application) contentTypeAndTranscode(filename, contentType string, transcode bool) (string, bool) {
+	if contentType != "" || !transcode {
+		return contentType, transcode
+	}
+
+	detected, _ := a.possibleContentType(filename)
+	if detected == "" {
+		return "video/mp4", true
+	}
+	// If this is a media file we know the chromecast can play, then we
+	// don't need to transcode it.
+	return detected, !a.castPlayableContentType(detected)
+}
+
 func (a *Application) loadAndServeFiles(filenames []string, contentType string, transcode bool) ([]mediaItem, error) {
 	mediaItems := make([]mediaItem, len(filenames))
 	for i, filename := range filenames {
-		transcodeFile := transcode
 		if _, err := os.Stat(filename); err != nil {
 			return nil, errors.Wrapf(err, "unable to find %q", filename)
 		}
-		/*
-			We can play media for the following:
-
-			- if we have a filename with a known content type
-			- if we have a filename, and a specified contentType
-			- if we have a filename with an unknown content type, and transcode is true
-			-
-		*/
-		knownFileType := a.knownFileType(filename)
-		if !knownFileType && contentType == "" && !transcodeFile {
-			return nil, fmt.Errorf("unknown content-type for %q, either specify a content-type or set transcode to true", filename)
-		}
-
-		// If we have a content-type specified we should always
-		// attempt to use that
-		contentTypeToUse := contentType
-		if contentType != "" {
-		} else if knownFileType {
-			// If this is a media file we know the chromecast can play,
-			// then we don't need to transcode it.
-			contentTypeToUse, _ = a.possibleContentType(filename)
-			if a.castPlayableContentType(contentTypeToUse) {
-				transcodeFile = false
-			}
-		} else if transcodeFile {
-			contentTypeToUse = "video/mp4"
-		}
+		contentTypeToUse, transcodeFile := a.contentTypeAndTranscode(filename, contentType, transcode)
 
 		mediaItems[i] = mediaItem{
 			filename:    filename,
