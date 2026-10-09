@@ -102,6 +102,7 @@ Flags:
   -i, --iface string         Network interface to use when looking for a local address to use for the http server or for use with multicast dns discovery
   -p, --port string          Port of the chromecast device if 'addr' is specified (default "8009")
   -u, --uuid string          chromecast device uuid
+      --ui-theme string      file with the colours of the UI (default "go-chromecast/theme.json" in the user config directory, if it exists)
       --verbose              verbose logging
       --version              display command version
       --with-ui              run with a UI
@@ -252,6 +253,35 @@ Use the UI in combination with the `load` command (detailed above):
 
 ```
 $ go-chromecast --with-ui load /path/to/file.flac
+```
+
+### Colours
+
+The colours of the UI can be changed with a theme, a JSON file like this one (these are the default colours):
+
+```json
+{
+  "text": "blue",
+  "value": "bold blue",
+  "volume": "red",
+  "volume_muted": "bold red",
+  "progress": "yellow"
+}
+```
+
+Each colour is one of `default` (the foreground colour of the terminal), `black`, `red`, `green`, `yellow`,
+`blue`, `magenta`, `cyan` or `white`, optionally preceded by `bold`. The colours that aren't in the file keep
+their default value, so this is enough to have the text in the colour of the terminal:
+
+```json
+{"text": "default", "value": "bold"}
+```
+
+The theme is read from `go-chromecast/theme.json` in the user config directory (`~/.config` on Linux) if it
+exists, or from the file given with `--ui-theme`:
+
+```
+$ go-chromecast ui --ui-theme /path/to/theme.json
 ```
 
 ## HTTP API Server
