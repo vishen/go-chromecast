@@ -60,6 +60,7 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 	port, _ := cmd.Flags().GetString("port")
 	ifaceName, _ := cmd.Flags().GetString("iface")
 	serverPort, _ := cmd.Flags().GetInt("server-port")
+	serverAddr, _ := cmd.Flags().GetString("server-addr")
 	dnsTimeoutSeconds, _ := cmd.Flags().GetInt("dns-timeout")
 	useFirstDevice, _ := cmd.Flags().GetBool("first")
 	subtitles, _ := cmd.Flags().GetString("subtitles")
@@ -81,6 +82,10 @@ func castApplication(cmd *cobra.Command, args []string) (application.App, error)
 		application.WithCacheDisabled(disableCache),
 		application.WithSubtitles(subtitles),
 		application.WithSubtitlesTrack(subtitlesTrack),
+	}
+
+	if serverAddr != "" {
+		applicationOptions = append(applicationOptions, application.WithServerAddr(serverAddr))
 	}
 
 	// If we need to look on a specific network interface for mdns or
