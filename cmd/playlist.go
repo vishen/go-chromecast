@@ -224,6 +224,7 @@ func init() {
 	playlistCmd.Flags().Bool("continue", true, "continue playing from the last known media")
 	playlistCmd.Flags().Bool("select", false, "choose which media to start the playlist from")
 	playlistCmd.Flags().Bool("transcode", true, "transcode the media to mp4 if media type is unrecognised")
+	playlistCmd.Flags().String("ffmpeg-args", "", "extra arguments to pass to ffmpeg when transcoding, ie: '-vn' or '-map 0:v -map 0:a:1'")
 	playlistCmd.Flags().Bool("force-play", false, "attempt to play a media type even if it is unrecognised")
 	playlistCmd.Flags().StringP("content-type", "c", "", "content-type to serve the media file as")
 }

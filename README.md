@@ -19,6 +19,8 @@ Supported Media formats:
 
 If an unknown video file is found, it will use `ffmpeg` to transcode it to MP4 and stream it to the chromecast.
 With `--transcode=false` the file is sent as it is, whatever it is, and it is up to the chromecast to play it.
+Extra arguments can be passed to `ffmpeg` with `--ffmpeg-args` (on the `load` and `playlist` commands), ie:
+`--ffmpeg-args "-vn"` to send only the audio, or `--ffmpeg-args "-map 0:v -map 0:a:1"` to choose the second audio track.
 
 ## Play Local Media Files
 
