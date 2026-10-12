@@ -105,6 +105,24 @@ func (_m *App) LoadApp(appID string, contentID string) error {
 	return r0
 }
 
+// LoadYouTube provides a mock function with given fields: videoID, playlistID
+func (_m *App) LoadYouTube(videoID string, playlistID string) error {
+	ret := _m.Called(videoID, playlistID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LoadYouTube")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(videoID, playlistID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Next provides a mock function with given fields:
 func (_m *App) Next() error {
 	ret := _m.Called()
@@ -208,6 +226,24 @@ func (_m *App) QueueLoad(filenames []string, contentType string, transcode bool)
 	var r0 error
 	if rf, ok := ret.Get(0).(func([]string, string, bool) error); ok {
 		r0 = rf(filenames, contentType, transcode)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// QueueYouTube provides a mock function with given fields: videoID, playNext
+func (_m *App) QueueYouTube(videoID string, playNext bool) error {
+	ret := _m.Called(videoID, playNext)
+
+	if len(ret) == 0 {
+		panic("no return value specified for QueueYouTube")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, bool) error); ok {
+		r0 = rf(videoID, playNext)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -328,6 +364,24 @@ func (_m *App) SetVolume(value float32) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(float32) error); ok {
 		r0 = rf(value)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Replay provides a mock function with given fields:
+func (_m *App) Replay() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Replay")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
 	}

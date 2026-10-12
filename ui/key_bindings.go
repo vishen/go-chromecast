@@ -12,6 +12,7 @@ func (ui *UserInterface) setupKeyBindings() {
 	ui.gui.SetKeybinding("", 'q', gocui.ModNone, ui.Stop)
 	ui.gui.SetKeybinding("", 's', gocui.ModNone, ui.stopMedia)
 	ui.gui.SetKeybinding("", 'a', gocui.ModNone, ui.skipAd)
+	ui.gui.SetKeybinding("", 'r', gocui.ModNone, ui.replay)
 	ui.gui.SetKeybinding("", gocui.KeySpace, gocui.ModNone, ui.playPause)
 	ui.gui.SetKeybinding("", gocui.KeyArrowLeft, gocui.ModNone, ui.seekBackwards)
 	ui.gui.SetKeybinding("", gocui.KeyArrowRight, gocui.ModNone, ui.seekForwards)
@@ -42,6 +43,25 @@ func (ui *UserInterface) playPause(g *gocui.Gui, v *gocui.View) error {
 func (ui *UserInterface) skipAd(g *gocui.Gui, v *gocui.View) error {
 	log.Info("Skip Ad")
 	ui.app.Skipad()
+	return nil
+}
+
+// replay tells the app to play the current media again from the start:
+func (ui *UserInterface) replay(g *gocui.Gui, v *gocui.View) error {
+	err := ui.app.Replay()
+	if err != nil {
+		switch err {
+		case application.ErrNoMediaReplay:
+			log.Warn("Replay (nothing playing)")
+			return nil
+		default:
+			log.WithError(err).Error("Replay")
+			return nil
+		}
+	}
+
+	ui.paused = false
+	log.Info("Replay")
 	return nil
 }
 
