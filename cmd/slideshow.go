@@ -21,6 +21,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/ui"
 
 	"path/filepath"
 	"strings"
@@ -62,6 +63,27 @@ var slideshowCmd = &cobra.Command{
 
 		duration, _ := cmd.Flags().GetInt("duration")
 		repeat, _ := cmd.Flags().GetBool("repeat")
+
+		// Optionally run a UI when playing this slideshow:
+		runWithUI, _ := cmd.Flags().GetBool("with-ui")
+		if runWithUI {
+			go func() {
+				if err := app.Slideshow(s.files, duration, repeat); err != nil {
+					exit("unable to play slideshow on cast application: %v", err)
+				}
+			}()
+
+			ccui, err := ui.NewUserInterface(app)
+			if err != nil {
+				exit("unable to prepare a new user-interface: %v", err)
+			}
+			if err := ccui.Run(); err != nil {
+				exit("unable to run ui: %v", err)
+			}
+			return
+		}
+
+		// Otherwise just run in CLI mode:
 		if err := app.Slideshow(s.files, duration, repeat); err != nil {
 			exit("unable to play slideshow on cast application: %v", err)
 		}
