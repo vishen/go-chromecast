@@ -4,14 +4,22 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-const (
-	boldTextColour    = "\033[34;1m"
-	normalTextColour  = "\033[34;2m"
-	resetTextColour   = "\033[0m"
-	volumeColour      = "\033[31;2m"
-	volumeMutedColour = "\033[31;1m"
-	progressColour    = "\033[33;2m"
+const resetTextColour = "\033[0m"
+
+// The colours of the UI, which can be changed with SetTheme:
+var (
+	boldTextColour    string
+	normalTextColour  string
+	volumeColour      string
+	volumeMutedColour string
+	progressColour    string
 )
+
+func init() {
+	if err := SetTheme(DefaultTheme()); err != nil {
+		panic(err)
+	}
+}
 
 // views sets up all of the views:
 func (ui *UserInterface) views(g *gocui.Gui) error {
