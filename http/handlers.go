@@ -795,6 +795,8 @@ func (h *Handler) appForRequest(w http.ResponseWriter, r *http.Request) (applica
 	}
 
 	if err := app.Update(); err != nil {
+		h.log("unable to update the status of the device: %v", err)
+		httpError(w, fmt.Errorf("unable to update the status of the device: %w", err))
 		return nil, false
 	}
 
