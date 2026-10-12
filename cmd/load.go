@@ -22,7 +22,10 @@ import (
 
 // loadCmd represents the load command
 var loadCmd = &cobra.Command{
-	Use:   "load <filename_or_url>",
+	Use: "load <filename_or_url>",
+	Example: `  go-chromecast load video.mp4
+  go-chromecast load https://example.com/video.mp4
+  wf-recorder -y -D -r 30 -m mpegts -f /dev/stdout | go-chromecast load -`,
 	Short: "Load and play media on the chromecast",
 	Long: `Load and play media files on the chromecast, this will
 start a HTTP server locally and will stream the media file to the
@@ -30,7 +33,12 @@ chromecast if it is a local file, otherwise it will load the url.
 
 If the media file is an unplayable media type by the chromecast, this
 will attempt to transcode the media file to mp4 using ffmpeg. This requires
-that ffmpeg is installed.`,
+that ffmpeg is installed.
+
+If the filename is "-" the media is read from stdin. It is transcoded to mp4
+with ffmpeg, unless a content-type is given, in which case it is sent as it
+is (so it has to be something that can be played while it is being received,
+like a fragmented mp4).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			exit("requires exactly one argument, should be the media file to load")
