@@ -30,8 +30,16 @@ var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan for chromecast devices",
 	Run: func(cmd *cobra.Command, args []string) {
+		cidrAddr, _ := cmd.Flags().GetString("cidr")
+		if cidrAddr == "" {
+			ifaceName, _ := cmd.Flags().GetString("iface")
+			var err error
+			if cidrAddr, err = localCIDR(ifaceName); err != nil {
+				exit("unable to work out the subnet to scan, specify one with --cidr: %v", err)
+			}
+			outputInfo("Scanning the local subnet %s, use --cidr to scan a different one\n", cidrAddr)
+		}
 		var (
-			cidrAddr, _  = cmd.Flags().GetString("cidr")
 			port, _      = cmd.Flags().GetInt("port")
 			wg           sync.WaitGroup
 			ipCh         = make(chan *ipaddr.IPAddress)
@@ -84,8 +92,61 @@ var scanCmd = &cobra.Command{
 	},
 }
 
+// localCIDR returns the cidr expression of the local IPv4 subnet to scan,
+// looking only at the named network interface if one is given.
+func localCIDR(ifaceName string) (string, error) {
+	var ifaces []net.Interface
+	if ifaceName != "" {
+		iface, err := net.InterfaceByName(ifaceName)
+		if err != nil {
+			return "", fmt.Errorf("unable to find interface %q: %w", ifaceName, err)
+		}
+		ifaces = []net.Interface{*iface}
+	} else {
+		var err error
+		if ifaces, err = net.Interfaces(); err != nil {
+			return "", err
+		}
+	}
+
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				if cidr := scanCIDR(ipnet); cidr != "" {
+					return cidr, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("no network interface with a private IPv4 address found")
+}
+
+// scanCIDR returns the cidr expression to scan for the address of a network
+// interface, or an empty string if it isn't a private IPv4 address. Subnets
+// bigger than a /24 are narrowed down to the /24 the address is in, as
+// scanning them would take too long.
+func scanCIDR(ipnet *net.IPNet) string {
+	ip := ipnet.IP.To4()
+	if ip == nil || !ip.IsPrivate() {
+		return ""
+	}
+	ones, _ := ipnet.Mask.Size()
+	if ones < 24 {
+		ones = 24
+	}
+	network := ip.Mask(net.CIDRMask(ones, 32))
+	return fmt.Sprintf("%s/%d", network, ones)
+}
+
 func init() {
-	scanCmd.Flags().String("cidr", "192.168.50.0/24", "cidr expression of subnet to scan")
+	scanCmd.Flags().String("cidr", "", "cidr expression of subnet to scan (default: the local subnet)")
 	scanCmd.Flags().Int("port", 8009, "port to scan for")
 	rootCmd.AddCommand(scanCmd)
 }
