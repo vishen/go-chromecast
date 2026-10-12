@@ -101,6 +101,8 @@ type LoadMediaCommand struct {
 	Autoplay    bool        `json:"autoplay"`
 	QueueData   QueueData   `json:"queueData"`
 	CustomData  interface{} `json:"customData"`
+	// ActiveTrackIds are the ids of the tracks of the media to enable.
+	ActiveTrackIds []int `json:"activeTrackIds,omitempty"`
 }
 
 type QueueData struct {
@@ -113,6 +115,30 @@ type MediaItem struct {
 	StreamType  string        `json:"streamType"`
 	Duration    float32       `json:"duration"`
 	Metadata    MediaMetadata `json:"metadata"`
+	// Tracks are the extra tracks of the media, ie: subtitles.
+	Tracks         []MediaTrack    `json:"tracks,omitempty"`
+	TextTrackStyle *TextTrackStyle `json:"textTrackStyle,omitempty"`
+}
+
+// MediaTrack is a track of a media item.
+// https://developers.google.com/cast/docs/reference/web_receiver/cast.framework.messages.Track
+type MediaTrack struct {
+	TrackId          int    `json:"trackId"`
+	Type             string `json:"type"`
+	Subtype          string `json:"subtype,omitempty"`
+	Name             string `json:"name,omitempty"`
+	Language         string `json:"language,omitempty"`
+	TrackContentId   string `json:"trackContentId,omitempty"`
+	TrackContentType string `json:"trackContentType,omitempty"`
+}
+
+// TextTrackStyle is how the text tracks are shown. Colours are "#RRGGBBAA".
+// https://developers.google.com/cast/docs/reference/web_receiver/cast.framework.messages.TextTrackStyle
+type TextTrackStyle struct {
+	BackgroundColor string `json:"backgroundColor,omitempty"`
+	ForegroundColor string `json:"foregroundColor,omitempty"`
+	EdgeType        string `json:"edgeType,omitempty"`
+	EdgeColor       string `json:"edgeColor,omitempty"`
 }
 
 type MediaMetadata struct {
