@@ -15,9 +15,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/vishen/go-chromecast/cast"
 )
 
 // statusCmd represents the status command
@@ -34,6 +36,22 @@ var statusCmd = &cobra.Command{
 		volumeMuted := castVolume.Muted
 
 		contentId, _ := cmd.Flags().GetBool("content-id")
+		jsonOutput, _ := cmd.Flags().GetBool("json")
+
+		if jsonOutput {
+			// Uses the same format as the 'status' endpoint of the http server.
+			status := struct {
+				App    *cast.Application `json:"app,omitempty"`
+				Media  *cast.Media       `json:"media,omitempty"`
+				Volume *cast.Volume      `json:"volume,omitempty"`
+			}{castApplication, castMedia, castVolume}
+			out, err := json.Marshal(status)
+			if err != nil {
+				exit("unable to json encode the status: %v", err)
+			}
+			fmt.Println(string(out))
+			return
+		}
 
 		scriptMode := contentId
 
@@ -83,4 +101,5 @@ var statusCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(statusCmd)
 	statusCmd.Flags().Bool("content-id", false, "print the content id if available")
+	statusCmd.Flags().Bool("json", false, "print the status as json")
 }
