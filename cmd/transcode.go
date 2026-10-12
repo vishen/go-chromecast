@@ -56,7 +56,7 @@ The transcoded media content-type is required as well`,
 				}
 			}()
 
-			ccui, err := ui.NewUserInterface(app)
+			ccui, err := ui.NewUserInterface(app, uiOptions(cmd)...)
 			if err != nil {
 				exit("unable to prepare a new user-interface: %v", err)
 			}

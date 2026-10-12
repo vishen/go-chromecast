@@ -78,6 +78,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("disable-cache", false, "disable the cache")
 	rootCmd.PersistentFlags().Bool("with-ui", false, "run with a UI")
 	rootCmd.PersistentFlags().String("ui-theme", "", "file with the colours of the UI (default \"go-chromecast/theme.json\" in the user config directory, if it exists)")
+	rootCmd.PersistentFlags().Bool("ui-hide-log", false, "hide the log in the UI")
 	rootCmd.PersistentFlags().StringP("device", "d", "", "chromecast device, ie: 'Chromecast' or 'Google Home Mini'")
 	rootCmd.PersistentFlags().StringP("device-name", "n", "", "chromecast device name")
 	rootCmd.PersistentFlags().StringP("uuid", "u", "", "chromecast device uuid")
