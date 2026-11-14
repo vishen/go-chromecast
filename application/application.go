@@ -111,6 +111,14 @@ type Application struct {
 	messageFuncs []CastMessageFunc
 
 	// Current values from the chromecast.
+	//
+	// stateMu guards application, media, volumeMedia and volumeReceiver.
+	// They are written by the recvMessages goroutine (e.g. cleared on
+	// "CLOSE") while the caller's goroutine reads them, so methods should
+	// take a snapshot through App(), Media() or Status() and only use that
+	// snapshot. The pointed-to values are never modified after they are
+	// stored, only replaced.
+	stateMu     sync.RWMutex
 	application *cast.Application // It is possible that there is no current application, can happen for google home.
 	media       *cast.Media
 	info        *cast.DeviceInfo
@@ -247,9 +255,23 @@ func (a *Application) SetDeviceNameOverride(deviceName string) {
 	a.deviceNameOverride = deviceName
 }
 
-func (a *Application) App() *cast.Application { return a.application }
-func (a *Application) Media() *cast.Media     { return a.media }
-func (a *Application) Volume() *cast.Volume   { return a.volumeReceiver }
+func (a *Application) App() *cast.Application {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.application
+}
+
+func (a *Application) Media() *cast.Media {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.media
+}
+
+func (a *Application) Volume() *cast.Volume {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.volumeReceiver
+}
 
 func (a *Application) AddMessageFunc(f CastMessageFunc) {
 	a.messageMu.Lock()
@@ -328,7 +350,7 @@ func (a *Application) recvMessages() {
 			}
 		case "RECEIVER_STATUS":
 			// We don't care about this when the application isn't set.
-			if a.application == nil {
+			if a.App() == nil {
 				break
 			}
 			resp := cast.ReceiverStatusResponse{}
@@ -336,17 +358,25 @@ func (a *Application) recvMessages() {
 				// Check to see if the application on the device has changed,
 				// if it has it is likely not this running instance that changed
 				// it because that currently isn't possible.
+				var appChanged bool
+				a.stateMu.Lock()
 				for _, app := range resp.Status.Applications {
-					if app.AppId != a.application.AppId {
-						a.MediaFinished()
+					if a.application == nil || app.AppId != a.application.AppId {
+						appChanged = true
 					}
 					a.application = &app
 				}
 				a.volumeReceiver = &resp.Status.Volume
+				a.stateMu.Unlock()
+				if appChanged {
+					a.MediaFinished()
+				}
 			}
 		case "CLOSE":
 			a.MediaFinished()
+			a.stateMu.Lock()
 			a.application, a.media, a.volumeReceiver = nil, nil, nil
+			a.stateMu.Unlock()
 		}
 		// Relay the event to any user specified message funcs.
 		a.messageChan <- msg
@@ -420,12 +450,15 @@ func (a *Application) Update() error {
 
 	// TODO(vishen): Why could there be more than one application, how to handle this?
 	// For now just take the last one.
+	a.stateMu.Lock()
 	for _, app := range recvStatus.Status.Applications {
 		a.application = &app
 	}
 	a.volumeReceiver = &recvStatus.Status.Volume
+	app := a.application
+	a.stateMu.Unlock()
 
-	if a.application == nil || a.application.IsIdleScreen {
+	if app == nil || app.IsIdleScreen {
 		return nil
 	}
 
@@ -442,6 +475,8 @@ func (a *Application) updateMediaStatus() error {
 	if err != nil {
 		return err
 	}
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
 	for _, media := range mediaStatus.Status {
 		a.media = &media
 		a.volumeMedia = &media.Volume
@@ -461,6 +496,8 @@ func (a *Application) Close(stopMedia bool) error {
 }
 
 func (a *Application) Status() (*cast.Application, *cast.Media, *cast.Volume) {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
 	return a.application, a.media, a.volumeReceiver
 }
 
@@ -484,19 +521,21 @@ func (a *Application) Info() (*cast.DeviceInfo, error) {
 }
 
 func (a *Application) Pause() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaPause
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PauseHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 	})
 }
 
 // SetPlaybackRate sets the playback rate of the playing media, where 1 is
 // the normal speed. The cast devices support rates between 0.5 and 2.
 func (a *Application) SetPlaybackRate(rate float32) error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaPlaybackRate
 	}
 	if rate < 0.5 || rate > 2 {
@@ -504,26 +543,28 @@ func (a *Application) SetPlaybackRate(rate float32) error {
 	}
 	return a.sendMediaRecv(&cast.SetPlaybackRate{
 		PayloadHeader:  cast.PlaybackRateHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 		PlaybackRate:   rate,
 	})
 }
 
 func (a *Application) Unpause() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaUnpause
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.PlayHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 	})
 }
 
 func (a *Application) TogglePause() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaTogglePause
 	}
-	switch a.media.PlayerState {
+	switch media.PlayerState {
 	case "PLAYING", "BUFFERING":
 		{
 			return a.Pause()
@@ -536,38 +577,45 @@ func (a *Application) TogglePause() error {
 }
 
 func (a *Application) Skipad() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaSkip
 	}
-	if a.media.CustomData.PlayerState != 1081 {
+	if media.CustomData.PlayerState != 1081 {
 		return ErrNoMediaSkipad
 	}
 
 	var result error
 	MAX_LOOP := a.skipadRetries
-	for a.media.CustomData.PlayerState == 1081 {
+	for media.CustomData.PlayerState == 1081 {
 		result = a.sendMediaRecv(&cast.MediaHeader{
 			PayloadHeader:  cast.SkipHeader,
-			MediaSessionId: a.media.MediaSessionId,
+			MediaSessionId: media.MediaSessionId,
 		})
-		// fmt.Printf("Looping because %d\n", a.media.CustomData.PlayerState)
+		// fmt.Printf("Looping because %d\n", media.CustomData.PlayerState)
 		time.Sleep(a.skipadSleep)
 		a.updateMediaStatus()
 		MAX_LOOP--
 		if MAX_LOOP == 0 {
 			return ErrAdMaxLoop
 		}
+		// The media can be cleared while we are looping, e.g. when the
+		// receiver app crashes or relaunches and sends a "CLOSE".
+		if media = a.Media(); media == nil {
+			return ErrNoMediaSkip
+		}
 	}
 	return result
 }
 
 func (a *Application) StopMedia() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaStop
 	}
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.StopHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 	})
 }
 
@@ -576,34 +624,37 @@ func (a *Application) Stop() error {
 }
 
 func (a *Application) Next() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaNext
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just skip to the end?
 	return a.sendMediaRecv(&cast.QueueUpdate{
 		PayloadHeader:  cast.QueueUpdateHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 		Jump:           1,
 	})
 }
 
 func (a *Application) Previous() error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaPrevious
 	}
 
 	// TODO(vishen): Get the number of queue items, if none, possibly just jump to beginning?
 	return a.sendMediaRecv(&cast.QueueUpdate{
 		PayloadHeader:  cast.QueueUpdateHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 		Jump:           -1,
 	})
 }
 
 func (a *Application) Skip() error {
 
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrNoMediaSkip
 	}
 
@@ -612,17 +663,21 @@ func (a *Application) Skip() error {
 	// but just returns it?
 	// that might also make a.media == nil checks pointless?
 	a.updateMediaStatus()
+	if media = a.Media(); media == nil {
+		return ErrNoMediaSkip
+	}
 
-	v := a.media.CurrentTime - 10
-	if a.media.Media.Duration > 0 {
-		v = a.media.Media.Duration - 10
+	v := media.CurrentTime - 10
+	if media.Media.Duration > 0 {
+		v = media.Media.Duration - 10
 	}
 
 	return a.Seek(int(v))
 }
 
 func (a *Application) Seek(value int) error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrMediaNotYetInitialised
 	}
 
@@ -633,23 +688,25 @@ func (a *Application) Seek(value int) error {
 		"CC1AD845", // Default media
 	}
 
+	currentApp := a.App()
 	for _, app := range appsSeekTo {
-		if app == a.application.AppId {
-			absolute := a.media.CurrentTime + float32(value)
+		if currentApp != nil && app == currentApp.AppId {
+			absolute := media.CurrentTime + float32(value)
 			return a.SeekToTime(absolute)
 		}
 	}
 
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.SeekHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 		RelativeTime:   float32(value),
 		ResumeState:    "PLAYBACK_START",
 	})
 }
 
 func (a *Application) SeekFromStart(value int) error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrMediaNotYetInitialised
 	}
 
@@ -658,26 +715,30 @@ func (a *Application) SeekFromStart(value int) error {
 	// but just returns it?
 	// that might also make a.media == nil checks pointless?
 	a.updateMediaStatus()
+	if media = a.Media(); media == nil {
+		return ErrMediaNotYetInitialised
+	}
 
 	// TODO(vishen): maybe there is another ResumeState that lets us
 	// seek from the end? Although not sure how this works for live media?
 
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.SeekHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 		CurrentTime:    float32(value),
 		ResumeState:    "PLAYBACK_START",
 	})
 }
 
 func (a *Application) SeekToTime(value float32) error {
-	if a.media == nil {
+	media := a.Media()
+	if media == nil {
 		return ErrMediaNotYetInitialised
 	}
 
 	return a.sendMediaRecv(&cast.MediaHeader{
 		PayloadHeader:  cast.SeekHeader,
-		MediaSessionId: a.media.MediaSessionId,
+		MediaSessionId: media.MediaSessionId,
 		CurrentTime:    value,
 		ResumeState:    "PLAYBACK_START",
 	})
@@ -1003,7 +1064,7 @@ func (a *Application) ensureIsDefaultMediaReceiver() error {
 }
 
 func (a *Application) ensureIsAppID(appID string) error {
-	if a.application == nil || a.application.AppId != appID {
+	if app := a.App(); app == nil || app.AppId != appID {
 		_, err := a.sendAndWaitDefaultRecv(&cast.LaunchRequest{
 			PayloadHeader: cast.LaunchHeader,
 			AppId:         appID,
@@ -1349,18 +1410,20 @@ func (a *Application) sendDefaultRecv(payload cast.Payload) error {
 }
 
 func (a *Application) sendMediaConn(payload cast.Payload) error {
-	if a.application == nil {
+	app := a.App()
+	if app == nil {
 		return ErrApplicationNotSet
 	}
-	_, err := a.send(payload, defaultSender, a.application.TransportId, namespaceConn)
+	_, err := a.send(payload, defaultSender, app.TransportId, namespaceConn)
 	return err
 }
 
 func (a *Application) sendMediaRecv(payload cast.Payload) error {
-	if a.application == nil {
+	app := a.App()
+	if app == nil {
 		return ErrApplicationNotSet
 	}
-	_, err := a.send(payload, defaultSender, a.application.TransportId, namespaceMedia)
+	_, err := a.send(payload, defaultSender, app.TransportId, namespaceMedia)
 	return err
 }
 
@@ -1373,17 +1436,19 @@ func (a *Application) sendAndWaitDefaultRecv(payload cast.Payload) (*pb.CastMess
 }
 
 func (a *Application) sendAndWaitMediaConn(payload cast.Payload) (*pb.CastMessage, error) {
-	if a.application == nil {
+	app := a.App()
+	if app == nil {
 		return nil, ErrApplicationNotSet
 	}
-	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceConn)
+	return a.sendAndWait(payload, defaultSender, app.TransportId, namespaceConn)
 }
 
 func (a *Application) sendAndWaitMediaRecv(payload cast.Payload) (*pb.CastMessage, error) {
-	if a.application == nil {
+	app := a.App()
+	if app == nil {
 		return nil, ErrApplicationNotSet
 	}
-	return a.sendAndWait(payload, defaultSender, a.application.TransportId, namespaceMedia)
+	return a.sendAndWait(payload, defaultSender, app.TransportId, namespaceMedia)
 }
 
 func (a *Application) startTranscodingServer(command string, args ...string) error {
