@@ -79,13 +79,13 @@ func DiscoverCastDNSEntryByName(ctx context.Context, iface *net.Interface, name 
 // DiscoverCastDNSEntries will return a channel with any cast dns entries
 // found.
 func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan CastEntry, error) {
-	var opts = []zeroconf.ClientOption{
-		zeroconf.SelectIPTraffic(zeroconf.IPv4),
-	}
-	if iface != nil {
-		opts = append(opts, zeroconf.SelectIfaces([]net.Interface{*iface}))
-	}
-	resolver, err := zeroconf.NewResolver(opts...)
+	resolver, err := newDiscoveryResolver(func(traffic zeroconf.IPType) (*zeroconf.Resolver, error) {
+		opts := []zeroconf.ClientOption{zeroconf.SelectIPTraffic(traffic)}
+		if iface != nil {
+			opts = append(opts, zeroconf.SelectIfaces([]net.Interface{*iface}))
+		}
+		return zeroconf.NewResolver(opts...)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new zeroconf resolver: %w", err)
 	}
@@ -143,6 +143,18 @@ func DiscoverCastDNSEntries(ctx context.Context, iface *net.Interface) (<-chan C
 		}
 	}()
 	return castDNSEntriesChan, nil
+}
+
+// newDiscoveryResolver listens on both multicast transports when available.
+// Some hosts (notably containers) cannot open an IPv6 multicast socket, so
+// retain IPv4 discovery if the dual-stack resolver cannot be initialized.
+func newDiscoveryResolver(create func(zeroconf.IPType) (*zeroconf.Resolver, error)) (*zeroconf.Resolver, error) {
+	resolver, err := create(zeroconf.IPv4AndIPv6)
+	if err == nil {
+		return resolver, nil
+	}
+	log.WithError(err).Debug("unable to initialize dual-stack mDNS, trying IPv4")
+	return create(zeroconf.IPv4)
 }
 
 // decode attempts to decode the passed in string using escaped utf8 bytes.

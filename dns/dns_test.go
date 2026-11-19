@@ -1,7 +1,11 @@
 package dns
 
 import (
+	"errors"
+	"reflect"
 	"testing"
+
+	"github.com/grandcat/zeroconf"
 )
 
 func TestDecode(t *testing.T) {
@@ -36,5 +40,40 @@ func TestDecode(t *testing.T) {
 		if decoded != tt.expected {
 			t.Errorf("decoded to %s, but expected %s", decoded, tt.expected)
 		}
+	}
+}
+
+func TestNewDiscoveryResolver(t *testing.T) {
+	initializationError := errors.New("cannot open multicast socket")
+	for _, tc := range []struct {
+		name               string
+		failDual, failIPv4 bool
+		want               []zeroconf.IPType
+	}{
+		{"dual stack", false, false, []zeroconf.IPType{zeroconf.IPv4AndIPv6}},
+		{"IPv6 unavailable", true, false, []zeroconf.IPType{zeroconf.IPv4AndIPv6, zeroconf.IPv4}},
+		{"both unavailable", true, true, []zeroconf.IPType{zeroconf.IPv4AndIPv6, zeroconf.IPv4}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls []zeroconf.IPType
+			wantResolver := new(zeroconf.Resolver)
+			resolver, err := newDiscoveryResolver(func(traffic zeroconf.IPType) (*zeroconf.Resolver, error) {
+				calls = append(calls, traffic)
+				if traffic == zeroconf.IPv4AndIPv6 && tc.failDual || traffic == zeroconf.IPv4 && tc.failIPv4 {
+					return nil, initializationError
+				}
+				return wantResolver, nil
+			})
+			if !reflect.DeepEqual(calls, tc.want) {
+				t.Fatalf("transports = %v, want %v", calls, tc.want)
+			}
+			if tc.failIPv4 {
+				if !errors.Is(err, initializationError) || resolver != nil {
+					t.Fatalf("got (%v, %v), want initialization failure", resolver, err)
+				}
+			} else if err != nil || resolver != wantResolver {
+				t.Fatalf("got (%v, %v), want resolver", resolver, err)
+			}
+		})
 	}
 }
